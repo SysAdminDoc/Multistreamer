@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MultiStream Viewer</title>
+    <title>MultiStream</title>
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
             --bg-primary: #0a0a0f;
@@ -19,7 +15,7 @@
             --border-color: #2a2a4a;
             --text-primary: #e0e0e0;
             --text-secondary: #888;
-            --accent-primary: #00d4ff;
+            --accent: #00d4ff;
             --accent-secondary: #7b2cbf;
             --grid-gap: 2px;
         }
@@ -28,54 +24,365 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            min-height: 100vh;
         }
 
-        /* Control Panel */
-        .control-panel {
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-            padding: 10px 15px;
-            border-bottom: 1px solid var(--border-color);
+        /* ========== SETUP PAGE ========== */
+        .setup-page {
+            min-height: 100vh;
             display: flex;
-            gap: 10px;
             align-items: center;
-            flex-wrap: wrap;
-            z-index: 1000;
-            flex-shrink: 0;
+            justify-content: center;
+            padding: 20px;
         }
 
-        body.viewer-mode .control-panel {
-            display: none !important;
+        .setup-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
         }
 
-        .logo {
-            font-size: 1.2em;
+        .setup-logo {
+            font-size: 2em;
             font-weight: 700;
-            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .setup-subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .setup-section {
+            margin-bottom: 25px;
+        }
+
+        .setup-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .setup-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            margin-bottom: 10px;
+        }
+
+        .setup-input:focus {
+            border-color: var(--accent);
+        }
+
+        .setup-input::placeholder {
+            color: #555;
+        }
+
+        .setup-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        .setup-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .setup-btn-primary {
+            background: linear-gradient(135deg, var(--accent), #0099cc);
+            color: #000;
+        }
+
+        .setup-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .setup-btn-secondary {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .setup-btn-secondary:hover {
+            background: #3a3a5a;
+        }
+
+        .setup-divider {
+            text-align: center;
+            color: var(--text-secondary);
+            margin: 20px 0;
+            font-size: 13px;
+        }
+
+        .setup-links {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .setup-links.show {
+            display: block;
+        }
+
+        .setup-link-row {
+            margin-bottom: 12px;
+        }
+
+        .setup-link-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .setup-link-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .setup-link-label.host { color: #f59e0b; }
+        .setup-link-label.viewer { color: #4ade80; }
+
+        .setup-link-box {
+            display: flex;
+            gap: 8px;
+        }
+
+        .setup-link-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--accent);
+            font-size: 12px;
+            outline: none;
+        }
+
+        .setup-link-box button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            background: var(--border-color);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .setup-link-box button:hover {
+            background: #3a3a5a;
+        }
+
+        .recent-rooms {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .recent-rooms h4 {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .recent-room-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .recent-room-item span {
+            font-size: 13px;
+        }
+
+        .recent-room-item button {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 4px;
+            background: var(--accent);
+            color: #000;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        /* ========== VIEWER PAGE ========== */
+        .viewer-page {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .viewer-page.active {
+            display: flex;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+            padding: 8px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .room-title-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .room-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: var(--accent);
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .room-title-input {
+            font-size: 1.1em;
+            font-weight: 600;
+            padding: 4px 10px;
+            border: 1px solid var(--accent);
+            border-radius: 5px;
+            background: var(--bg-primary);
+            color: var(--accent);
+            outline: none;
+            width: 250px;
+            display: none;
+        }
+
+        .edit-title-btn {
+            padding: 4px 8px;
+            font-size: 11px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .edit-title-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .viewer-count {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-primary);
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+
+        .viewer-dot {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         .host-badge {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            background: linear-gradient(135deg, #f59e0b, #d97706);
             color: #000;
             padding: 3px 8px;
             border-radius: 10px;
             font-size: 10px;
             font-weight: 600;
-            text-transform: uppercase;
         }
+
+        /* Announcement Bar */
+        .announcement-bar {
+            background: linear-gradient(90deg, rgba(0,212,255,0.1), rgba(123,44,191,0.1));
+            padding: 8px 15px;
+            font-size: 13px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            display: none;
+        }
+
+        .announcement-bar.show {
+            display: block;
+        }
+
+        .announcement-bar .edit-btn {
+            margin-left: 10px;
+            padding: 2px 8px;
+            font-size: 11px;
+            background: var(--border-color);
+            border: none;
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Control Bar (Host) */
+        .control-bar {
+            background: var(--bg-tertiary);
+            padding: 8px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        body.viewer-mode .control-bar { display: none !important; }
 
         .input-group {
             display: flex;
             gap: 6px;
             flex: 1;
-            min-width: 250px;
-            max-width: 400px;
+            min-width: 200px;
+            max-width: 350px;
         }
 
         .input-group input {
@@ -89,9 +396,7 @@
             outline: none;
         }
 
-        .input-group input:focus {
-            border-color: var(--accent-primary);
-        }
+        .input-group input:focus { border-color: var(--accent); }
 
         button {
             padding: 8px 14px;
@@ -105,13 +410,13 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--accent-primary) 0%, #0099cc 100%);
+            background: linear-gradient(135deg, var(--accent), #0099cc);
             color: #000;
         }
 
         .btn-primary:hover {
             transform: translateY(-1px);
-            box-shadow: 0 3px 10px rgba(0, 212, 255, 0.3);
+            box-shadow: 0 3px 10px rgba(0,212,255,0.3);
         }
 
         .btn-secondary {
@@ -119,54 +424,32 @@
             color: var(--text-primary);
         }
 
-        .btn-secondary:hover {
-            background: #3a3a5a;
-        }
-
-        .btn-icon {
-            padding: 8px 10px;
-            font-size: 14px;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: #fff;
-        }
+        .btn-secondary:hover { background: #3a3a5a; }
 
         .btn-active {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
             color: #000 !important;
         }
 
-        .control-group {
-            display: flex;
-            gap: 4px;
-            align-items: center;
-        }
+        .btn-danger { background: #dc3545; color: #fff; }
 
-        .control-group-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-right: 4px;
-        }
+        .btn-icon { padding: 8px 10px; }
 
         .divider {
             width: 1px;
-            height: 28px;
+            height: 24px;
             background: var(--border-color);
-            margin: 0 6px;
         }
 
-        /* Main Content Area */
+        /* Main Content */
         .main-content {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            position: relative;
         }
 
-        /* Grid Container */
+        /* Grid */
         .grid-container {
             flex: 1;
             display: grid;
@@ -176,36 +459,27 @@
             overflow: hidden;
         }
 
-        /* Layout Modes */
-        .grid-container.layout-grid {
-            /* Dynamic grid - set via JS */
-        }
-
         .grid-container.layout-featured {
-            grid-template-columns: 1fr 300px;
-            grid-template-rows: 1fr;
+            grid-template-columns: 1fr 280px;
         }
 
-        .grid-container.layout-featured .grid-item:first-child {
-            grid-row: 1 / -1;
-        }
-
-        .grid-container.layout-featured .sidebar-stack {
+        .sidebar-stack {
             display: flex;
             flex-direction: column;
             gap: var(--grid-gap);
+            overflow-y: auto;
+        }
+
+        .sidebar-stack .grid-item {
+            flex-shrink: 0;
+            height: 160px;
         }
 
         .grid-item {
             position: relative;
             background: #111;
-            overflow: hidden;
             border-radius: 4px;
-        }
-
-        .grid-item.featured {
-            grid-column: 1;
-            grid-row: 1 / -1;
+            overflow: hidden;
         }
 
         .grid-item iframe {
@@ -214,70 +488,61 @@
             border: none;
         }
 
-        .grid-item .controls-overlay {
+        .grid-item .overlay {
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             padding: 8px;
-            background: linear-gradient(rgba(0,0,0,0.7), transparent);
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+            background: linear-gradient(rgba(0,0,0,0.8), transparent);
             opacity: 0;
             transition: opacity 0.2s;
+            display: flex;
+            justify-content: space-between;
         }
 
-        .grid-item:hover .controls-overlay {
-            opacity: 1;
-        }
+        .grid-item:hover .overlay { opacity: 1; }
 
-        .grid-item .video-controls {
+        .grid-item .controls {
             display: flex;
             gap: 4px;
+            flex-wrap: wrap;
         }
 
-        .grid-item .video-controls button {
-            padding: 5px 8px;
+        .grid-item .controls button {
+            padding: 4px 8px;
             font-size: 11px;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             border: 1px solid rgba(255,255,255,0.2);
             color: #fff;
             border-radius: 4px;
         }
 
-        .grid-item .video-controls button:hover {
-            background: rgba(255,255,255,0.2);
-        }
+        .grid-item .controls button:hover { background: rgba(255,255,255,0.2); }
+        .grid-item .controls button.active { background: var(--accent); color: #000; }
 
-        .grid-item .video-controls button.active {
-            background: var(--accent-primary);
-            color: #000;
-            border-color: var(--accent-primary);
-        }
+        body.viewer-mode .grid-item .host-only { display: none; }
 
         .grid-item .label {
             position: absolute;
             bottom: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(transparent, rgba(0,0,0,0.8));
-            padding: 15px 8px 6px;
-            font-size: 11px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.85));
+            padding: 20px 10px 8px;
+            font-size: 12px;
             color: #aaa;
-            opacity: 0;
-            transition: opacity 0.2s;
         }
 
-        .grid-item:hover .label {
-            opacity: 1;
+        .grid-item .label.hover-only { opacity: 0; transition: opacity 0.2s; }
+        .grid-item:hover .label.hover-only { opacity: 1; }
+        .grid-item .label.hidden { display: none; }
+
+        .grid-item .custom-label {
+            color: var(--accent);
+            font-weight: 500;
         }
 
-        body.viewer-mode .grid-item .video-controls button:not(.unmute-btn) {
-            display: none;
-        }
-
-        /* Empty State */
         .empty-state {
             display: flex;
             flex-direction: column;
@@ -286,7 +551,6 @@
             height: 100%;
             color: #555;
             text-align: center;
-            padding: 20px;
         }
 
         .empty-state svg {
@@ -296,163 +560,71 @@
             opacity: 0.5;
         }
 
-        .empty-state h2 {
-            font-size: 1.3em;
-            margin-bottom: 8px;
-            color: #666;
-        }
+        .empty-state h2 { font-size: 1.2em; color: #666; margin-bottom: 5px; }
 
-        .empty-state p {
-            font-size: 13px;
-            max-width: 350px;
-        }
-
-        /* Compact Chat Bar */
+        /* Chat Bar */
         .chat-bar {
             background: var(--bg-secondary);
             border-top: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            max-height: 200px;
-            min-height: 44px;
-            transition: max-height 0.3s ease;
+            max-height: 180px;
+            transition: max-height 0.3s;
             flex-shrink: 0;
         }
 
-        .chat-bar.collapsed {
-            max-height: 44px;
-        }
+        .chat-bar.collapsed { max-height: 36px; overflow: hidden; }
 
-        .chat-bar.expanded {
-            max-height: 350px;
-        }
-
-        .chat-header-bar {
+        .chat-header {
             display: flex;
             align-items: center;
             padding: 8px 15px;
-            gap: 10px;
             background: var(--bg-tertiary);
             cursor: pointer;
+            gap: 10px;
             flex-shrink: 0;
         }
 
-        .chat-header-bar:hover {
-            background: #1e2a4a;
-        }
+        .chat-header:hover { background: #1e2a4a; }
 
-        .chat-header-bar h4 {
+        .chat-header h4 {
             font-size: 13px;
-            font-weight: 600;
-            color: var(--accent-primary);
-            flex-shrink: 0;
+            color: var(--accent);
         }
 
-        .chat-toggle-icon {
-            margin-left: auto;
-            color: var(--text-secondary);
-            transition: transform 0.3s;
-        }
+        .chat-header .toggle { margin-left: auto; color: var(--text-secondary); }
 
-        .chat-bar.expanded .chat-toggle-icon {
-            transform: rotate(180deg);
-        }
-
-        .chat-messages-bar {
+        .chat-messages {
             flex: 1;
             overflow-y: auto;
             padding: 8px 15px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
             min-height: 0;
         }
 
-        .chat-messages-bar::-webkit-scrollbar {
-            width: 5px;
-        }
+        .chat-messages::-webkit-scrollbar { width: 5px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
 
-        .chat-messages-bar::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 3px;
-        }
+        .chat-msg { font-size: 13px; line-height: 1.3; }
+        .chat-msg .user { font-weight: 600; color: var(--accent); margin-right: 6px; }
+        .chat-msg .user.host { color: #f59e0b; }
+        .chat-msg .host-tag { background: #f59e0b; color: #000; padding: 1px 4px; border-radius: 4px; font-size: 9px; margin-left: 3px; }
+        .chat-msg .time { color: var(--text-secondary); font-size: 10px; margin-left: 6px; }
+        .chat-msg.system { color: var(--text-secondary); font-style: italic; text-align: center; font-size: 12px; }
 
-        .chat-msg {
-            font-size: 13px;
-            line-height: 1.4;
-            padding: 4px 0;
-        }
-
-        .chat-msg .msg-user {
-            font-weight: 600;
-            color: var(--accent-primary);
-            margin-right: 6px;
-        }
-
-        .chat-msg .msg-user.host {
-            color: #f59e0b;
-        }
-
-        .chat-msg .msg-user .host-tag {
-            background: #f59e0b;
-            color: #000;
-            padding: 1px 4px;
-            border-radius: 4px;
-            font-size: 9px;
-            margin-left: 4px;
-        }
-
-        .chat-msg .msg-text {
-            color: var(--text-primary);
-        }
-
-        .chat-msg .msg-time {
-            color: var(--text-secondary);
-            font-size: 10px;
-            margin-left: 6px;
-        }
-
-        .chat-msg.system {
-            color: var(--text-secondary);
-            font-style: italic;
-            text-align: center;
-        }
-
-        .chat-msg.deleted .msg-text {
-            color: #666;
-            font-style: italic;
-        }
-
-        .chat-msg .mod-btns {
-            display: none;
-            margin-left: 6px;
-        }
-
-        .chat-msg:hover .mod-btns {
-            display: inline;
-        }
-
-        .chat-msg .mod-btns button {
-            padding: 1px 5px;
-            font-size: 10px;
-            background: #dc3545;
-            border: none;
-            color: #fff;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-left: 3px;
-        }
-
-        .chat-input-bar {
+        .chat-input {
             display: flex;
             gap: 8px;
             padding: 8px 15px;
             background: var(--bg-primary);
             border-top: 1px solid var(--border-color);
+            align-items: center;
             flex-shrink: 0;
         }
 
-        .chat-input-bar input {
+        .chat-input input {
             flex: 1;
             padding: 8px 12px;
             border: 1px solid var(--border-color);
@@ -463,74 +635,12 @@
             outline: none;
         }
 
-        .chat-input-bar input:focus {
-            border-color: var(--accent-primary);
-        }
+        .chat-input input:focus { border-color: var(--accent); }
 
-        .chat-username-display {
+        .chat-user-display {
             font-size: 12px;
-            color: var(--accent-primary);
-            padding: 8px 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .banned-msg {
-            color: #dc3545;
-            text-align: center;
-            padding: 10px;
-            font-size: 13px;
-        }
-
-        /* Viewer mode floating chat button */
-        .viewer-chat-toggle {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1001;
-            display: none;
-            padding: 12px 20px;
-            border-radius: 25px;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: #fff;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-
-        body.viewer-mode .viewer-chat-toggle {
-            display: block;
-        }
-
-        body.viewer-mode .chat-bar.collapsed {
-            display: none;
-        }
-
-        body.viewer-mode.chat-open .chat-bar {
-            display: flex !important;
-            max-height: 250px;
-        }
-
-        /* Viewer badge */
-        .viewer-badge {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            background: rgba(26, 26, 46, 0.9);
-            padding: 6px 12px;
-            border-radius: 15px;
-            font-size: 12px;
-            color: var(--text-secondary);
-            z-index: 1001;
-            border: 1px solid var(--border-color);
-            display: none;
-        }
-
-        body.viewer-mode .viewer-badge {
-            display: block;
-        }
-
-        .viewer-badge span {
-            color: var(--accent-primary);
+            color: var(--accent);
+            white-space: nowrap;
         }
 
         /* Settings Panel */
@@ -543,17 +653,15 @@
             background: var(--bg-secondary);
             border-left: 1px solid var(--border-color);
             z-index: 1003;
-            transition: right 0.3s ease;
+            transition: right 0.3s;
             display: flex;
             flex-direction: column;
         }
 
-        .settings-panel.open {
-            right: 0;
-        }
+        .settings-panel.open { right: 0; }
 
         .settings-header {
-            padding: 15px 20px;
+            padding: 15px;
             background: var(--bg-tertiary);
             border-bottom: 1px solid var(--border-color);
             display: flex;
@@ -561,44 +669,35 @@
             align-items: center;
         }
 
-        .settings-header h3 {
-            color: var(--accent-primary);
-            font-size: 1.1em;
-        }
+        .settings-header h3 { color: var(--accent); }
 
         .settings-content {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 15px;
         }
 
-        .settings-section {
-            margin-bottom: 25px;
-        }
+        .settings-section { margin-bottom: 20px; }
 
         .settings-section h4 {
-            font-size: 12px;
+            font-size: 11px;
             text-transform: uppercase;
             color: var(--text-secondary);
-            margin-bottom: 12px;
-            letter-spacing: 0.5px;
+            margin-bottom: 10px;
         }
 
         .setting-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 0;
+            padding: 8px 0;
             border-bottom: 1px solid var(--border-color);
+            gap: 10px;
         }
 
-        .setting-row:last-child {
-            border-bottom: none;
-        }
+        .setting-row:last-child { border-bottom: none; }
 
-        .setting-label {
-            font-size: 13px;
-        }
+        .setting-label { font-size: 13px; }
 
         .setting-control {
             display: flex;
@@ -606,60 +705,63 @@
             align-items: center;
         }
 
-        .setting-control input[type="range"] {
-            width: 100px;
-        }
+        .setting-control input[type="range"] { width: 80px; }
 
+        .setting-control input[type="text"],
         .setting-control input[type="number"] {
-            width: 60px;
-            padding: 5px;
+            width: 80px;
+            padding: 5px 8px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background: var(--bg-primary);
             color: var(--text-primary);
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .setting-control select {
-            padding: 6px 10px;
+            padding: 5px 8px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background: var(--bg-primary);
             color: var(--text-primary);
-            font-size: 13px;
+            font-size: 12px;
+        }
+
+        .setting-control input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
         }
 
         .settings-actions {
-            padding: 15px 20px;
+            padding: 15px;
             background: var(--bg-primary);
             border-top: 1px solid var(--border-color);
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+            gap: 8px;
         }
+
+        .settings-actions button { flex: 1; }
 
         /* Modal */
         .modal-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
             display: none;
             align-items: center;
             justify-content: center;
             z-index: 2000;
         }
 
-        .modal-overlay.show {
-            display: flex;
-        }
+        .modal-overlay.show { display: flex; }
 
         .modal {
             background: var(--bg-secondary);
             padding: 25px;
-            border-radius: 10px;
+            border-radius: 12px;
             border: 1px solid var(--border-color);
             max-width: 500px;
             width: 90%;
@@ -667,47 +769,19 @@
             overflow-y: auto;
         }
 
-        .modal h3 {
-            margin: 0 0 15px;
-            color: #fff;
-        }
-
-        .modal p {
-            color: var(--text-secondary);
-            margin-bottom: 12px;
-            font-size: 13px;
-        }
+        .modal h3 { margin-bottom: 15px; }
+        .modal p { color: var(--text-secondary); font-size: 13px; margin-bottom: 10px; }
 
         .modal textarea {
             width: 100%;
-            height: 150px;
+            height: 100px;
             padding: 10px;
             border: 1px solid var(--border-color);
             border-radius: 5px;
             background: var(--bg-primary);
             color: var(--text-primary);
-            font-size: 12px;
             font-family: monospace;
-            resize: vertical;
-        }
-
-        .modal .link-box {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 5px;
-            padding: 10px;
-            margin-bottom: 12px;
-            display: flex;
-            gap: 8px;
-        }
-
-        .modal .link-box input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--accent-primary);
             font-size: 12px;
-            outline: none;
         }
 
         .modal .actions {
@@ -718,108 +792,134 @@
         }
 
         @media (max-width: 768px) {
-            .control-panel {
-                padding: 8px;
-            }
-            
-            .logo, .divider {
-                display: none;
-            }
-            
-            .input-group {
-                min-width: 100%;
-            }
-
-            .settings-panel {
-                width: 100%;
-                right: -100%;
-            }
-
-            .grid-container.layout-featured {
-                grid-template-columns: 1fr;
-                grid-template-rows: 2fr 1fr;
-            }
+            .top-bar, .control-bar { padding: 8px; }
+            .room-title-input { width: 150px; }
+            .input-group { min-width: 100%; max-width: 100%; }
+            .settings-panel { width: 100%; right: -100%; }
+            .grid-container.layout-featured { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <!-- Control Panel -->
-    <div class="control-panel" id="controlPanel">
-        <span class="logo">MultiStream</span>
-        <span class="host-badge">Host</span>
-        
-        <div class="input-group">
-            <input type="text" id="videoUrl" placeholder="YouTube URL..." 
-                   onkeypress="if(event.key === 'Enter') addStream()">
-            <button class="btn-primary" onclick="addStream()">Add</button>
+    <!-- ========== SETUP PAGE ========== -->
+    <div class="setup-page" id="setupPage">
+        <div class="setup-container">
+            <div class="setup-logo">MultiStream</div>
+            <div class="setup-subtitle">Create watch parties with synced video grids</div>
+
+            <div class="setup-section">
+                <h3>Create New Room</h3>
+                <input type="text" class="setup-input" id="newRoomName" placeholder="Room name (e.g. blizzard-watch-2025)">
+                <input type="text" class="setup-input" id="newRoomTitle" placeholder="Room title (e.g. Winter Storm Watch Party!)">
+                <input type="password" class="setup-input" id="newHostKey" placeholder="Host password (keep this secret!)">
+                <p class="setup-hint">Leave password blank to generate a random one</p>
+                <button class="setup-btn setup-btn-primary" onclick="createRoom()">Create Room</button>
+            </div>
+
+            <div class="setup-links" id="setupLinks">
+                <div class="setup-link-row">
+                    <span class="setup-link-label host">Host Link (private - for you)</span>
+                    <div class="setup-link-box">
+                        <input type="text" id="generatedHostLink" readonly>
+                        <button onclick="copySetupLink('generatedHostLink')">Copy</button>
+                    </div>
+                </div>
+                <div class="setup-link-row">
+                    <span class="setup-link-label viewer">Viewer Link (share this!)</span>
+                    <div class="setup-link-box">
+                        <input type="text" id="generatedViewerLink" readonly>
+                        <button onclick="copySetupLink('generatedViewerLink')">Copy</button>
+                    </div>
+                </div>
+                <button class="setup-btn setup-btn-primary" onclick="goToRoom()" style="margin-top:15px;">Enter Room as Host</button>
+            </div>
+
+            <div class="setup-divider">or</div>
+
+            <div class="setup-section">
+                <h3>Join Existing Room</h3>
+                <input type="text" class="setup-input" id="joinRoomName" placeholder="Room name">
+                <input type="password" class="setup-input" id="joinHostKey" placeholder="Host password (optional)">
+                <button class="setup-btn setup-btn-secondary" onclick="joinRoom()">Join Room</button>
+            </div>
+
+            <div class="recent-rooms" id="recentRooms" style="display:none;">
+                <h4>Recent Rooms</h4>
+                <div id="recentRoomsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== VIEWER PAGE ========== -->
+    <div class="viewer-page" id="viewerPage">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="room-title-area">
+                <span class="room-title" id="roomTitle">Loading...</span>
+                <input type="text" class="room-title-input" id="roomTitleInput" maxlength="50">
+                <button class="edit-title-btn host-only-inline" onclick="toggleEditTitle()">Edit</button>
+            </div>
+            <div class="viewer-count">
+                <span class="viewer-dot"></span>
+                <span id="viewerCount">1</span> watching
+            </div>
+            <span class="host-badge host-only-inline">HOST</span>
         </div>
 
-        <div class="divider"></div>
-        
-        <div class="control-group">
-            <span class="control-group-label">Layout:</span>
+        <!-- Announcement -->
+        <div class="announcement-bar" id="announcementBar">
+            <span id="announcementText"></span>
+            <button class="edit-btn host-only-inline" onclick="editAnnouncement()">Edit</button>
+        </div>
+
+        <!-- Control Bar (Host Only) -->
+        <div class="control-bar">
+            <div class="input-group">
+                <input type="text" id="videoUrl" placeholder="YouTube URL..." onkeypress="if(event.key==='Enter')addStream()">
+                <button class="btn-primary" onclick="addStream()">Add</button>
+            </div>
+            <div class="divider"></div>
             <button class="btn-secondary btn-icon" id="layoutGridBtn" onclick="setLayout('grid')" title="Grid">&#9638;</button>
             <button class="btn-secondary btn-icon" id="layoutFeaturedBtn" onclick="setLayout('featured')" title="Featured">&#9635;</button>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="control-group">
+            <div class="divider"></div>
             <button class="btn-secondary" onclick="muteAll()">Mute All</button>
             <button class="btn-secondary" onclick="unmuteAll()">Unmute All</button>
+            <div class="divider"></div>
+            <button class="btn-secondary" id="weatherBtn" onclick="toggleWeather()">Weather</button>
+            <button class="btn-secondary" onclick="showShareModal()">Share</button>
+            <button class="btn-secondary" onclick="toggleSettings()">Settings</button>
+            <button class="btn-danger" onclick="clearAll()">Clear</button>
         </div>
 
-        <div class="divider"></div>
-
-        <button class="btn-secondary" id="weatherBtn" onclick="toggleWeather()">Weather</button>
-        <button class="btn-secondary" onclick="showShareModal()">Share</button>
-        <button class="btn-secondary" onclick="toggleSettings()">Settings</button>
-        <button class="btn-danger" onclick="clearAll()">Clear</button>
-    </div>
-
-    <!-- Viewer Badge -->
-    <div class="viewer-badge">
-        Room: <span id="roomDisplay"></span>
-    </div>
-
-    <!-- Main Content -->
-    <div class="main-content">
-        <div class="grid-container" id="gridContainer">
-            <div class="empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <rect x="2" y="3" width="20" height="14" rx="2"/>
-                    <path d="M8 21h8M12 17v4"/>
-                    <path d="M10 9l4 2-4 2V9z"/>
-                </svg>
-                <h2 id="emptyTitle">No Streams Yet</h2>
-                <p id="emptyText">Add YouTube URLs to start watching.</p>
-            </div>
-        </div>
-
-        <!-- Compact Chat Bar -->
-        <div class="chat-bar" id="chatBar">
-            <div class="chat-header-bar" onclick="toggleChatExpand()">
-                <h4>Chat</h4>
-                <span id="chatRoomName" style="font-size: 11px; color: var(--text-secondary);">Room: loading...</span>
-                <span class="chat-toggle-icon">&#9650;</span>
-            </div>
-            <div class="chat-messages-bar" id="chatMessages"></div>
-            <div class="chat-input-bar" id="chatInputBar">
-                <div class="chat-username-display" id="usernameDisplay" style="display: none;">
-                    <span id="currentUserDisplay"></span>
-                    <button class="btn-secondary" onclick="changeUsername()" style="padding: 4px 8px; font-size: 11px;">Change</button>
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="grid-container" id="gridContainer">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/>
+                    </svg>
+                    <h2 id="emptyTitle">No Streams Yet</h2>
+                    <p id="emptyText">Add YouTube URLs to start.</p>
                 </div>
-                <input type="text" id="usernameInput" placeholder="Set username..." maxlength="20"
-                       onkeypress="if(event.key === 'Enter') setUsername()">
-                <input type="text" id="messageInput" placeholder="Type message..." 
-                       onkeypress="if(event.key === 'Enter') sendMessage()" style="display: none;">
-                <button class="btn-primary" id="chatActionBtn" onclick="setUsername()">Set Name</button>
+            </div>
+
+            <!-- Chat -->
+            <div class="chat-bar" id="chatBar">
+                <div class="chat-header" onclick="toggleChat()">
+                    <h4>Chat</h4>
+                    <span class="toggle" id="chatToggle">&#9650;</span>
+                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input" id="chatInput">
+                    <span class="chat-user-display" id="chatUserDisplay" style="display:none;"></span>
+                    <input type="text" id="usernameInput" placeholder="Set username...">
+                    <input type="text" id="messageInput" placeholder="Message..." style="display:none;" onkeypress="if(event.key==='Enter')sendMessage()">
+                    <button class="btn-primary" id="chatBtn" onclick="chatAction()">Set</button>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- Viewer Chat Toggle -->
-    <button class="viewer-chat-toggle" onclick="toggleViewerChat()">Chat</button>
 
     <!-- Settings Panel -->
     <div class="settings-panel" id="settingsPanel">
@@ -829,84 +929,74 @@
         </div>
         <div class="settings-content">
             <div class="settings-section">
-                <h4>Display</h4>
+                <h4>Room</h4>
+                <div class="setting-row">
+                    <span class="setting-label">Announcement</span>
+                    <button class="btn-secondary" onclick="editAnnouncement()" style="padding:5px 10px;font-size:12px;">Edit</button>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>Display (Synced)</h4>
                 <div class="setting-row">
                     <span class="setting-label">Grid Gap</span>
                     <div class="setting-control">
-                        <input type="range" id="gridGap" min="0" max="10" value="2" onchange="updateGridGap(this.value)">
-                        <span id="gridGapValue">2px</span>
+                        <input type="range" id="gridGapSlider" min="0" max="10" value="2" oninput="setSetting('gridGap',this.value)">
+                        <span id="gridGapVal">2px</span>
                     </div>
                 </div>
                 <div class="setting-row">
-                    <span class="setting-label">Show Labels</span>
-                    <div class="setting-control">
-                        <select id="showLabels" onchange="updateShowLabels(this.value)">
-                            <option value="hover">On Hover</option>
-                            <option value="always">Always</option>
-                            <option value="never">Never</option>
-                        </select>
-                    </div>
+                    <span class="setting-label">Labels</span>
+                    <select id="labelsSelect" onchange="setSetting('labels',this.value)">
+                        <option value="hover">On Hover</option>
+                        <option value="always">Always</option>
+                        <option value="never">Hidden</option>
+                    </select>
                 </div>
                 <div class="setting-row">
                     <span class="setting-label">Theme</span>
-                    <div class="setting-control">
-                        <select id="themeSelect" onchange="updateTheme(this.value)">
-                            <option value="dark">Dark</option>
-                            <option value="midnight">Midnight Blue</option>
-                            <option value="amoled">AMOLED Black</option>
-                        </select>
-                    </div>
+                    <select id="themeSelect" onchange="setSetting('theme',this.value)">
+                        <option value="dark">Dark</option>
+                        <option value="midnight">Midnight</option>
+                        <option value="amoled">AMOLED</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Accent Color</span>
+                    <input type="color" id="accentColor" value="#00d4ff" onchange="setSetting('accent',this.value)">
                 </div>
             </div>
-
             <div class="settings-section">
-                <h4>Weather Location</h4>
+                <h4>Weather</h4>
                 <div class="setting-row">
                     <span class="setting-label">Latitude</span>
-                    <div class="setting-control">
-                        <input type="number" id="weatherLat" step="0.0001" value="40.7128">
-                    </div>
+                    <input type="number" id="weatherLat" step="0.001" value="40.7128">
                 </div>
                 <div class="setting-row">
                     <span class="setting-label">Longitude</span>
-                    <div class="setting-control">
-                        <input type="number" id="weatherLon" step="0.0001" value="-74.0060">
-                    </div>
+                    <input type="number" id="weatherLon" step="0.001" value="-74.006">
                 </div>
-                <button class="btn-primary" onclick="applyWeatherLocation()" style="margin-top: 10px; width: 100%;">Apply Location</button>
-            </div>
-
-            <div class="settings-section">
-                <h4>Room Info</h4>
-                <div class="setting-row">
-                    <span class="setting-label">Room Name</span>
-                    <span style="color: var(--accent-primary); font-size: 13px;" id="settingsRoomName"></span>
-                </div>
-                <div class="setting-row">
-                    <span class="setting-label">Streams</span>
-                    <span id="settingsStreamCount">0</span>
-                </div>
+                <button class="btn-primary" onclick="applyWeather()" style="width:100%;margin-top:8px;">Apply & Show Weather</button>
             </div>
         </div>
         <div class="settings-actions">
-            <button class="btn-primary" onclick="exportConfig()">Export Config</button>
-            <button class="btn-secondary" onclick="showImportModal()">Import Config</button>
+            <button class="btn-primary" onclick="exportConfig()">Export</button>
+            <button class="btn-secondary" onclick="showImportModal()">Import</button>
         </div>
     </div>
 
     <!-- Share Modal -->
-    <div class="modal-overlay" id="shareModal">
+    <div class="modal-overlay" id="shareModal" onclick="if(event.target===this)closeModal('shareModal')">
         <div class="modal">
             <h3>Share Room</h3>
-            <p style="color: #4ade80;"><strong>Viewer Link:</strong></p>
-            <div class="link-box">
-                <input type="text" id="viewerLink" readonly>
-                <button class="btn-primary" onclick="copyLink('viewerLink')">Copy</button>
+            <p style="color:#4ade80;"><strong>Viewer Link:</strong></p>
+            <div style="display:flex;gap:8px;margin-bottom:15px;">
+                <input type="text" id="shareViewerLink" readonly style="flex:1;padding:10px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:var(--accent);font-size:12px;">
+                <button class="btn-primary" onclick="copyShareLink('shareViewerLink')">Copy</button>
             </div>
-            <p style="color: #f59e0b;"><strong>Host Link (private!):</strong></p>
-            <div class="link-box">
-                <input type="text" id="hostLink" readonly>
-                <button class="btn-secondary" onclick="copyLink('hostLink')">Copy</button>
+            <p style="color:#f59e0b;"><strong>Host Link:</strong></p>
+            <div style="display:flex;gap:8px;">
+                <input type="text" id="shareHostLink" readonly style="flex:1;padding:10px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:#f59e0b;font-size:12px;">
+                <button class="btn-secondary" onclick="copyShareLink('shareHostLink')">Copy</button>
             </div>
             <div class="actions">
                 <button class="btn-secondary" onclick="closeModal('shareModal')">Close</button>
@@ -914,12 +1004,24 @@
         </div>
     </div>
 
-    <!-- Import Modal -->
-    <div class="modal-overlay" id="importModal">
+    <!-- Announcement Modal -->
+    <div class="modal-overlay" id="announcementModal" onclick="if(event.target===this)closeModal('announcementModal')">
         <div class="modal">
-            <h3>Import Configuration</h3>
-            <p>Paste your exported JSON config below:</p>
-            <textarea id="importData" placeholder='{"streams": [...], "settings": {...}}'></textarea>
+            <h3>Edit Announcement</h3>
+            <p>This message appears at the top for all viewers. Leave blank to hide.</p>
+            <input type="text" id="announcementInput" placeholder="Welcome to the stream!" style="width:100%;padding:12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:var(--text-primary);margin-bottom:15px;">
+            <div class="actions">
+                <button class="btn-secondary" onclick="closeModal('announcementModal')">Cancel</button>
+                <button class="btn-primary" onclick="saveAnnouncement()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="importModal" onclick="if(event.target===this)closeModal('importModal')">
+        <div class="modal">
+            <h3>Import Config</h3>
+            <textarea id="importData" placeholder="Paste JSON..."></textarea>
             <div class="actions">
                 <button class="btn-secondary" onclick="closeModal('importModal')">Cancel</button>
                 <button class="btn-primary" onclick="importConfig()">Import</button>
@@ -927,658 +1029,480 @@
         </div>
     </div>
 
+    <!-- Label Edit Modal -->
+    <div class="modal-overlay" id="labelModal" onclick="if(event.target===this)closeModal('labelModal')">
+        <div class="modal">
+            <h3>Edit Stream Label</h3>
+            <input type="text" id="labelInput" placeholder="Custom label..." style="width:100%;padding:12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:var(--text-primary);">
+            <input type="hidden" id="labelStreamId">
+            <div class="actions">
+                <button class="btn-secondary" onclick="closeModal('labelModal')">Cancel</button>
+                <button class="btn-primary" onclick="saveLabel()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // ============ CONFIGURATION ============
-        const ROOM_NAME = 'blizzard-watch-2025';
-        const HOST_KEY = 'mySecretKey123';  // CHANGE THIS!
+        // ========== SETUP PAGE ==========
+        let createdRoom = null;
+        let createdKey = null;
 
-        // ============ URL & AUTH ============
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlRoom = urlParams.get('room') || ROOM_NAME;
-        const urlHostKey = urlParams.get('host');
-        const isHost = urlHostKey === HOST_KEY;
-
-        if (!isHost) {
-            document.body.classList.add('viewer-mode');
-            document.getElementById('roomDisplay').textContent = urlRoom;
-            document.getElementById('emptyTitle').textContent = 'Waiting for Host';
-            document.getElementById('emptyText').textContent = 'The host hasn\'t added streams yet.';
+        function generateKey() {
+            return 'k' + Math.random().toString(36).substr(2, 12);
         }
 
-        // ============ GUN.JS ============
-        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
-        const room = gun.get('multistream-room-' + urlRoom);
-        const chat = gun.get('multistream-chat-' + urlRoom);
+        function createRoom() {
+            const name = document.getElementById('newRoomName').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-') || 'room-' + Date.now();
+            const title = document.getElementById('newRoomTitle').value.trim() || name;
+            const key = document.getElementById('newHostKey').value.trim() || generateKey();
 
-        // ============ STATE ============
-        let streams = [];
-        let featuredId = null;
-        let layoutMode = 'grid';
-        let weatherEnabled = false;
-        let weatherLat = 40.7128;
-        let weatherLon = -74.0060;
-        let chatExpanded = true;
-        let currentUsername = localStorage.getItem('multistream-username') || '';
-        let isBanned = false;
-        const messageElements = new Map();
-        const seenStreams = new Set();
-        const bannedUsers = new Set();
+            createdRoom = name;
+            createdKey = key;
 
-        let sessionId = localStorage.getItem('multistream-session');
-        if (!sessionId) {
-            sessionId = 'user-' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('multistream-session', sessionId);
+            const base = location.origin + location.pathname;
+            document.getElementById('generatedHostLink').value = `${base}?room=${name}&host=${key}`;
+            document.getElementById('generatedViewerLink').value = `${base}?room=${name}`;
+            document.getElementById('setupLinks').classList.add('show');
+
+            // Save to recent
+            saveRecentRoom(name, key, title);
+
+            // Pre-set title
+            const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+            gun.get('ms4-' + name).get('meta').get('title').put(title);
         }
 
-        // Settings
-        let settings = {
-            gridGap: 2,
-            showLabels: 'hover',
-            theme: 'dark'
-        };
-
-        // ============ STREAM MANAGEMENT ============
-        function extractVideoId(input) {
-            const patterns = [
-                /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/live\/)([^&\?\/]+)/,
-                /^([a-zA-Z0-9_-]{11})$/
-            ];
-            for (const p of patterns) {
-                const m = input.match(p);
-                if (m) return m[1];
+        function goToRoom() {
+            if (createdRoom && createdKey) {
+                location.href = `?room=${createdRoom}&host=${createdKey}`;
             }
-            return null;
+        }
+
+        function joinRoom() {
+            const name = document.getElementById('joinRoomName').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+            const key = document.getElementById('joinHostKey').value.trim();
+            if (!name) return alert('Enter room name');
+            location.href = key ? `?room=${name}&host=${key}` : `?room=${name}`;
+        }
+
+        function copySetupLink(id) {
+            const input = document.getElementById(id);
+            input.select();
+            document.execCommand('copy');
+            input.nextElementSibling.textContent = 'Copied!';
+            setTimeout(() => input.nextElementSibling.textContent = 'Copy', 1500);
+        }
+
+        function saveRecentRoom(name, key, title) {
+            let recent = JSON.parse(localStorage.getItem('ms-recent') || '[]');
+            recent = recent.filter(r => r.name !== name);
+            recent.unshift({ name, key, title, time: Date.now() });
+            recent = recent.slice(0, 5);
+            localStorage.setItem('ms-recent', JSON.stringify(recent));
+        }
+
+        function loadRecentRooms() {
+            const recent = JSON.parse(localStorage.getItem('ms-recent') || '[]');
+            if (recent.length === 0) return;
+
+            const container = document.getElementById('recentRooms');
+            const list = document.getElementById('recentRoomsList');
+            container.style.display = 'block';
+
+            list.innerHTML = recent.map(r => `
+                <div class="recent-room-item">
+                    <span>${r.title || r.name}</span>
+                    <button onclick="location.href='?room=${r.name}&host=${r.key}'">Open</button>
+                </div>
+            `).join('');
+        }
+
+        // ========== VIEWER PAGE ==========
+        const params = new URLSearchParams(location.search);
+        const roomId = params.get('room');
+        const hostKey = params.get('host');
+
+        if (roomId) {
+            document.getElementById('setupPage').style.display = 'none';
+            document.getElementById('viewerPage').classList.add('active');
+            initViewer();
+        } else {
+            loadRecentRooms();
+        }
+
+        // ========== VIEWER INIT ==========
+        let gun, roomRef, chatRef;
+        let isHost = false;
+        let streams = [];
+        let settings = { layout: 'grid', featuredId: null, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' } };
+        let chatExpanded = true;
+        let username = localStorage.getItem('ms-user') || '';
+        let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
+        localStorage.setItem('ms-sid', sessionId);
+        const seenStreams = new Map();
+        const msgEls = new Map();
+
+        function initViewer() {
+            gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+            roomRef = gun.get('ms4-' + roomId);
+            chatRef = gun.get('ms4-chat-' + roomId);
+
+            // Check host
+            roomRef.get('meta').get('hostKey').once(key => {
+                if (key && hostKey === key) {
+                    isHost = true;
+                    document.body.classList.remove('viewer-mode');
+                } else if (!key && hostKey) {
+                    // First host sets the key
+                    roomRef.get('meta').get('hostKey').put(hostKey);
+                    isHost = true;
+                    document.body.classList.remove('viewer-mode');
+                    saveRecentRoom(roomId, hostKey, '');
+                } else {
+                    document.body.classList.add('viewer-mode');
+                    document.getElementById('emptyTitle').textContent = 'Waiting for Host';
+                    document.getElementById('emptyText').textContent = 'Streams will appear here.';
+                }
+                updateHostUI();
+            });
+
+            // Listeners
+            roomRef.get('meta').get('title').on(t => {
+                document.getElementById('roomTitle').textContent = t || roomId;
+                document.title = (t || roomId) + ' - MultiStream';
+            });
+
+            roomRef.get('meta').get('announcement').on(a => {
+                const bar = document.getElementById('announcementBar');
+                const text = document.getElementById('announcementText');
+                if (a) {
+                    text.textContent = a;
+                    bar.classList.add('show');
+                } else {
+                    bar.classList.remove('show');
+                }
+            });
+
+            roomRef.get('streams').map().on((data, id) => {
+                if (!data) {
+                    streams = streams.filter(s => s.id !== id);
+                    seenStreams.delete(id);
+                    render();
+                } else if (data.id && !seenStreams.has(id)) {
+                    seenStreams.set(id, true);
+                    streams.push({ id: data.id, addedAt: data.addedAt || Date.now(), muted: data.muted !== false, label: data.label || '' });
+                    streams.sort((a, b) => a.addedAt - b.addedAt);
+                    render();
+                } else if (seenStreams.has(id)) {
+                    const s = streams.find(x => x.id === id);
+                    if (s) {
+                        let changed = false;
+                        if (s.muted !== (data.muted !== false)) { s.muted = data.muted !== false; changed = true; }
+                        if (s.label !== (data.label || '')) { s.label = data.label || ''; changed = true; }
+                        if (changed) render();
+                    }
+                }
+            });
+
+            roomRef.get('settings').get('layout').on(v => { if (v) { settings.layout = v; updateLayoutBtns(); render(); } });
+            roomRef.get('settings').get('featuredId').on(v => { settings.featuredId = v || null; render(); });
+            roomRef.get('settings').get('weather').on(w => { if (w) { settings.weather = w; document.getElementById('weatherLat').value = w.lat; document.getElementById('weatherLon').value = w.lon; document.getElementById('weatherBtn')?.classList.toggle('btn-active', w.enabled); render(); } });
+
+            roomRef.get('settings').get('display').get('gridGap').on(v => { if (typeof v === 'number') applyDisplay({ gridGap: v }); });
+            roomRef.get('settings').get('display').get('labels').on(v => { if (v) applyDisplay({ labels: v }); });
+            roomRef.get('settings').get('display').get('theme').on(v => { if (v) applyDisplay({ theme: v }); });
+            roomRef.get('settings').get('display').get('accent').on(v => { if (v) applyDisplay({ accent: v }); });
+
+            roomRef.get('presence').get(sessionId).put({ online: true, time: Date.now() });
+            setInterval(() => roomRef.get('presence').get(sessionId).put({ online: true, time: Date.now() }), 30000);
+            countViewers();
+            setInterval(countViewers, 15000);
+
+            chatRef.get('messages').map().on((msg, id) => {
+                if (msg?.timestamp && msg.timestamp > Date.now() - 2*60*60*1000) renderMsg({ ...msg, id });
+            });
+
+            if (username) restoreUsername();
+            render();
+        }
+
+        function updateHostUI() {
+            document.querySelectorAll('.host-only-inline').forEach(el => el.style.display = isHost ? '' : 'none');
+        }
+
+        function countViewers() {
+            const cutoff = Date.now() - 60000;
+            let count = 0;
+            roomRef.get('presence').map().once((p) => {
+                if (p?.time > cutoff) count++;
+            });
+            setTimeout(() => document.getElementById('viewerCount').textContent = Math.max(1, count), 500);
+        }
+
+        function applyDisplay(d) {
+            if (d.gridGap !== undefined) {
+                settings.display.gridGap = d.gridGap;
+                document.documentElement.style.setProperty('--grid-gap', d.gridGap + 'px');
+                document.getElementById('gridGapSlider').value = d.gridGap;
+                document.getElementById('gridGapVal').textContent = d.gridGap + 'px';
+            }
+            if (d.labels) {
+                settings.display.labels = d.labels;
+                document.getElementById('labelsSelect').value = d.labels;
+                render();
+            }
+            if (d.theme) {
+                settings.display.theme = d.theme;
+                document.getElementById('themeSelect').value = d.theme;
+                const r = document.documentElement;
+                if (d.theme === 'midnight') { r.style.setProperty('--bg-primary', '#0d1b2a'); r.style.setProperty('--bg-secondary', '#1b263b'); r.style.setProperty('--bg-tertiary', '#415a77'); }
+                else if (d.theme === 'amoled') { r.style.setProperty('--bg-primary', '#000'); r.style.setProperty('--bg-secondary', '#0a0a0a'); r.style.setProperty('--bg-tertiary', '#111'); }
+                else { r.style.setProperty('--bg-primary', '#0a0a0f'); r.style.setProperty('--bg-secondary', '#1a1a2e'); r.style.setProperty('--bg-tertiary', '#16213e'); }
+            }
+            if (d.accent) {
+                settings.display.accent = d.accent;
+                document.getElementById('accentColor').value = d.accent;
+                document.documentElement.style.setProperty('--accent', d.accent);
+            }
+        }
+
+        function updateLayoutBtns() {
+            document.getElementById('layoutGridBtn').classList.toggle('btn-active', settings.layout === 'grid');
+            document.getElementById('layoutFeaturedBtn').classList.toggle('btn-active', settings.layout === 'featured');
+        }
+
+        // ========== STREAM FUNCTIONS ==========
+        function extractId(url) {
+            const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/)([^&?\s]+)/) || url.match(/^([a-zA-Z0-9_-]{11})$/);
+            return m ? m[1] : null;
         }
 
         function addStream() {
             if (!isHost) return;
-            const input = document.getElementById('videoUrl').value.trim();
-            if (!input) return;
-
-            const videoId = extractVideoId(input);
-            if (!videoId) {
-                alert('Invalid YouTube URL');
-                return;
-            }
-            if (streams.find(s => s.id === videoId)) {
-                alert('Already added');
-                return;
-            }
-
-            room.get('streams').get(videoId).put({
-                id: videoId,
-                type: 'youtube',
-                addedAt: Date.now(),
-                muted: true
-            });
+            const id = extractId(document.getElementById('videoUrl').value.trim());
+            if (!id) return alert('Invalid URL');
+            if (seenStreams.has(id)) return alert('Already added');
+            roomRef.get('streams').get(id).put({ id, addedAt: Date.now(), muted: true, label: '' });
             document.getElementById('videoUrl').value = '';
         }
 
-        function removeStream(videoId) {
+        function removeStream(id) { if (isHost) roomRef.get('streams').get(id).put(null); }
+        function setFeatured(id) { if (isHost) roomRef.get('settings').get('featuredId').put(settings.featuredId === id ? '' : id); }
+        function toggleMute(id) {
+            const s = streams.find(x => x.id === id);
+            if (s) {
+                s.muted = !s.muted;
+                if (isHost) roomRef.get('streams').get(id).get('muted').put(s.muted);
+                render();
+            }
+        }
+        function muteAll() { streams.forEach(s => { s.muted = true; if (isHost) roomRef.get('streams').get(s.id).get('muted').put(true); }); render(); }
+        function unmuteAll() { streams.forEach(s => { s.muted = false; if (isHost) roomRef.get('streams').get(s.id).get('muted').put(false); }); render(); }
+        function setLayout(l) { if (isHost) roomRef.get('settings').get('layout').put(l); }
+        function toggleWeather() { if (isHost) { const w = settings.weather; roomRef.get('settings').get('weather').put({ enabled: !w.enabled, lat: w.lat, lon: w.lon }); } }
+        function applyWeather() {
             if (!isHost) return;
-            room.get('streams').get(videoId).put(null);
-            if (featuredId === videoId) featuredId = null;
+            const lat = parseFloat(document.getElementById('weatherLat').value) || 40.7128;
+            const lon = parseFloat(document.getElementById('weatherLon').value) || -74.006;
+            roomRef.get('settings').get('weather').put({ enabled: true, lat, lon });
+        }
+        function clearAll() { if (isHost && confirm('Clear all?')) streams.forEach(s => roomRef.get('streams').get(s.id).put(null)); }
+        function setSetting(key, val) { if (isHost) roomRef.get('settings').get('display').get(key).put(key === 'gridGap' ? parseInt(val) : val); }
+
+        function editLabel(id) {
+            const s = streams.find(x => x.id === id);
+            document.getElementById('labelInput').value = s?.label || '';
+            document.getElementById('labelStreamId').value = id;
+            document.getElementById('labelModal').classList.add('show');
         }
 
-        function setFeatured(videoId) {
-            if (!isHost) return;
-            featuredId = featuredId === videoId ? null : videoId;
-            room.get('settings').get('featuredId').put(featuredId);
-            renderGrid();
+        function saveLabel() {
+            const id = document.getElementById('labelStreamId').value;
+            const label = document.getElementById('labelInput').value.trim();
+            if (isHost && id) roomRef.get('streams').get(id).get('label').put(label);
+            closeModal('labelModal');
         }
 
-        function toggleMute(videoId) {
-            const stream = streams.find(s => s.id === videoId);
-            if (stream) {
-                stream.muted = !stream.muted;
-                if (isHost) {
-                    room.get('streams').get(videoId).get('muted').put(stream.muted);
-                }
-                renderGrid();
-            }
-        }
-
-        function muteAll() {
-            streams.forEach(s => {
-                s.muted = true;
-                if (isHost) room.get('streams').get(s.id).get('muted').put(true);
-            });
-            renderGrid();
-        }
-
-        function unmuteAll() {
-            streams.forEach(s => {
-                s.muted = false;
-                if (isHost) room.get('streams').get(s.id).get('muted').put(false);
-            });
-            renderGrid();
-        }
-
-        function setLayout(mode) {
-            layoutMode = mode;
-            document.getElementById('layoutGridBtn').classList.toggle('btn-active', mode === 'grid');
-            document.getElementById('layoutFeaturedBtn').classList.toggle('btn-active', mode === 'featured');
-            if (isHost) room.get('settings').get('layout').put(mode);
-            renderGrid();
-        }
-
-        function toggleWeather() {
-            if (!isHost) return;
-            weatherEnabled = !weatherEnabled;
-            weatherLat = parseFloat(document.getElementById('weatherLat').value) || weatherLat;
-            weatherLon = parseFloat(document.getElementById('weatherLon').value) || weatherLon;
-            room.get('settings').get('weather').put({
-                enabled: weatherEnabled,
-                lat: weatherLat,
-                lon: weatherLon
-            });
-            document.getElementById('weatherBtn').classList.toggle('btn-active', weatherEnabled);
-            renderGrid();
-        }
-
-        function applyWeatherLocation() {
-            weatherLat = parseFloat(document.getElementById('weatherLat').value) || weatherLat;
-            weatherLon = parseFloat(document.getElementById('weatherLon').value) || weatherLon;
-            if (weatherEnabled && isHost) {
-                room.get('settings').get('weather').put({
-                    enabled: true,
-                    lat: weatherLat,
-                    lon: weatherLon
-                });
-                renderGrid();
-            }
-        }
-
-        function clearAll() {
-            if (!isHost) return;
-            if (!confirm('Clear all streams?')) return;
-            streams.forEach(s => room.get('streams').get(s.id).put(null));
-            streams = [];
-            seenStreams.clear();
-            featuredId = null;
-            weatherEnabled = false;
-            room.get('settings').get('weather').put({ enabled: false });
-            room.get('settings').get('featuredId').put(null);
-            document.getElementById('weatherBtn').classList.remove('btn-active');
-            renderGrid();
-        }
-
-        // ============ SYNC LISTENERS ============
-        room.get('streams').map().on((stream, videoId) => {
-            if (!stream || stream === null) {
-                streams = streams.filter(s => s.id !== videoId);
-                seenStreams.delete(videoId);
-                renderGrid();
-            } else if (stream.id && !seenStreams.has(videoId)) {
-                seenStreams.add(videoId);
-                streams.push({
-                    id: stream.id,
-                    type: stream.type || 'youtube',
-                    addedAt: stream.addedAt,
-                    muted: stream.muted !== false
-                });
-                streams.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
-                renderGrid();
-            } else if (stream.id && seenStreams.has(videoId)) {
-                // Update mute state
-                const s = streams.find(x => x.id === videoId);
-                if (s && s.muted !== (stream.muted !== false)) {
-                    s.muted = stream.muted !== false;
-                    renderGrid();
-                }
-            }
-        });
-
-        room.get('settings').get('weather').on(data => {
-            if (data && typeof data === 'object') {
-                weatherEnabled = data.enabled || false;
-                if (data.lat) weatherLat = data.lat;
-                if (data.lon) weatherLon = data.lon;
-                document.getElementById('weatherLat').value = weatherLat;
-                document.getElementById('weatherLon').value = weatherLon;
-                document.getElementById('weatherBtn')?.classList.toggle('btn-active', weatherEnabled);
-                renderGrid();
-            }
-        });
-
-        room.get('settings').get('layout').on(mode => {
-            if (mode && ['grid', 'featured'].includes(mode)) {
-                layoutMode = mode;
-                document.getElementById('layoutGridBtn').classList.toggle('btn-active', mode === 'grid');
-                document.getElementById('layoutFeaturedBtn').classList.toggle('btn-active', mode === 'featured');
-                renderGrid();
-            }
-        });
-
-        room.get('settings').get('featuredId').on(id => {
-            featuredId = id || null;
-            renderGrid();
-        });
-
-        room.get('banned').map().on((banned, odeSessi) => {
-            if (banned) {
-                bannedUsers.add(odeSessi);
-                if (odeSessi === sessionId) {
-                    isBanned = true;
-                    showBannedNotice();
-                }
-            }
-        });
-
-        // ============ RENDERING ============
-        function getWindyUrl() {
-            return `https://embed.windy.com/embed2.html?lat=${weatherLat}&lon=${weatherLon}&detailLat=${weatherLat}&detailLon=${weatherLon}&width=650&height=450&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
-        }
-
-        function calculateGrid(count) {
-            if (count <= 1) return { cols: 1, rows: 1 };
-            if (count === 2) return { cols: 2, rows: 1 };
-            if (count <= 4) return { cols: 2, rows: 2 };
-            if (count <= 6) return { cols: 3, rows: 2 };
-            if (count <= 9) return { cols: 3, rows: 3 };
-            if (count <= 12) return { cols: 4, rows: 3 };
-            const cols = Math.ceil(Math.sqrt(count));
-            return { cols, rows: Math.ceil(count / cols) };
-        }
-
-        function renderGrid() {
+        // ========== RENDER ==========
+        function render() {
             const container = document.getElementById('gridContainer');
-            const allItems = [...streams];
-            if (weatherEnabled) {
-                allItems.push({ id: 'weather', type: 'weather' });
-            }
+            const items = [...streams];
+            if (settings.weather.enabled) items.push({ id: '__weather__', type: 'weather' });
 
-            document.getElementById('settingsStreamCount').textContent = streams.length;
-
-            if (allItems.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="2" y="3" width="20" height="14" rx="2"/>
-                            <path d="M8 21h8M12 17v4"/>
-                            <path d="M10 9l4 2-4 2V9z"/>
-                        </svg>
-                        <h2>${isHost ? 'No Streams Yet' : 'Waiting for Host'}</h2>
-                        <p>${isHost ? 'Add YouTube URLs above.' : 'The host hasn\'t added streams yet.'}</p>
-                    </div>
-                `;
+            if (!items.length) {
                 container.className = 'grid-container';
+                container.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/></svg><h2>${isHost ? 'No Streams Yet' : 'Waiting for Host'}</h2><p>${isHost ? 'Add URLs above.' : 'Streams will appear.'}</p></div>`;
                 return;
             }
 
-            // Sort: featured first if in featured mode
-            let sorted = [...allItems];
-            if (layoutMode === 'featured' && featuredId) {
-                sorted.sort((a, b) => {
-                    if (a.id === featuredId) return -1;
-                    if (b.id === featuredId) return 1;
-                    return 0;
-                });
-            }
+            const labelMode = settings.display.labels;
+            const layout = settings.layout;
+            const featuredId = settings.featuredId;
 
-            container.className = `grid-container layout-${layoutMode}`;
+            let sorted = [...items];
+            if (layout === 'featured' && featuredId) sorted.sort((a, b) => a.id === featuredId ? -1 : b.id === featuredId ? 1 : 0);
 
-            if (layoutMode === 'featured' && sorted.length > 1) {
-                // Featured layout: main + sidebar
-                const main = sorted[0];
-                const sidebar = sorted.slice(1);
+            container.className = `grid-container layout-${layout}`;
 
-                container.innerHTML = `
-                    ${renderItem(main, true)}
-                    <div class="sidebar-stack">
-                        ${sidebar.map(s => renderItem(s, false)).join('')}
-                    </div>
-                `;
+            if (layout === 'featured' && sorted.length > 1) {
+                container.style.gridTemplateColumns = '1fr 280px';
+                container.style.gridTemplateRows = '1fr';
+                container.innerHTML = `${renderItem(sorted[0], labelMode)}<div class="sidebar-stack">${sorted.slice(1).map(s => renderItem(s, labelMode)).join('')}</div>`;
             } else {
-                // Grid layout
-                const { cols, rows } = calculateGrid(sorted.length);
+                const n = sorted.length;
+                const cols = n <= 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : n <= 6 ? 3 : n <= 9 ? 3 : Math.ceil(Math.sqrt(n));
                 container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-                container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-                container.innerHTML = sorted.map(s => renderItem(s, false)).join('');
+                container.style.gridTemplateRows = '';
+                container.innerHTML = sorted.map(s => renderItem(s, labelMode)).join('');
             }
         }
 
-        function renderItem(item, isFeaturedSlot) {
-            const labelClass = settings.showLabels === 'always' ? 'style="opacity:1"' : 
-                              settings.showLabels === 'never' ? 'style="display:none"' : '';
+        function renderItem(item, labelMode) {
+            const labelClass = labelMode === 'always' ? '' : labelMode === 'never' ? 'hidden' : 'hover-only';
 
             if (item.type === 'weather') {
-                return `
-                    <div class="grid-item">
-                        <iframe src="${getWindyUrl()}" frameborder="0"></iframe>
-                        <div class="controls-overlay">
-                            <div></div>
-                            <div class="video-controls">
-                                ${isHost ? `<button onclick="toggleWeather()">Remove</button>` : ''}
-                            </div>
-                        </div>
-                        <div class="label" ${labelClass}>Windy Radar</div>
-                    </div>
-                `;
+                const { lat, lon } = settings.weather;
+                const src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=&calendar=now&type=map`;
+                return `<div class="grid-item"><iframe src="${src}" frameborder="0"></iframe><div class="overlay"><div class="controls">${isHost ? '<button class="host-only" onclick="toggleWeather()">Remove</button>' : ''}</div></div><div class="label ${labelClass}">Weather Radar</div></div>`;
             }
 
-            const muteParam = item.muted ? '1' : '0';
-            const embedUrl = `https://www.youtube.com/embed/${item.id}?autoplay=1&mute=${muteParam}`;
-            const isFeatured = item.id === featuredId;
+            const { id, muted, label } = item;
+            const isFeatured = id === settings.featuredId;
+            const src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=${muted ? 1 : 0}`;
 
-            return `
-                <div class="grid-item ${isFeaturedSlot ? 'featured' : ''}">
-                    <iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                    <div class="controls-overlay">
-                        <div class="video-controls">
-                            <button class="unmute-btn ${!item.muted ? 'active' : ''}" onclick="toggleMute('${item.id}')">${item.muted ? 'Unmute' : 'Muted'}</button>
-                            ${isHost ? `
-                                <button class="${isFeatured ? 'active' : ''}" onclick="setFeatured('${item.id}')">${isFeatured ? 'Featured' : 'Feature'}</button>
-                                <button onclick="removeStream('${item.id}')">Remove</button>
-                            ` : ''}
-                        </div>
-                        <div></div>
-                    </div>
-                    <div class="label" ${labelClass}>${item.id}</div>
-                </div>
-            `;
+            return `<div class="grid-item"><iframe src="${src}" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe><div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')">${muted ? 'Unmute' : 'Mute'}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')">${isFeatured ? 'Main' : 'Set Main'}</button><button class="host-only" onclick="editLabel('${id}')">Label</button><button class="host-only" onclick="removeStream('${id}')">Remove</button>` : ''}</div></div><div class="label ${labelClass}">${label ? `<span class="custom-label">${esc(label)}</span>` : id}</div></div>`;
         }
 
-        // ============ SETTINGS ============
-        function toggleSettings() {
-            document.getElementById('settingsPanel').classList.toggle('open');
-        }
-
-        function updateGridGap(val) {
-            settings.gridGap = parseInt(val);
-            document.documentElement.style.setProperty('--grid-gap', val + 'px');
-            document.getElementById('gridGapValue').textContent = val + 'px';
-        }
-
-        function updateShowLabels(val) {
-            settings.showLabels = val;
-            renderGrid();
-        }
-
-        function updateTheme(val) {
-            settings.theme = val;
-            const root = document.documentElement;
-            if (val === 'midnight') {
-                root.style.setProperty('--bg-primary', '#0d1b2a');
-                root.style.setProperty('--bg-secondary', '#1b263b');
-                root.style.setProperty('--bg-tertiary', '#415a77');
-            } else if (val === 'amoled') {
-                root.style.setProperty('--bg-primary', '#000000');
-                root.style.setProperty('--bg-secondary', '#0a0a0a');
-                root.style.setProperty('--bg-tertiary', '#111111');
-            } else {
-                root.style.setProperty('--bg-primary', '#0a0a0f');
-                root.style.setProperty('--bg-secondary', '#1a1a2e');
-                root.style.setProperty('--bg-tertiary', '#16213e');
+        // ========== TITLE & ANNOUNCEMENT ==========
+        function toggleEditTitle() {
+            const span = document.getElementById('roomTitle');
+            const input = document.getElementById('roomTitleInput');
+            if (input.style.display === 'none' || !input.style.display) {
+                input.value = span.textContent;
+                input.style.display = 'block';
+                span.style.display = 'none';
+                input.focus();
+                input.onblur = input.onkeypress = (e) => {
+                    if (e.type === 'blur' || e.key === 'Enter') {
+                        const val = input.value.trim();
+                        if (val && isHost) roomRef.get('meta').get('title').put(val);
+                        input.style.display = 'none';
+                        span.style.display = '';
+                    }
+                };
             }
         }
 
-        // ============ IMPORT/EXPORT ============
+        function editAnnouncement() {
+            document.getElementById('announcementInput').value = document.getElementById('announcementText').textContent || '';
+            document.getElementById('announcementModal').classList.add('show');
+        }
+
+        function saveAnnouncement() {
+            if (isHost) roomRef.get('meta').get('announcement').put(document.getElementById('announcementInput').value.trim());
+            closeModal('announcementModal');
+        }
+
+        // ========== UI ==========
+        function toggleSettings() { document.getElementById('settingsPanel').classList.toggle('open'); }
+        function toggleChat() {
+            chatExpanded = !chatExpanded;
+            document.getElementById('chatBar').classList.toggle('collapsed', !chatExpanded);
+            document.getElementById('chatToggle').innerHTML = chatExpanded ? '&#9650;' : '&#9660;';
+        }
+        function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+        function showShareModal() {
+            const base = location.origin + location.pathname;
+            document.getElementById('shareViewerLink').value = `${base}?room=${roomId}`;
+            document.getElementById('shareHostLink').value = `${base}?room=${roomId}&host=${hostKey || ''}`;
+            document.getElementById('shareModal').classList.add('show');
+        }
+        function copyShareLink(id) {
+            const input = document.getElementById(id);
+            input.select();
+            document.execCommand('copy');
+            alert('Copied!');
+        }
+        function showImportModal() { document.getElementById('importData').value = ''; document.getElementById('importModal').classList.add('show'); }
+
         function exportConfig() {
-            const config = {
-                version: 1,
-                room: urlRoom,
-                streams: streams.map(s => ({ id: s.id, muted: s.muted })),
-                settings: {
-                    layout: layoutMode,
-                    featuredId: featuredId,
-                    weather: { enabled: weatherEnabled, lat: weatherLat, lon: weatherLon },
-                    display: settings
-                }
-            };
-            const json = JSON.stringify(config, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `multistream-${urlRoom}-${Date.now()}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function showImportModal() {
-            document.getElementById('importData').value = '';
-            document.getElementById('importModal').classList.add('show');
+            const config = { version: 3, room: roomId, streams: streams.map(s => ({ id: s.id, muted: s.muted, label: s.label })), settings };
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${roomId}.json`; a.click();
         }
 
         function importConfig() {
-            if (!isHost) return alert('Only host can import');
+            if (!isHost) return alert('Host only');
             try {
                 const data = JSON.parse(document.getElementById('importData').value);
-                if (!data.streams) throw new Error('Invalid config');
-
-                // Clear existing
-                streams.forEach(s => room.get('streams').get(s.id).put(null));
-                streams = [];
-                seenStreams.clear();
-
-                // Add imported streams
-                data.streams.forEach(s => {
-                    room.get('streams').get(s.id).put({
-                        id: s.id,
-                        type: 'youtube',
-                        addedAt: Date.now(),
-                        muted: s.muted !== false
-                    });
-                });
-
-                // Apply settings
+                streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
+                (data.streams || []).forEach(s => roomRef.get('streams').get(s.id).put({ id: s.id, addedAt: Date.now(), muted: s.muted !== false, label: s.label || '' }));
                 if (data.settings) {
-                    if (data.settings.layout) {
-                        setLayout(data.settings.layout);
-                    }
-                    if (data.settings.featuredId) {
-                        room.get('settings').get('featuredId').put(data.settings.featuredId);
-                    }
-                    if (data.settings.weather) {
-                        weatherLat = data.settings.weather.lat || weatherLat;
-                        weatherLon = data.settings.weather.lon || weatherLon;
-                        weatherEnabled = data.settings.weather.enabled || false;
-                        room.get('settings').get('weather').put({
-                            enabled: weatherEnabled,
-                            lat: weatherLat,
-                            lon: weatherLon
-                        });
-                    }
+                    if (data.settings.layout) roomRef.get('settings').get('layout').put(data.settings.layout);
+                    if (data.settings.featuredId) roomRef.get('settings').get('featuredId').put(data.settings.featuredId);
+                    if (data.settings.weather) roomRef.get('settings').get('weather').put(data.settings.weather);
                     if (data.settings.display) {
-                        updateGridGap(data.settings.display.gridGap || 2);
-                        updateShowLabels(data.settings.display.showLabels || 'hover');
-                        updateTheme(data.settings.display.theme || 'dark');
+                        Object.entries(data.settings.display).forEach(([k, v]) => roomRef.get('settings').get('display').get(k).put(v));
                     }
                 }
-
                 closeModal('importModal');
-                alert('Config imported!');
-            } catch (e) {
-                alert('Invalid config: ' + e.message);
-            }
+            } catch (e) { alert('Invalid: ' + e.message); }
         }
 
-        // ============ MODALS ============
-        function showShareModal() {
-            const base = window.location.origin + window.location.pathname;
-            document.getElementById('viewerLink').value = `${base}?room=${urlRoom}`;
-            document.getElementById('hostLink').value = `${base}?room=${urlRoom}&host=${HOST_KEY}`;
-            document.getElementById('shareModal').classList.add('show');
-        }
-
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('show');
-        }
-
-        function copyLink(inputId) {
-            const input = document.getElementById(inputId);
-            input.select();
-            document.execCommand('copy');
-            const btn = input.nextElementSibling;
-            btn.textContent = 'Copied!';
-            setTimeout(() => btn.textContent = 'Copy', 1500);
-        }
-
-        // ============ CHAT ============
-        function toggleChatExpand() {
-            chatExpanded = !chatExpanded;
-            document.getElementById('chatBar').classList.toggle('expanded', chatExpanded);
-            document.getElementById('chatBar').classList.toggle('collapsed', !chatExpanded);
-        }
-
-        function toggleViewerChat() {
-            document.body.classList.toggle('chat-open');
-            chatExpanded = true;
-            document.getElementById('chatBar').classList.add('expanded');
-            document.getElementById('chatBar').classList.remove('collapsed');
-        }
+        // ========== CHAT ==========
+        function chatAction() { username ? sendMessage() : setUsername(); }
 
         function setUsername() {
-            const input = document.getElementById('usernameInput');
-            const name = input.value.trim();
+            const name = document.getElementById('usernameInput').value.trim();
             if (!name) return;
-
-            currentUsername = name.substring(0, 20);
-            localStorage.setItem('multistream-username', currentUsername);
-
-            document.getElementById('usernameInput').style.display = 'none';
-            document.getElementById('messageInput').style.display = 'block';
-            document.getElementById('chatActionBtn').textContent = 'Send';
-            document.getElementById('chatActionBtn').onclick = sendMessage;
-            document.getElementById('usernameDisplay').style.display = 'flex';
-            document.getElementById('currentUserDisplay').textContent = currentUsername;
-
-            sendSystemMessage(`${currentUsername} joined`);
+            username = name.substring(0, 20);
+            localStorage.setItem('ms-user', username);
+            restoreUsername();
+            chatRef.get('messages').get('sys-' + Date.now()).put({ id: 'sys-' + Date.now(), text: username + ' joined', timestamp: Date.now(), system: true });
         }
 
-        function changeUsername() {
+        function restoreUsername() {
+            document.getElementById('usernameInput').style.display = 'none';
+            document.getElementById('messageInput').style.display = 'block';
+            document.getElementById('chatBtn').textContent = 'Send';
+            document.getElementById('chatUserDisplay').style.display = 'inline';
+            document.getElementById('chatUserDisplay').innerHTML = `${esc(username)} <button onclick="changeUser()" style="padding:2px 6px;font-size:10px;margin-left:5px;">Change</button>`;
+        }
+
+        function changeUser() {
+            username = '';
             document.getElementById('usernameInput').style.display = 'block';
-            document.getElementById('usernameInput').value = currentUsername;
+            document.getElementById('usernameInput').value = '';
             document.getElementById('messageInput').style.display = 'none';
-            document.getElementById('chatActionBtn').textContent = 'Set Name';
-            document.getElementById('chatActionBtn').onclick = setUsername;
-            document.getElementById('usernameDisplay').style.display = 'none';
+            document.getElementById('chatBtn').textContent = 'Set';
+            document.getElementById('chatUserDisplay').style.display = 'none';
         }
 
         function sendMessage() {
-            if (isBanned) return;
-            const input = document.getElementById('messageInput');
-            const text = input.value.trim();
-            if (!text || !currentUsername) return;
-
-            chat.get('messages').get(sessionId + '-' + Date.now()).put({
-                id: sessionId + '-' + Date.now(),
-                username: currentUsername,
-                text: text,
-                timestamp: Date.now(),
-                sessionId: sessionId,
-                isHost: isHost,
-                deleted: false
-            });
-            input.value = '';
+            const text = document.getElementById('messageInput').value.trim();
+            if (!text || !username) return;
+            chatRef.get('messages').get(sessionId + '-' + Date.now()).put({ id: sessionId + '-' + Date.now(), username, text, timestamp: Date.now(), sessionId, isHost });
+            document.getElementById('messageInput').value = '';
         }
 
-        function sendSystemMessage(text) {
-            chat.get('messages').get('sys-' + Date.now()).put({
-                id: 'sys-' + Date.now(),
-                text: text,
-                timestamp: Date.now(),
-                system: true
-            });
-        }
-
-        function deleteMessage(msgId) {
-            if (!isHost) return;
-            chat.get('messages').get(msgId).get('deleted').put(true);
-            chat.get('messages').get(msgId).get('text').put('[deleted]');
-        }
-
-        function banUser(userSessionId, username) {
-            if (!isHost) return;
-            if (confirm(`Ban ${username}?`)) {
-                room.get('banned').get(userSessionId).put(true);
-            }
-        }
-
-        function showBannedNotice() {
-            document.getElementById('chatInputBar').innerHTML = '<div class="banned-msg">You have been banned from chat.</div>';
-        }
-
-        function renderMessage(msg) {
+        function renderMsg(msg) {
             if (!msg?.id) return;
-            const container = document.getElementById('chatMessages');
-            let div = messageElements.get(msg.id);
-
-            if (!div) {
-                div = document.createElement('div');
-                messageElements.set(msg.id, div);
-                container.appendChild(div);
-            }
+            const c = document.getElementById('chatMessages');
+            let el = msgEls.get(msg.id);
+            if (!el) { el = document.createElement('div'); msgEls.set(msg.id, el); c.appendChild(el); }
 
             if (msg.system) {
-                div.className = 'chat-msg system';
-                div.textContent = msg.text;
+                el.className = 'chat-msg system';
+                el.textContent = msg.text;
             } else {
-                const isOwn = msg.sessionId === sessionId;
-                div.className = `chat-msg ${msg.deleted ? 'deleted' : ''}`;
-
+                el.className = 'chat-msg';
                 const hostTag = msg.isHost ? '<span class="host-tag">HOST</span>' : '';
-                const userClass = msg.isHost ? 'msg-user host' : 'msg-user';
-                const modBtns = (isHost && !msg.isHost && !isOwn && !msg.deleted) ? `
-                    <span class="mod-btns">
-                        <button onclick="deleteMessage('${msg.id}')">Del</button>
-                        <button onclick="banUser('${msg.sessionId}','${escapeHtml(msg.username)}')">Ban</button>
-                    </span>
-                ` : '';
-
-                div.innerHTML = `
-                    <span class="${userClass}">${escapeHtml(msg.username)}${hostTag}</span>
-                    <span class="msg-text">${escapeHtml(msg.text)}</span>
-                    <span class="msg-time">${formatTime(msg.timestamp)}</span>
-                    ${modBtns}
-                `;
+                el.innerHTML = `<span class="user ${msg.isHost ? 'host' : ''}">${esc(msg.username)}${hostTag}</span><span>${esc(msg.text)}</span><span class="time">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>`;
             }
-
-            container.scrollTop = container.scrollHeight;
+            c.scrollTop = c.scrollHeight;
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text || '';
-            return div.innerHTML;
-        }
-
-        function formatTime(ts) {
-            return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        // Chat listener
-        chat.get('messages').map().on((msg, id) => {
-            if (msg?.timestamp) {
-                const cutoff = Date.now() - 2 * 60 * 60 * 1000;
-                if (msg.timestamp > cutoff) renderMessage(msg);
-            }
-        });
-
-        // Restore username
-        if (currentUsername) {
-            document.getElementById('usernameInput').style.display = 'none';
-            document.getElementById('messageInput').style.display = 'block';
-            document.getElementById('chatActionBtn').textContent = 'Send';
-            document.getElementById('chatActionBtn').onclick = sendMessage;
-            document.getElementById('usernameDisplay').style.display = 'flex';
-            document.getElementById('currentUserDisplay').textContent = currentUsername;
-        }
-
-        // ============ INIT ============
-        document.getElementById('chatRoomName').textContent = 'Room: ' + urlRoom;
-        document.getElementById('settingsRoomName').textContent = urlRoom;
-        document.getElementById('layoutGridBtn').classList.add('btn-active');
-
-        // Modal close on overlay click
-        document.querySelectorAll('.modal-overlay').forEach(m => {
-            m.addEventListener('click', e => {
-                if (e.target === m) m.classList.remove('show');
-            });
-        });
-
-        renderGrid();
+        function esc(t) { const d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; }
     </script>
 </body>
 </html>
