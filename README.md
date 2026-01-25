@@ -4,6 +4,9 @@ A self-hosted, real-time multi-video streaming viewer with chat, perfect for wat
 
 ![MultiStream](https://img.shields.io/badge/version-1.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
+<img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
+
+
 ## Features
 
 - **Multi-Video Grid** - Watch multiple YouTube streams in a responsive Brady Bunch-style grid
