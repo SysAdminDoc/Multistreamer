@@ -1043,6 +1043,32 @@
     </div>
 
     <script>
+        // ========== GUN RELAY SERVERS ==========
+        const GUN_RELAYS = [
+            'https://gun-us.herokuapp.com/gun',
+            'https://gunjs.herokuapp.com/gun',
+            'https://gun-eu.herokuapp.com/gun'
+        ];
+
+        // ========== GLOBAL STATE ==========
+        let gun = null;
+        let roomRef = null;
+        let chatRef = null;
+        let isHost = false;
+        let streams = [];
+        let settings = { layout: 'grid', featuredId: null, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' } };
+        let chatExpanded = true;
+        let username = localStorage.getItem('ms-user') || '';
+        let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
+        localStorage.setItem('ms-sid', sessionId);
+        const seenStreams = new Map();
+        const msgEls = new Map();
+
+        // ========== URL PARAMS ==========
+        const params = new URLSearchParams(location.search);
+        const roomId = params.get('room');
+        const hostKey = params.get('host');
+
         // ========== SETUP PAGE ==========
         let createdRoom = null;
         let createdKey = null;
@@ -1068,8 +1094,8 @@
             saveRecentRoom(name, key, title);
 
             // Pre-set title
-            const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
-            gun.get('ms4-' + name).get('meta').get('title').put(title);
+            const tempGun = Gun(GUN_RELAYS);
+            tempGun.get('ms4-' + name).get('meta').get('title').put(title);
         }
 
         function goToRoom() {
@@ -1117,11 +1143,7 @@
             `).join('');
         }
 
-        // ========== VIEWER PAGE ==========
-        const params = new URLSearchParams(location.search);
-        const roomId = params.get('room');
-        const hostKey = params.get('host');
-
+        // ========== PAGE INIT ==========
         if (roomId) {
             document.getElementById('setupPage').style.display = 'none';
             document.getElementById('viewerPage').classList.add('active');
@@ -1131,19 +1153,8 @@
         }
 
         // ========== VIEWER INIT ==========
-        let gun, roomRef, chatRef;
-        let isHost = false;
-        let streams = [];
-        let settings = { layout: 'grid', featuredId: null, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' } };
-        let chatExpanded = true;
-        let username = localStorage.getItem('ms-user') || '';
-        let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
-        localStorage.setItem('ms-sid', sessionId);
-        const seenStreams = new Map();
-        const msgEls = new Map();
-
         function initViewer() {
-            gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+            gun = Gun(GUN_RELAYS);
             roomRef = gun.get('ms4-' + roomId);
             chatRef = gun.get('ms4-chat-' + roomId);
 
