@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiStream Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Control Panel - Host Only */
+        .control-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 12px 20px;
+            z-index: 1000;
+            border-bottom: 1px solid #2a2a4a;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            transition: transform 0.3s ease;
+        }
+
+        .control-panel.hidden {
+            transform: translateY(-100%);
+        }
+
+        /* Hide controls for viewers */
+        body.viewer-mode .control-panel,
+        body.viewer-mode .toggle-panel {
+            display: none !important;
+        }
+
+        body.viewer-mode .grid-container {
+            padding-top: 0 !important;
+        }
+
+        .toggle-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1001;
+            background: #2a2a4a;
+            border: none;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .toggle-panel:hover {
+            background: #3a3a5a;
+        }
+
+        .logo {
+            font-size: 1.3em;
+            font-weight: 700;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: 10px;
+        }
+
+        .host-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #3a3a5a;
+            border-radius: 6px;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: #00d4ff;
+        }
+
+        .input-group input::placeholder {
+            color: #666;
+        }
+
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background: #2a2a4a;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #3a3a5a;
+        }
+
+        .btn-weather {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+
+        .btn-weather:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-weather.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .options-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .stream-count {
+            background: #2a2a4a;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        .stream-count span {
+            color: #00d4ff;
+            font-weight: 600;
+        }
+
+        /* Grid Container */
+        .grid-container {
+            display: grid;
+            height: 100vh;
+            width: 100vw;
+            padding-top: 70px;
+            gap: 2px;
+            background: #000;
+            transition: padding-top 0.3s ease;
+        }
+
+        .grid-container.fullscreen {
+            padding-top: 0;
+        }
+
+        .grid-item {
+            position: relative;
+            background: #111;
+            overflow: hidden;
+        }
+
+        .grid-item iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .grid-item .remove-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(220, 53, 69, 0.9);
+            border: none;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Hide remove buttons for viewers */
+        body.viewer-mode .grid-item .remove-btn {
+            display: none !important;
+        }
+
+        .grid-item:hover .remove-btn {
+            opacity: 1;
+        }
+
+        .grid-item .remove-btn:hover {
+            background: #c82333;
+            transform: scale(1.1);
+        }
+
+        .grid-item .label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            padding: 20px 10px 8px;
+            font-size: 12px;
+            color: #ccc;
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .grid-item:hover .label {
+            opacity: 1;
+        }
+
+        .grid-item.weather-panel {
+            background: #1a1a2e;
+        }
+
+        .grid-item.weather-panel .label {
+            background: linear-gradient(transparent, rgba(26, 26, 46, 0.9));
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: calc(100vh - 70px);
+            color: #555;
+            text-align: center;
+            padding: 20px;
+        }
+
+        body.viewer-mode .empty-state {
+            height: 100vh;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h2 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+
+        /* Viewer floating buttons */
+        .viewer-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1001;
+        }
+
+        .viewer-controls button {
+            padding: 12px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Viewer count */
+        .viewer-badge {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(26, 26, 46, 0.9);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #888;
+            z-index: 1001;
+            border: 1px solid #2a2a4a;
+        }
+
+        .viewer-badge span {
+            color: #00d4ff;
+        }
+
+        /* Chat Panel */
+        .chat-panel {
+            position: fixed;
+            top: 0;
+            right: -360px;
+            width: 360px;
+            height: 100vh;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+            border-left: 1px solid #2a2a4a;
+            z-index: 1002;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.3s ease;
+        }
+
+        .chat-panel.open {
+            right: 0;
+        }
+
+        .chat-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-bottom: 1px solid #2a2a4a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h3 {
+            margin: 0;
+            font-size: 1.1em;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .chat-header .close-chat {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .chat-header .close-chat:hover {
+            color: #fff;
+        }
+
+        .chat-room-info {
+            padding: 8px 20px;
+            background: rgba(0, 212, 255, 0.1);
+            border-bottom: 1px solid #2a2a4a;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .chat-room-info span {
+            color: #00d4ff;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: #0a0a0f;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #3a3a5a;
+            border-radius: 3px;
+        }
+
+        .chat-message {
+            background: #0f0f1a;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #2a2a4a;
+        }
+
+        .chat-message .meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .chat-message .username {
+            font-weight: 600;
+            color: #00d4ff;
+            font-size: 13px;
+        }
+
+        .chat-message .username.host {
+            color: #f59e0b;
+        }
+
+        .chat-message .host-tag {
+            background: #f59e0b;
+            color: #000;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 10px;
+            margin-left: 6px;
+            font-weight: 600;
+        }
+
+        .chat-message .time {
+            font-size: 11px;
+            color: #555;
+        }
+
+        .chat-message .text {
+            font-size: 14px;
+            color: #ccc;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .chat-message.own {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(123, 44, 191, 0.15) 100%);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .chat-message.system {
+            background: transparent;
+            border: none;
+            text-align: center;
+            color: #555;
+            font-size: 12px;
+            padding: 5px;
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            background: #0a0a0f;
+            border-top: 1px solid #2a2a4a;
+        }
+
+        .chat-input-area .username-input {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid #3a3a5a;
+            border-radius: 6px;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .chat-input-area input:focus {
+            border-color: #00d4ff;
+        }
+
+        .chat-input-area .message-input {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input-area button {
+            padding: 10px 16px;
+        }
+
+        .online-count {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .online-dot {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .btn-chat {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+        }
+
+        .btn-chat:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-chat.active {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .btn-chat.has-new {
+            animation: newMessage 0.5s ease infinite;
+        }
+
+        @keyframes newMessage {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .control-panel {
+                padding: 10px;
+            }
+            
+            .logo {
+                display: none;
+            }
+            
+            .input-group {
+                min-width: 100%;
+            }
+
+            .chat-panel {
+                width: 100%;
+                right: -100%;
+            }
+        }
+
+        /* Copy link modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid #2a2a4a;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal h3 {
+            margin: 0 0 20px;
+            color: #fff;
+        }
+
+        .modal p {
+            color: #888;
+            margin-bottom: 15px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .modal .link-box {
+            background: #0a0a0f;
+            border: 1px solid #3a3a5a;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .modal .link-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #00d4ff;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .modal .link-box button {
+            padding: 8px 14px;
+            font-size: 13px;
+        }
+
+        .modal .actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Host Control Panel -->
+    <div class="control-panel" id="controlPanel">
+        <span class="logo">MultiStream</span>
+        <span class="host-badge">Host</span>
+        
+        <div class="input-group">
+            <input type="text" id="videoUrl" placeholder="Paste YouTube URL or Video ID..." 
+                   onkeypress="if(event.key === 'Enter') addStream()">
+            <button class="btn-primary" onclick="addStream()">Add Stream</button>
+        </div>
+        
+        <div class="options-group">
+            <button class="btn-chat" id="chatBtn" onclick="toggleChat()">Chat</button>
+            <button class="btn-weather" id="weatherBtn" onclick="toggleWeather()">Weather</button>
+            <button class="btn-secondary" onclick="muteAll()">Mute All</button>
+            <button class="btn-secondary" onclick="showShareModal()">Share Link</button>
+            <button class="btn-danger" onclick="clearAll()">Clear All</button>
+            <div class="stream-count">Streams: <span id="streamCount">0</span></div>
+        </div>
+    </div>
+    
+    <button class="toggle-panel" id="toggleBtn" onclick="togglePanel()">Hide Controls</button>
+
+    <!-- Viewer Controls (floating) -->
+    <div class="viewer-controls" id="viewerControls" style="display: none;">
+        <button class="btn-chat" id="viewerChatBtn" onclick="toggleChat()">Chat</button>
+    </div>
+
+    <!-- Viewer Badge -->
+    <div class="viewer-badge" id="viewerBadge" style="display: none;">
+        Room: <span id="roomDisplay"></span>
+    </div>
+    
+    <div class="grid-container" id="gridContainer">
+        <div class="empty-state" id="emptyState">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <path d="M8 21h8M12 17v4"/>
+                <path d="M10 9l4 2-4 2V9z"/>
+            </svg>
+            <h2 id="emptyTitle">No Streams Yet</h2>
+            <p id="emptyText">Paste a YouTube URL above to start watching. Add multiple streams to create a grid view, or toggle the weather panel for local conditions.</p>
+        </div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+            <h3>Live Chat</h3>
+            <div class="online-count">
+                <span class="online-dot"></span>
+                <span id="onlineCount">Connected</span>
+            </div>
+            <button class="close-chat" onclick="toggleChat()">&times;</button>
+        </div>
+        <div class="chat-room-info">
+            Room: <span id="roomNameDisplay">loading...</span>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-message system">Welcome! Set your username and start chatting.</div>
+        </div>
+        <div class="chat-input-area">
+            <div class="username-input" id="usernameArea">
+                <input type="text" id="usernameInput" placeholder="Enter username..." maxlength="20">
+                <button class="btn-primary" onclick="setUsername()">Set</button>
+            </div>
+            <div class="message-input">
+                <input type="text" id="messageInput" placeholder="Type a message..." 
+                       onkeypress="if(event.key === 'Enter') sendMessage()" disabled>
+                <button class="btn-primary" onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal">
+            <h3>Share This Room</h3>
+            <p>Share this link with viewers. They'll see your streams and can chat, but only you can control what's playing.</p>
+            
+            <p style="color: #4ade80; font-size: 12px;"><strong>Viewer Link (share this):</strong></p>
+            <div class="link-box">
+                <input type="text" id="viewerLink" readonly>
+                <button class="btn-primary" onclick="copyLink('viewerLink')">Copy</button>
+            </div>
+            
+            <p style="color: #f59e0b; font-size: 12px;"><strong>Host Link (keep this private!):</strong></p>
+            <div class="link-box">
+                <input type="text" id="hostLink" readonly>
+                <button class="btn-secondary" onclick="copyLink('hostLink')">Copy</button>
+            </div>
+            
+            <div class="actions">
+                <button class="btn-secondary" onclick="closeShareModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ CONFIGURATION ============
+        // Change these to customize your room
+        const ROOM_NAME = 'blizzard-watch-2025';
+        const HOST_KEY = 'mySecretKey123';  // CHANGE THIS to your own secret!
+        const WEATHER_URL = 'https://web.weatherwise.app';
+
+        // ============ URL PARAMETER PARSING ============
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlRoom = urlParams.get('room') || ROOM_NAME;
+        const urlHostKey = urlParams.get('host');
+        const isHost = urlHostKey === HOST_KEY;
+
+        // Apply viewer mode if not host
+        if (!isHost) {
+            document.body.classList.add('viewer-mode');
+            document.getElementById('viewerControls').style.display = 'flex';
+            document.getElementById('viewerBadge').style.display = 'block';
+            document.getElementById('roomDisplay').textContent = urlRoom;
+            document.getElementById('emptyTitle').textContent = 'Waiting for Host';
+            document.getElementById('emptyText').textContent = 'The host hasn\'t added any streams yet. Hang tight!';
+        }
+
+        // ============ GUN.JS SETUP ============
+        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+        const room = gun.get('multistream-room-' + urlRoom);
+        const chat = gun.get('multistream-chat-' + urlRoom);
+
+        // ============ STATE ============
+        let streams = [];
+        let weatherEnabled = false;
+        let chatOpen = false;
+        let currentUsername = localStorage.getItem('multistream-username') || '';
+        const seenMessages = new Set();
+        const seenStreams = new Set();
+
+        // Session ID for chat
+        let sessionId = localStorage.getItem('multistream-session');
+        if (!sessionId) {
+            sessionId = 'user-' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('multistream-session', sessionId);
+        }
+
+        // ============ STREAM MANAGEMENT ============
+        function extractVideoId(input) {
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/live\/)([^&\?\/]+)/,
+                /^([a-zA-Z0-9_-]{11})$/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = input.match(pattern);
+                if (match) return match[1];
+            }
+            return null;
+        }
+
+        function addStream() {
+            if (!isHost) return;
+            
+            const input = document.getElementById('videoUrl').value.trim();
+            if (!input) return;
+
+            const videoId = extractVideoId(input);
+            if (!videoId) {
+                alert('Invalid YouTube URL or Video ID');
+                return;
+            }
+
+            if (streams.find(s => s.id === videoId)) {
+                alert('This video is already added');
+                return;
+            }
+
+            const stream = {
+                id: videoId,
+                type: 'youtube',
+                addedAt: Date.now()
+            };
+
+            // Save to Gun.js for sync
+            room.get('streams').get(videoId).put(stream);
+            document.getElementById('videoUrl').value = '';
+        }
+
+        function removeStream(videoId) {
+            if (!isHost) return;
+            room.get('streams').get(videoId).put(null);
+        }
+
+        function toggleWeather() {
+            if (!isHost) return;
+            weatherEnabled = !weatherEnabled;
+            room.get('settings').get('weather').put(weatherEnabled);
+            document.getElementById('weatherBtn').classList.toggle('active', weatherEnabled);
+            renderGrid();
+        }
+
+        function clearAll() {
+            if (!isHost) return;
+            if (streams.length === 0 && !weatherEnabled) return;
+            if (confirm('Remove all streams?')) {
+                streams.forEach(s => {
+                    room.get('streams').get(s.id).put(null);
+                });
+                streams = [];
+                seenStreams.clear();
+                weatherEnabled = false;
+                room.get('settings').get('weather').put(false);
+                document.getElementById('weatherBtn').classList.remove('active');
+                renderGrid();
+            }
+        }
+
+        function muteAll() {
+            const iframes = document.querySelectorAll('.grid-item iframe');
+            iframes.forEach(iframe => {
+                if (iframe.src.includes('youtube.com')) {
+                    const url = new URL(iframe.src);
+                    url.searchParams.set('mute', '1');
+                    iframe.src = url.toString();
+                }
+            });
+        }
+
+        // ============ SYNC LISTENERS ============
+        // Listen for stream changes
+        room.get('streams').map().on((stream, videoId) => {
+            if (stream === null) {
+                // Stream removed
+                streams = streams.filter(s => s.id !== videoId);
+                seenStreams.delete(videoId);
+                renderGrid();
+            } else if (stream && stream.id && !seenStreams.has(videoId)) {
+                // New stream added
+                seenStreams.add(videoId);
+                streams.push({
+                    id: stream.id,
+                    type: stream.type || 'youtube',
+                    url: `https://www.youtube.com/embed/${stream.id}?autoplay=1&mute=1`,
+                    addedAt: stream.addedAt
+                });
+                // Sort by added time
+                streams.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+                renderGrid();
+            }
+        });
+
+        // Listen for weather setting
+        room.get('settings').get('weather').on((enabled) => {
+            if (typeof enabled === 'boolean') {
+                weatherEnabled = enabled;
+                document.getElementById('weatherBtn')?.classList.toggle('active', enabled);
+                renderGrid();
+            }
+        });
+
+        // ============ GRID RENDERING ============
+        function calculateGrid(itemCount) {
+            if (itemCount === 0) return { cols: 1, rows: 1 };
+            if (itemCount === 1) return { cols: 1, rows: 1 };
+            if (itemCount === 2) return { cols: 2, rows: 1 };
+            if (itemCount <= 4) return { cols: 2, rows: 2 };
+            if (itemCount <= 6) return { cols: 3, rows: 2 };
+            if (itemCount <= 9) return { cols: 3, rows: 3 };
+            if (itemCount <= 12) return { cols: 4, rows: 3 };
+            if (itemCount <= 16) return { cols: 4, rows: 4 };
+            
+            const cols = Math.ceil(Math.sqrt(itemCount));
+            const rows = Math.ceil(itemCount / cols);
+            return { cols, rows };
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('gridContainer');
+            const totalItems = streams.length + (weatherEnabled ? 1 : 0);
+            
+            if (document.getElementById('streamCount')) {
+                document.getElementById('streamCount').textContent = streams.length;
+            }
+
+            if (totalItems === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="2" y="3" width="20" height="14" rx="2"/>
+                            <path d="M8 21h8M12 17v4"/>
+                            <path d="M10 9l4 2-4 2V9z"/>
+                        </svg>
+                        <h2>${isHost ? 'No Streams Yet' : 'Waiting for Host'}</h2>
+                        <p>${isHost ? 'Paste a YouTube URL above to start watching.' : 'The host hasn\'t added any streams yet. Hang tight!'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const { cols, rows } = calculateGrid(totalItems);
+            container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+            let html = '';
+
+            streams.forEach((stream) => {
+                html += `
+                    <div class="grid-item">
+                        <iframe src="${stream.url}" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                        <button class="remove-btn" onclick="removeStream('${stream.id}')">x</button>
+                        <div class="label">YouTube: ${stream.id}</div>
+                    </div>
+                `;
+            });
+
+            if (weatherEnabled) {
+                html += `
+                    <div class="grid-item weather-panel">
+                        <iframe src="${WEATHER_URL}" allowfullscreen></iframe>
+                        <button class="remove-btn" onclick="toggleWeather()">x</button>
+                        <div class="label">WeatherWise</div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // ============ UI CONTROLS ============
+        function togglePanel() {
+            const panel = document.getElementById('controlPanel');
+            const btn = document.getElementById('toggleBtn');
+            const grid = document.getElementById('gridContainer');
+            
+            panel.classList.toggle('hidden');
+            grid.classList.toggle('fullscreen');
+            btn.textContent = panel.classList.contains('hidden') ? 'Show Controls' : 'Hide Controls';
+        }
+
+        function showShareModal() {
+            const baseUrl = window.location.origin + window.location.pathname;
+            document.getElementById('viewerLink').value = `${baseUrl}?room=${urlRoom}`;
+            document.getElementById('hostLink').value = `${baseUrl}?room=${urlRoom}&host=${HOST_KEY}`;
+            document.getElementById('shareModal').classList.add('show');
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.remove('show');
+        }
+
+        function copyLink(inputId) {
+            const input = document.getElementById(inputId);
+            input.select();
+            document.execCommand('copy');
+            
+            const btn = input.nextElementSibling;
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = originalText, 1500);
+        }
+
+        // ============ CHAT FUNCTIONALITY ============
+        function toggleChat() {
+            chatOpen = !chatOpen;
+            document.getElementById('chatPanel').classList.toggle('open', chatOpen);
+            
+            const chatBtn = document.getElementById(isHost ? 'chatBtn' : 'viewerChatBtn');
+            chatBtn.classList.toggle('active', chatOpen);
+            chatBtn.classList.remove('has-new');
+            
+            if (chatOpen && currentUsername) {
+                document.getElementById('messageInput').focus();
+            }
+        }
+
+        function setUsername() {
+            const input = document.getElementById('usernameInput').value.trim();
+            if (!input) return;
+            
+            currentUsername = input.substring(0, 20);
+            localStorage.setItem('multistream-username', currentUsername);
+            
+            document.getElementById('usernameArea').innerHTML = `
+                <span style="color: #00d4ff; font-size: 13px;">Chatting as: <strong>${escapeHtml(currentUsername)}</strong></span>
+                <button class="btn-secondary" onclick="changeUsername()" style="padding: 6px 10px; font-size: 12px;">Change</button>
+            `;
+            
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('messageInput').focus();
+            
+            sendSystemMessage(`${currentUsername} joined the chat`);
+        }
+
+        function changeUsername() {
+            document.getElementById('usernameArea').innerHTML = `
+                <input type="text" id="usernameInput" placeholder="Enter username..." maxlength="20" value="${escapeHtml(currentUsername)}">
+                <button class="btn-primary" onclick="setUsername()">Set</button>
+            `;
+            document.getElementById('usernameInput').focus();
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text || !currentUsername) return;
+            
+            const message = {
+                id: sessionId + '-' + Date.now(),
+                username: currentUsername,
+                text: text,
+                timestamp: Date.now(),
+                sessionId: sessionId,
+                isHost: isHost
+            };
+            
+            chat.get('messages').get(message.id).put(message);
+            input.value = '';
+        }
+
+        function sendSystemMessage(text) {
+            const message = {
+                id: 'system-' + Date.now() + '-' + Math.random(),
+                username: 'System',
+                text: text,
+                timestamp: Date.now(),
+                system: true
+            };
+            chat.get('messages').get(message.id).put(message);
+        }
+
+        function addMessageToUI(msg) {
+            if (!msg || !msg.id || seenMessages.has(msg.id)) return;
+            seenMessages.add(msg.id);
+            
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            
+            if (msg.system) {
+                div.className = 'chat-message system';
+                div.textContent = msg.text;
+            } else {
+                const isOwn = msg.sessionId === sessionId;
+                div.className = `chat-message ${isOwn ? 'own' : ''}`;
+                const hostTag = msg.isHost ? '<span class="host-tag">HOST</span>' : '';
+                const usernameClass = msg.isHost ? 'username host' : 'username';
+                div.innerHTML = `
+                    <div class="meta">
+                        <span class="${usernameClass}">${escapeHtml(msg.username)}${hostTag}</span>
+                        <span class="time">${formatTime(msg.timestamp)}</span>
+                    </div>
+                    <div class="text">${escapeHtml(msg.text)}</div>
+                `;
+            }
+            
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            
+            // Notify if chat is closed
+            if (!chatOpen && !msg.system && msg.sessionId !== sessionId) {
+                const chatBtn = document.getElementById(isHost ? 'chatBtn' : 'viewerChatBtn');
+                chatBtn.classList.add('has-new');
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Listen for chat messages
+        chat.get('messages').map().on((msg, id) => {
+            if (msg && msg.timestamp) {
+                const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+                if (msg.timestamp > twoHoursAgo) {
+                    addMessageToUI(msg);
+                }
+            }
+        });
+
+        // Restore username if saved
+        if (currentUsername) {
+            document.getElementById('usernameArea').innerHTML = `
+                <span style="color: #00d4ff; font-size: 13px;">Chatting as: <strong>${escapeHtml(currentUsername)}</strong></span>
+                <button class="btn-secondary" onclick="changeUsername()" style="padding: 6px 10px; font-size: 12px;">Change</button>
+            `;
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+        }
+
+        // Update room name display
+        document.getElementById('roomNameDisplay').textContent = urlRoom;
+
+        // Initialize
+        renderGrid();
+
+        // Close modal on overlay click
+        document.getElementById('shareModal').addEventListener('click', (e) => {
+            if (e.target.id === 'shareModal') closeShareModal();
+        });
+    </script>
+</body>
+</html>
