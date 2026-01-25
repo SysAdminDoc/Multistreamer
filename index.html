@@ -12,153 +12,120 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #16213e;
+            --border-color: #2a2a4a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #888;
+            --accent-primary: #00d4ff;
+            --accent-secondary: #7b2cbf;
+            --grid-gap: 2px;
+        }
+
         body {
-            background: #0a0a0f;
-            color: #e0e0e0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             height: 100vh;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* Control Panel - Host Only */
+        /* Control Panel */
         .control-panel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            padding: 12px 20px;
-            z-index: 1000;
-            border-bottom: 1px solid #2a2a4a;
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
-            gap: 15px;
+            gap: 10px;
             align-items: center;
             flex-wrap: wrap;
-            transition: transform 0.3s ease;
+            z-index: 1000;
+            flex-shrink: 0;
         }
 
-        .control-panel.hidden {
-            transform: translateY(-100%);
-        }
-
-        /* Hide controls for viewers */
-        body.viewer-mode .control-panel,
-        body.viewer-mode .toggle-panel {
+        body.viewer-mode .control-panel {
             display: none !important;
         }
 
-        body.viewer-mode .grid-container {
-            padding-top: 0 !important;
-        }
-
-        .toggle-panel {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 1001;
-            background: #2a2a4a;
-            border: none;
-            color: #e0e0e0;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .toggle-panel:hover {
-            background: #3a3a5a;
-        }
-
         .logo {
-            font-size: 1.3em;
+            font-size: 1.2em;
             font-weight: 700;
-            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-right: 10px;
         }
 
         .host-badge {
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
             color: #000;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         .input-group {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex: 1;
-            min-width: 300px;
+            min-width: 250px;
+            max-width: 400px;
         }
 
         .input-group input {
             flex: 1;
-            padding: 10px 15px;
-            border: 1px solid #3a3a5a;
-            border-radius: 6px;
-            background: #0f0f1a;
-            color: #e0e0e0;
-            font-size: 14px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
             outline: none;
-            transition: border-color 0.2s;
         }
 
         .input-group input:focus {
-            border-color: #00d4ff;
-        }
-
-        .input-group input::placeholder {
-            color: #666;
+            border-color: var(--accent-primary);
         }
 
         button {
-            padding: 10px 18px;
+            padding: 8px 14px;
             border: none;
-            border-radius: 6px;
+            border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #0099cc 100%);
             color: #000;
         }
 
         .btn-primary:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+            box-shadow: 0 3px 10px rgba(0, 212, 255, 0.3);
         }
 
         .btn-secondary {
-            background: #2a2a4a;
-            color: #e0e0e0;
+            background: var(--border-color);
+            color: var(--text-primary);
         }
 
         .btn-secondary:hover {
             background: #3a3a5a;
         }
 
-        .btn-weather {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-        }
-
-        .btn-weather:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-weather.active {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        .btn-icon {
+            padding: 8px 10px;
+            font-size: 14px;
         }
 
         .btn-danger {
@@ -166,48 +133,79 @@
             color: #fff;
         }
 
-        .btn-danger:hover {
-            background: #c82333;
+        .btn-active {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            color: #000 !important;
         }
 
-        .options-group {
+        .control-group {
             display: flex;
-            gap: 8px;
+            gap: 4px;
             align-items: center;
         }
 
-        .stream-count {
-            background: #2a2a4a;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-size: 13px;
-            color: #aaa;
+        .control-group-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-right: 4px;
         }
 
-        .stream-count span {
-            color: #00d4ff;
-            font-weight: 600;
+        .divider {
+            width: 1px;
+            height: 28px;
+            background: var(--border-color);
+            margin: 0 6px;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
         }
 
         /* Grid Container */
         .grid-container {
+            flex: 1;
             display: grid;
-            height: 100vh;
-            width: 100vw;
-            padding-top: 70px;
-            gap: 2px;
+            gap: var(--grid-gap);
             background: #000;
-            transition: padding-top 0.3s ease;
+            padding: var(--grid-gap);
+            overflow: hidden;
         }
 
-        .grid-container.fullscreen {
-            padding-top: 0;
+        /* Layout Modes */
+        .grid-container.layout-grid {
+            /* Dynamic grid - set via JS */
+        }
+
+        .grid-container.layout-featured {
+            grid-template-columns: 1fr 300px;
+            grid-template-rows: 1fr;
+        }
+
+        .grid-container.layout-featured .grid-item:first-child {
+            grid-row: 1 / -1;
+        }
+
+        .grid-container.layout-featured .sidebar-stack {
+            display: flex;
+            flex-direction: column;
+            gap: var(--grid-gap);
         }
 
         .grid-item {
             position: relative;
             background: #111;
             overflow: hidden;
+            border-radius: 4px;
+        }
+
+        .grid-item.featured {
+            grid-column: 1;
+            grid-row: 1 / -1;
         }
 
         .grid-item iframe {
@@ -216,38 +214,46 @@
             border: none;
         }
 
-        .grid-item .remove-btn {
+        .grid-item .controls-overlay {
             position: absolute;
-            top: 8px;
-            right: 8px;
-            background: rgba(220, 53, 69, 0.9);
-            border: none;
-            color: #fff;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 16px;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 8px;
+            background: linear-gradient(rgba(0,0,0,0.7), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             opacity: 0;
             transition: opacity 0.2s;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
-        /* Hide remove buttons for viewers */
-        body.viewer-mode .grid-item .remove-btn {
-            display: none !important;
-        }
-
-        .grid-item:hover .remove-btn {
+        .grid-item:hover .controls-overlay {
             opacity: 1;
         }
 
-        .grid-item .remove-btn:hover {
-            background: #c82333;
-            transform: scale(1.1);
+        .grid-item .video-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .grid-item .video-controls button {
+            padding: 5px 8px;
+            font-size: 11px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        .grid-item .video-controls button:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .grid-item .video-controls button.active {
+            background: var(--accent-primary);
+            color: #000;
+            border-color: var(--accent-primary);
         }
 
         .grid-item .label {
@@ -256,26 +262,19 @@
             left: 0;
             right: 0;
             background: linear-gradient(transparent, rgba(0,0,0,0.8));
-            padding: 20px 10px 8px;
-            font-size: 12px;
-            color: #ccc;
+            padding: 15px 8px 6px;
+            font-size: 11px;
+            color: #aaa;
             opacity: 0;
             transition: opacity 0.2s;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .grid-item:hover .label {
             opacity: 1;
         }
 
-        .grid-item.weather-panel {
-            background: #1a1a2e;
-        }
-
-        .grid-item.weather-panel .label {
-            background: linear-gradient(transparent, rgba(26, 26, 46, 0.9));
+        body.viewer-mode .grid-item .video-controls button:not(.unmute-btn) {
+            display: none;
         }
 
         /* Empty State */
@@ -284,315 +283,362 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: calc(100vh - 70px);
+            height: 100%;
             color: #555;
             text-align: center;
             padding: 20px;
         }
 
-        body.viewer-mode .empty-state {
-            height: 100vh;
-        }
-
         .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
+            width: 60px;
+            height: 60px;
+            margin-bottom: 15px;
             opacity: 0.5;
         }
 
         .empty-state h2 {
-            font-size: 1.5em;
-            margin-bottom: 10px;
+            font-size: 1.3em;
+            margin-bottom: 8px;
             color: #666;
         }
 
         .empty-state p {
-            font-size: 14px;
-            max-width: 400px;
-            line-height: 1.6;
+            font-size: 13px;
+            max-width: 350px;
         }
 
-        /* Viewer floating buttons */
-        .viewer-controls {
+        /* Compact Chat Bar */
+        .chat-bar {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            max-height: 200px;
+            min-height: 44px;
+            transition: max-height 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .chat-bar.collapsed {
+            max-height: 44px;
+        }
+
+        .chat-bar.expanded {
+            max-height: 350px;
+        }
+
+        .chat-header-bar {
+            display: flex;
+            align-items: center;
+            padding: 8px 15px;
+            gap: 10px;
+            background: var(--bg-tertiary);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .chat-header-bar:hover {
+            background: #1e2a4a;
+        }
+
+        .chat-header-bar h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            flex-shrink: 0;
+        }
+
+        .chat-toggle-icon {
+            margin-left: auto;
+            color: var(--text-secondary);
+            transition: transform 0.3s;
+        }
+
+        .chat-bar.expanded .chat-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .chat-messages-bar {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 0;
+        }
+
+        .chat-messages-bar::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .chat-messages-bar::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .chat-msg {
+            font-size: 13px;
+            line-height: 1.4;
+            padding: 4px 0;
+        }
+
+        .chat-msg .msg-user {
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin-right: 6px;
+        }
+
+        .chat-msg .msg-user.host {
+            color: #f59e0b;
+        }
+
+        .chat-msg .msg-user .host-tag {
+            background: #f59e0b;
+            color: #000;
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-size: 9px;
+            margin-left: 4px;
+        }
+
+        .chat-msg .msg-text {
+            color: var(--text-primary);
+        }
+
+        .chat-msg .msg-time {
+            color: var(--text-secondary);
+            font-size: 10px;
+            margin-left: 6px;
+        }
+
+        .chat-msg.system {
+            color: var(--text-secondary);
+            font-style: italic;
+            text-align: center;
+        }
+
+        .chat-msg.deleted .msg-text {
+            color: #666;
+            font-style: italic;
+        }
+
+        .chat-msg .mod-btns {
+            display: none;
+            margin-left: 6px;
+        }
+
+        .chat-msg:hover .mod-btns {
+            display: inline;
+        }
+
+        .chat-msg .mod-btns button {
+            padding: 1px 5px;
+            font-size: 10px;
+            background: #dc3545;
+            border: none;
+            color: #fff;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 3px;
+        }
+
+        .chat-input-bar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 15px;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .chat-input-bar input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .chat-input-bar input:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .chat-username-display {
+            font-size: 12px;
+            color: var(--accent-primary);
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .banned-msg {
+            color: #dc3545;
+            text-align: center;
+            padding: 10px;
+            font-size: 13px;
+        }
+
+        /* Viewer mode floating chat button */
+        .viewer-chat-toggle {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            display: flex;
-            gap: 10px;
             z-index: 1001;
-        }
-
-        .viewer-controls button {
+            display: none;
             padding: 12px 20px;
             border-radius: 25px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
-        /* Viewer count */
+        body.viewer-mode .viewer-chat-toggle {
+            display: block;
+        }
+
+        body.viewer-mode .chat-bar.collapsed {
+            display: none;
+        }
+
+        body.viewer-mode.chat-open .chat-bar {
+            display: flex !important;
+            max-height: 250px;
+        }
+
+        /* Viewer badge */
         .viewer-badge {
             position: fixed;
             top: 15px;
             left: 15px;
             background: rgba(26, 26, 46, 0.9);
-            padding: 8px 14px;
-            border-radius: 20px;
-            font-size: 13px;
-            color: #888;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            color: var(--text-secondary);
             z-index: 1001;
-            border: 1px solid #2a2a4a;
+            border: 1px solid var(--border-color);
+            display: none;
+        }
+
+        body.viewer-mode .viewer-badge {
+            display: block;
         }
 
         .viewer-badge span {
-            color: #00d4ff;
+            color: var(--accent-primary);
         }
 
-        /* Chat Panel */
-        .chat-panel {
+        /* Settings Panel */
+        .settings-panel {
             position: fixed;
             top: 0;
-            right: -360px;
-            width: 360px;
+            right: -400px;
+            width: 400px;
             height: 100vh;
-            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
-            border-left: 1px solid #2a2a4a;
-            z-index: 1002;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            z-index: 1003;
+            transition: right 0.3s ease;
             display: flex;
             flex-direction: column;
-            transition: right 0.3s ease;
         }
 
-        .chat-panel.open {
+        .settings-panel.open {
             right: 0;
         }
 
-        .chat-header {
+        .settings-header {
             padding: 15px 20px;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-bottom: 1px solid #2a2a4a;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .chat-header h3 {
-            margin: 0;
+        .settings-header h3 {
+            color: var(--accent-primary);
             font-size: 1.1em;
-            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
 
-        .chat-header .close-chat {
-            background: none;
-            border: none;
-            color: #888;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 0;
-            line-height: 1;
-        }
-
-        .chat-header .close-chat:hover {
-            color: #fff;
-        }
-
-        .chat-room-info {
-            padding: 8px 20px;
-            background: rgba(0, 212, 255, 0.1);
-            border-bottom: 1px solid #2a2a4a;
-            font-size: 12px;
-            color: #888;
-        }
-
-        .chat-room-info span {
-            color: #00d4ff;
-        }
-
-        .chat-messages {
+        .settings-content {
             flex: 1;
             overflow-y: auto;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            padding: 20px;
         }
 
-        .chat-messages::-webkit-scrollbar {
-            width: 6px;
+        .settings-section {
+            margin-bottom: 25px;
         }
 
-        .chat-messages::-webkit-scrollbar-track {
-            background: #0a0a0f;
+        .settings-section h4 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
         }
 
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: #3a3a5a;
-            border-radius: 3px;
-        }
-
-        .chat-message {
-            background: #0f0f1a;
-            padding: 10px 12px;
-            border-radius: 8px;
-            border: 1px solid #2a2a4a;
-        }
-
-        .chat-message .meta {
+        .setting-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 5px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .chat-message .username {
-            font-weight: 600;
-            color: #00d4ff;
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
             font-size: 13px;
         }
 
-        .chat-message .username.host {
-            color: #f59e0b;
-        }
-
-        .chat-message .host-tag {
-            background: #f59e0b;
-            color: #000;
-            padding: 1px 6px;
-            border-radius: 8px;
-            font-size: 10px;
-            margin-left: 6px;
-            font-weight: 600;
-        }
-
-        .chat-message .time {
-            font-size: 11px;
-            color: #555;
-        }
-
-        .chat-message .text {
-            font-size: 14px;
-            color: #ccc;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
-
-        .chat-message.own {
-            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(123, 44, 191, 0.15) 100%);
-            border-color: rgba(0, 212, 255, 0.3);
-        }
-
-        .chat-message.system {
-            background: transparent;
-            border: none;
-            text-align: center;
-            color: #555;
-            font-size: 12px;
-            padding: 5px;
-        }
-
-        .chat-input-area {
-            padding: 15px;
-            background: #0a0a0f;
-            border-top: 1px solid #2a2a4a;
-        }
-
-        .chat-input-area .username-input {
+        .setting-control {
             display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .chat-input-area input {
-            flex: 1;
-            padding: 10px 12px;
-            border: 1px solid #3a3a5a;
-            border-radius: 6px;
-            background: #0f0f1a;
-            color: #e0e0e0;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .chat-input-area input:focus {
-            border-color: #00d4ff;
-        }
-
-        .chat-input-area .message-input {
-            display: flex;
-            gap: 8px;
-        }
-
-        .chat-input-area button {
-            padding: 10px 16px;
-        }
-
-        .online-count {
-            display: flex;
-            align-items: center;
             gap: 6px;
-            font-size: 12px;
-            color: #888;
+            align-items: center;
         }
 
-        .online-dot {
-            width: 8px;
-            height: 8px;
-            background: #4ade80;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
+        .setting-control input[type="range"] {
+            width: 100px;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .setting-control input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
         }
 
-        .btn-chat {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: #fff;
+        .setting-control select {
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
         }
 
-        .btn-chat:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        .settings-actions {
+            padding: 15px 20px;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
-        .btn-chat.active {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        }
-
-        .btn-chat.has-new {
-            animation: newMessage 0.5s ease infinite;
-        }
-
-        @keyframes newMessage {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .control-panel {
-                padding: 10px;
-            }
-            
-            .logo {
-                display: none;
-            }
-            
-            .input-group {
-                min-width: 100%;
-            }
-
-            .chat-panel {
-                width: 100%;
-                right: -100%;
-            }
-        }
-
-        /* Copy link modal */
+        /* Modal */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -611,200 +657,325 @@
         }
 
         .modal {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            padding: 30px;
-            border-radius: 12px;
-            border: 1px solid #2a2a4a;
+            background: var(--bg-secondary);
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
             max-width: 500px;
             width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
         }
 
         .modal h3 {
-            margin: 0 0 20px;
+            margin: 0 0 15px;
             color: #fff;
         }
 
         .modal p {
-            color: #888;
-            margin-bottom: 15px;
-            font-size: 14px;
-            line-height: 1.5;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .modal textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 12px;
+            font-family: monospace;
+            resize: vertical;
         }
 
         .modal .link-box {
-            background: #0a0a0f;
-            border: 1px solid #3a3a5a;
-            border-radius: 6px;
-            padding: 12px 15px;
-            margin-bottom: 15px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 12px;
             display: flex;
-            gap: 10px;
-            align-items: center;
+            gap: 8px;
         }
 
         .modal .link-box input {
             flex: 1;
             background: transparent;
             border: none;
-            color: #00d4ff;
-            font-size: 13px;
+            color: var(--accent-primary);
+            font-size: 12px;
             outline: none;
-        }
-
-        .modal .link-box button {
-            padding: 8px 14px;
-            font-size: 13px;
         }
 
         .modal .actions {
             display: flex;
             gap: 10px;
             justify-content: flex-end;
-            margin-top: 20px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                padding: 8px;
+            }
+            
+            .logo, .divider {
+                display: none;
+            }
+            
+            .input-group {
+                min-width: 100%;
+            }
+
+            .settings-panel {
+                width: 100%;
+                right: -100%;
+            }
+
+            .grid-container.layout-featured {
+                grid-template-columns: 1fr;
+                grid-template-rows: 2fr 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Host Control Panel -->
+    <!-- Control Panel -->
     <div class="control-panel" id="controlPanel">
         <span class="logo">MultiStream</span>
         <span class="host-badge">Host</span>
         
         <div class="input-group">
-            <input type="text" id="videoUrl" placeholder="Paste YouTube URL or Video ID..." 
+            <input type="text" id="videoUrl" placeholder="YouTube URL..." 
                    onkeypress="if(event.key === 'Enter') addStream()">
-            <button class="btn-primary" onclick="addStream()">Add Stream</button>
+            <button class="btn-primary" onclick="addStream()">Add</button>
         </div>
-        
-        <div class="options-group">
-            <button class="btn-chat" id="chatBtn" onclick="toggleChat()">Chat</button>
-            <button class="btn-weather" id="weatherBtn" onclick="toggleWeather()">Weather</button>
-            <button class="btn-secondary" onclick="muteAll()">Mute All</button>
-            <button class="btn-secondary" onclick="showShareModal()">Share Link</button>
-            <button class="btn-danger" onclick="clearAll()">Clear All</button>
-            <div class="stream-count">Streams: <span id="streamCount">0</span></div>
-        </div>
-    </div>
-    
-    <button class="toggle-panel" id="toggleBtn" onclick="togglePanel()">Hide Controls</button>
 
-    <!-- Viewer Controls (floating) -->
-    <div class="viewer-controls" id="viewerControls" style="display: none;">
-        <button class="btn-chat" id="viewerChatBtn" onclick="toggleChat()">Chat</button>
+        <div class="divider"></div>
+        
+        <div class="control-group">
+            <span class="control-group-label">Layout:</span>
+            <button class="btn-secondary btn-icon" id="layoutGridBtn" onclick="setLayout('grid')" title="Grid">&#9638;</button>
+            <button class="btn-secondary btn-icon" id="layoutFeaturedBtn" onclick="setLayout('featured')" title="Featured">&#9635;</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-group">
+            <button class="btn-secondary" onclick="muteAll()">Mute All</button>
+            <button class="btn-secondary" onclick="unmuteAll()">Unmute All</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <button class="btn-secondary" id="weatherBtn" onclick="toggleWeather()">Weather</button>
+        <button class="btn-secondary" onclick="showShareModal()">Share</button>
+        <button class="btn-secondary" onclick="toggleSettings()">Settings</button>
+        <button class="btn-danger" onclick="clearAll()">Clear</button>
     </div>
 
     <!-- Viewer Badge -->
-    <div class="viewer-badge" id="viewerBadge" style="display: none;">
+    <div class="viewer-badge">
         Room: <span id="roomDisplay"></span>
     </div>
-    
-    <div class="grid-container" id="gridContainer">
-        <div class="empty-state" id="emptyState">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <rect x="2" y="3" width="20" height="14" rx="2"/>
-                <path d="M8 21h8M12 17v4"/>
-                <path d="M10 9l4 2-4 2V9z"/>
-            </svg>
-            <h2 id="emptyTitle">No Streams Yet</h2>
-            <p id="emptyText">Paste a YouTube URL above to start watching. Add multiple streams to create a grid view, or toggle the weather panel for local conditions.</p>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="grid-container" id="gridContainer">
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="2" y="3" width="20" height="14" rx="2"/>
+                    <path d="M8 21h8M12 17v4"/>
+                    <path d="M10 9l4 2-4 2V9z"/>
+                </svg>
+                <h2 id="emptyTitle">No Streams Yet</h2>
+                <p id="emptyText">Add YouTube URLs to start watching.</p>
+            </div>
+        </div>
+
+        <!-- Compact Chat Bar -->
+        <div class="chat-bar" id="chatBar">
+            <div class="chat-header-bar" onclick="toggleChatExpand()">
+                <h4>Chat</h4>
+                <span id="chatRoomName" style="font-size: 11px; color: var(--text-secondary);">Room: loading...</span>
+                <span class="chat-toggle-icon">&#9650;</span>
+            </div>
+            <div class="chat-messages-bar" id="chatMessages"></div>
+            <div class="chat-input-bar" id="chatInputBar">
+                <div class="chat-username-display" id="usernameDisplay" style="display: none;">
+                    <span id="currentUserDisplay"></span>
+                    <button class="btn-secondary" onclick="changeUsername()" style="padding: 4px 8px; font-size: 11px;">Change</button>
+                </div>
+                <input type="text" id="usernameInput" placeholder="Set username..." maxlength="20"
+                       onkeypress="if(event.key === 'Enter') setUsername()">
+                <input type="text" id="messageInput" placeholder="Type message..." 
+                       onkeypress="if(event.key === 'Enter') sendMessage()" style="display: none;">
+                <button class="btn-primary" id="chatActionBtn" onclick="setUsername()">Set Name</button>
+            </div>
         </div>
     </div>
 
-    <!-- Chat Panel -->
-    <div class="chat-panel" id="chatPanel">
-        <div class="chat-header">
-            <h3>Live Chat</h3>
-            <div class="online-count">
-                <span class="online-dot"></span>
-                <span id="onlineCount">Connected</span>
-            </div>
-            <button class="close-chat" onclick="toggleChat()">&times;</button>
+    <!-- Viewer Chat Toggle -->
+    <button class="viewer-chat-toggle" onclick="toggleViewerChat()">Chat</button>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <h3>Settings</h3>
+            <button class="btn-secondary" onclick="toggleSettings()">&times;</button>
         </div>
-        <div class="chat-room-info">
-            Room: <span id="roomNameDisplay">loading...</span>
-        </div>
-        <div class="chat-messages" id="chatMessages">
-            <div class="chat-message system">Welcome! Set your username and start chatting.</div>
-        </div>
-        <div class="chat-input-area">
-            <div class="username-input" id="usernameArea">
-                <input type="text" id="usernameInput" placeholder="Enter username..." maxlength="20">
-                <button class="btn-primary" onclick="setUsername()">Set</button>
+        <div class="settings-content">
+            <div class="settings-section">
+                <h4>Display</h4>
+                <div class="setting-row">
+                    <span class="setting-label">Grid Gap</span>
+                    <div class="setting-control">
+                        <input type="range" id="gridGap" min="0" max="10" value="2" onchange="updateGridGap(this.value)">
+                        <span id="gridGapValue">2px</span>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Show Labels</span>
+                    <div class="setting-control">
+                        <select id="showLabels" onchange="updateShowLabels(this.value)">
+                            <option value="hover">On Hover</option>
+                            <option value="always">Always</option>
+                            <option value="never">Never</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Theme</span>
+                    <div class="setting-control">
+                        <select id="themeSelect" onchange="updateTheme(this.value)">
+                            <option value="dark">Dark</option>
+                            <option value="midnight">Midnight Blue</option>
+                            <option value="amoled">AMOLED Black</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-            <div class="message-input">
-                <input type="text" id="messageInput" placeholder="Type a message..." 
-                       onkeypress="if(event.key === 'Enter') sendMessage()" disabled>
-                <button class="btn-primary" onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+
+            <div class="settings-section">
+                <h4>Weather Location</h4>
+                <div class="setting-row">
+                    <span class="setting-label">Latitude</span>
+                    <div class="setting-control">
+                        <input type="number" id="weatherLat" step="0.0001" value="40.7128">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Longitude</span>
+                    <div class="setting-control">
+                        <input type="number" id="weatherLon" step="0.0001" value="-74.0060">
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="applyWeatherLocation()" style="margin-top: 10px; width: 100%;">Apply Location</button>
             </div>
+
+            <div class="settings-section">
+                <h4>Room Info</h4>
+                <div class="setting-row">
+                    <span class="setting-label">Room Name</span>
+                    <span style="color: var(--accent-primary); font-size: 13px;" id="settingsRoomName"></span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Streams</span>
+                    <span id="settingsStreamCount">0</span>
+                </div>
+            </div>
+        </div>
+        <div class="settings-actions">
+            <button class="btn-primary" onclick="exportConfig()">Export Config</button>
+            <button class="btn-secondary" onclick="showImportModal()">Import Config</button>
         </div>
     </div>
 
     <!-- Share Modal -->
     <div class="modal-overlay" id="shareModal">
         <div class="modal">
-            <h3>Share This Room</h3>
-            <p>Share this link with viewers. They'll see your streams and can chat, but only you can control what's playing.</p>
-            
-            <p style="color: #4ade80; font-size: 12px;"><strong>Viewer Link (share this):</strong></p>
+            <h3>Share Room</h3>
+            <p style="color: #4ade80;"><strong>Viewer Link:</strong></p>
             <div class="link-box">
                 <input type="text" id="viewerLink" readonly>
                 <button class="btn-primary" onclick="copyLink('viewerLink')">Copy</button>
             </div>
-            
-            <p style="color: #f59e0b; font-size: 12px;"><strong>Host Link (keep this private!):</strong></p>
+            <p style="color: #f59e0b;"><strong>Host Link (private!):</strong></p>
             <div class="link-box">
                 <input type="text" id="hostLink" readonly>
                 <button class="btn-secondary" onclick="copyLink('hostLink')">Copy</button>
             </div>
-            
             <div class="actions">
-                <button class="btn-secondary" onclick="closeShareModal()">Close</button>
+                <button class="btn-secondary" onclick="closeModal('shareModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal">
+            <h3>Import Configuration</h3>
+            <p>Paste your exported JSON config below:</p>
+            <textarea id="importData" placeholder='{"streams": [...], "settings": {...}}'></textarea>
+            <div class="actions">
+                <button class="btn-secondary" onclick="closeModal('importModal')">Cancel</button>
+                <button class="btn-primary" onclick="importConfig()">Import</button>
             </div>
         </div>
     </div>
 
     <script>
         // ============ CONFIGURATION ============
-        // Change these to customize your room
         const ROOM_NAME = 'blizzard-watch-2025';
-        const HOST_KEY = 'mySecretKey123';  // CHANGE THIS to your own secret!
-        const WEATHER_URL = 'https://web.weatherwise.app';
+        const HOST_KEY = 'mySecretKey123';  // CHANGE THIS!
 
-        // ============ URL PARAMETER PARSING ============
+        // ============ URL & AUTH ============
         const urlParams = new URLSearchParams(window.location.search);
         const urlRoom = urlParams.get('room') || ROOM_NAME;
         const urlHostKey = urlParams.get('host');
         const isHost = urlHostKey === HOST_KEY;
 
-        // Apply viewer mode if not host
         if (!isHost) {
             document.body.classList.add('viewer-mode');
-            document.getElementById('viewerControls').style.display = 'flex';
-            document.getElementById('viewerBadge').style.display = 'block';
             document.getElementById('roomDisplay').textContent = urlRoom;
             document.getElementById('emptyTitle').textContent = 'Waiting for Host';
-            document.getElementById('emptyText').textContent = 'The host hasn\'t added any streams yet. Hang tight!';
+            document.getElementById('emptyText').textContent = 'The host hasn\'t added streams yet.';
         }
 
-        // ============ GUN.JS SETUP ============
+        // ============ GUN.JS ============
         const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
         const room = gun.get('multistream-room-' + urlRoom);
         const chat = gun.get('multistream-chat-' + urlRoom);
 
         // ============ STATE ============
         let streams = [];
+        let featuredId = null;
+        let layoutMode = 'grid';
         let weatherEnabled = false;
-        let chatOpen = false;
+        let weatherLat = 40.7128;
+        let weatherLon = -74.0060;
+        let chatExpanded = true;
         let currentUsername = localStorage.getItem('multistream-username') || '';
-        const seenMessages = new Set();
+        let isBanned = false;
+        const messageElements = new Map();
         const seenStreams = new Set();
+        const bannedUsers = new Set();
 
-        // Session ID for chat
         let sessionId = localStorage.getItem('multistream-session');
         if (!sessionId) {
             sessionId = 'user-' + Math.random().toString(36).substr(2, 9);
             localStorage.setItem('multistream-session', sessionId);
         }
+
+        // Settings
+        let settings = {
+            gridGap: 2,
+            showLabels: 'hover',
+            theme: 'dark'
+        };
 
         // ============ STREAM MANAGEMENT ============
         function extractVideoId(input) {
@@ -812,139 +983,214 @@
                 /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/live\/)([^&\?\/]+)/,
                 /^([a-zA-Z0-9_-]{11})$/
             ];
-            
-            for (const pattern of patterns) {
-                const match = input.match(pattern);
-                if (match) return match[1];
+            for (const p of patterns) {
+                const m = input.match(p);
+                if (m) return m[1];
             }
             return null;
         }
 
         function addStream() {
             if (!isHost) return;
-            
             const input = document.getElementById('videoUrl').value.trim();
             if (!input) return;
 
             const videoId = extractVideoId(input);
             if (!videoId) {
-                alert('Invalid YouTube URL or Video ID');
+                alert('Invalid YouTube URL');
                 return;
             }
-
             if (streams.find(s => s.id === videoId)) {
-                alert('This video is already added');
+                alert('Already added');
                 return;
             }
 
-            const stream = {
+            room.get('streams').get(videoId).put({
                 id: videoId,
                 type: 'youtube',
-                addedAt: Date.now()
-            };
-
-            // Save to Gun.js for sync
-            room.get('streams').get(videoId).put(stream);
+                addedAt: Date.now(),
+                muted: true
+            });
             document.getElementById('videoUrl').value = '';
         }
 
         function removeStream(videoId) {
             if (!isHost) return;
             room.get('streams').get(videoId).put(null);
+            if (featuredId === videoId) featuredId = null;
         }
 
-        function toggleWeather() {
+        function setFeatured(videoId) {
             if (!isHost) return;
-            weatherEnabled = !weatherEnabled;
-            room.get('settings').get('weather').put(weatherEnabled);
-            document.getElementById('weatherBtn').classList.toggle('active', weatherEnabled);
+            featuredId = featuredId === videoId ? null : videoId;
+            room.get('settings').get('featuredId').put(featuredId);
             renderGrid();
         }
 
-        function clearAll() {
-            if (!isHost) return;
-            if (streams.length === 0 && !weatherEnabled) return;
-            if (confirm('Remove all streams?')) {
-                streams.forEach(s => {
-                    room.get('streams').get(s.id).put(null);
-                });
-                streams = [];
-                seenStreams.clear();
-                weatherEnabled = false;
-                room.get('settings').get('weather').put(false);
-                document.getElementById('weatherBtn').classList.remove('active');
+        function toggleMute(videoId) {
+            const stream = streams.find(s => s.id === videoId);
+            if (stream) {
+                stream.muted = !stream.muted;
+                if (isHost) {
+                    room.get('streams').get(videoId).get('muted').put(stream.muted);
+                }
                 renderGrid();
             }
         }
 
         function muteAll() {
-            const iframes = document.querySelectorAll('.grid-item iframe');
-            iframes.forEach(iframe => {
-                if (iframe.src.includes('youtube.com')) {
-                    const url = new URL(iframe.src);
-                    url.searchParams.set('mute', '1');
-                    iframe.src = url.toString();
-                }
+            streams.forEach(s => {
+                s.muted = true;
+                if (isHost) room.get('streams').get(s.id).get('muted').put(true);
             });
+            renderGrid();
+        }
+
+        function unmuteAll() {
+            streams.forEach(s => {
+                s.muted = false;
+                if (isHost) room.get('streams').get(s.id).get('muted').put(false);
+            });
+            renderGrid();
+        }
+
+        function setLayout(mode) {
+            layoutMode = mode;
+            document.getElementById('layoutGridBtn').classList.toggle('btn-active', mode === 'grid');
+            document.getElementById('layoutFeaturedBtn').classList.toggle('btn-active', mode === 'featured');
+            if (isHost) room.get('settings').get('layout').put(mode);
+            renderGrid();
+        }
+
+        function toggleWeather() {
+            if (!isHost) return;
+            weatherEnabled = !weatherEnabled;
+            weatherLat = parseFloat(document.getElementById('weatherLat').value) || weatherLat;
+            weatherLon = parseFloat(document.getElementById('weatherLon').value) || weatherLon;
+            room.get('settings').get('weather').put({
+                enabled: weatherEnabled,
+                lat: weatherLat,
+                lon: weatherLon
+            });
+            document.getElementById('weatherBtn').classList.toggle('btn-active', weatherEnabled);
+            renderGrid();
+        }
+
+        function applyWeatherLocation() {
+            weatherLat = parseFloat(document.getElementById('weatherLat').value) || weatherLat;
+            weatherLon = parseFloat(document.getElementById('weatherLon').value) || weatherLon;
+            if (weatherEnabled && isHost) {
+                room.get('settings').get('weather').put({
+                    enabled: true,
+                    lat: weatherLat,
+                    lon: weatherLon
+                });
+                renderGrid();
+            }
+        }
+
+        function clearAll() {
+            if (!isHost) return;
+            if (!confirm('Clear all streams?')) return;
+            streams.forEach(s => room.get('streams').get(s.id).put(null));
+            streams = [];
+            seenStreams.clear();
+            featuredId = null;
+            weatherEnabled = false;
+            room.get('settings').get('weather').put({ enabled: false });
+            room.get('settings').get('featuredId').put(null);
+            document.getElementById('weatherBtn').classList.remove('btn-active');
+            renderGrid();
         }
 
         // ============ SYNC LISTENERS ============
-        // Listen for stream changes
         room.get('streams').map().on((stream, videoId) => {
-            if (stream === null) {
-                // Stream removed
+            if (!stream || stream === null) {
                 streams = streams.filter(s => s.id !== videoId);
                 seenStreams.delete(videoId);
                 renderGrid();
-            } else if (stream && stream.id && !seenStreams.has(videoId)) {
-                // New stream added
+            } else if (stream.id && !seenStreams.has(videoId)) {
                 seenStreams.add(videoId);
                 streams.push({
                     id: stream.id,
                     type: stream.type || 'youtube',
-                    url: `https://www.youtube.com/embed/${stream.id}?autoplay=1&mute=1`,
-                    addedAt: stream.addedAt
+                    addedAt: stream.addedAt,
+                    muted: stream.muted !== false
                 });
-                // Sort by added time
                 streams.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
                 renderGrid();
+            } else if (stream.id && seenStreams.has(videoId)) {
+                // Update mute state
+                const s = streams.find(x => x.id === videoId);
+                if (s && s.muted !== (stream.muted !== false)) {
+                    s.muted = stream.muted !== false;
+                    renderGrid();
+                }
             }
         });
 
-        // Listen for weather setting
-        room.get('settings').get('weather').on((enabled) => {
-            if (typeof enabled === 'boolean') {
-                weatherEnabled = enabled;
-                document.getElementById('weatherBtn')?.classList.toggle('active', enabled);
+        room.get('settings').get('weather').on(data => {
+            if (data && typeof data === 'object') {
+                weatherEnabled = data.enabled || false;
+                if (data.lat) weatherLat = data.lat;
+                if (data.lon) weatherLon = data.lon;
+                document.getElementById('weatherLat').value = weatherLat;
+                document.getElementById('weatherLon').value = weatherLon;
+                document.getElementById('weatherBtn')?.classList.toggle('btn-active', weatherEnabled);
                 renderGrid();
             }
         });
 
-        // ============ GRID RENDERING ============
-        function calculateGrid(itemCount) {
-            if (itemCount === 0) return { cols: 1, rows: 1 };
-            if (itemCount === 1) return { cols: 1, rows: 1 };
-            if (itemCount === 2) return { cols: 2, rows: 1 };
-            if (itemCount <= 4) return { cols: 2, rows: 2 };
-            if (itemCount <= 6) return { cols: 3, rows: 2 };
-            if (itemCount <= 9) return { cols: 3, rows: 3 };
-            if (itemCount <= 12) return { cols: 4, rows: 3 };
-            if (itemCount <= 16) return { cols: 4, rows: 4 };
-            
-            const cols = Math.ceil(Math.sqrt(itemCount));
-            const rows = Math.ceil(itemCount / cols);
-            return { cols, rows };
+        room.get('settings').get('layout').on(mode => {
+            if (mode && ['grid', 'featured'].includes(mode)) {
+                layoutMode = mode;
+                document.getElementById('layoutGridBtn').classList.toggle('btn-active', mode === 'grid');
+                document.getElementById('layoutFeaturedBtn').classList.toggle('btn-active', mode === 'featured');
+                renderGrid();
+            }
+        });
+
+        room.get('settings').get('featuredId').on(id => {
+            featuredId = id || null;
+            renderGrid();
+        });
+
+        room.get('banned').map().on((banned, odeSessi) => {
+            if (banned) {
+                bannedUsers.add(odeSessi);
+                if (odeSessi === sessionId) {
+                    isBanned = true;
+                    showBannedNotice();
+                }
+            }
+        });
+
+        // ============ RENDERING ============
+        function getWindyUrl() {
+            return `https://embed.windy.com/embed2.html?lat=${weatherLat}&lon=${weatherLon}&detailLat=${weatherLat}&detailLon=${weatherLon}&width=650&height=450&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
+        }
+
+        function calculateGrid(count) {
+            if (count <= 1) return { cols: 1, rows: 1 };
+            if (count === 2) return { cols: 2, rows: 1 };
+            if (count <= 4) return { cols: 2, rows: 2 };
+            if (count <= 6) return { cols: 3, rows: 2 };
+            if (count <= 9) return { cols: 3, rows: 3 };
+            if (count <= 12) return { cols: 4, rows: 3 };
+            const cols = Math.ceil(Math.sqrt(count));
+            return { cols, rows: Math.ceil(count / cols) };
         }
 
         function renderGrid() {
             const container = document.getElementById('gridContainer');
-            const totalItems = streams.length + (weatherEnabled ? 1 : 0);
-            
-            if (document.getElementById('streamCount')) {
-                document.getElementById('streamCount').textContent = streams.length;
+            const allItems = [...streams];
+            if (weatherEnabled) {
+                allItems.push({ id: 'weather', type: 'weather' });
             }
 
-            if (totalItems === 0) {
+            document.getElementById('settingsStreamCount').textContent = streams.length;
+
+            if (allItems.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -953,222 +1199,386 @@
                             <path d="M10 9l4 2-4 2V9z"/>
                         </svg>
                         <h2>${isHost ? 'No Streams Yet' : 'Waiting for Host'}</h2>
-                        <p>${isHost ? 'Paste a YouTube URL above to start watching.' : 'The host hasn\'t added any streams yet. Hang tight!'}</p>
+                        <p>${isHost ? 'Add YouTube URLs above.' : 'The host hasn\'t added streams yet.'}</p>
                     </div>
                 `;
+                container.className = 'grid-container';
                 return;
             }
 
-            const { cols, rows } = calculateGrid(totalItems);
-            container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-            container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+            // Sort: featured first if in featured mode
+            let sorted = [...allItems];
+            if (layoutMode === 'featured' && featuredId) {
+                sorted.sort((a, b) => {
+                    if (a.id === featuredId) return -1;
+                    if (b.id === featuredId) return 1;
+                    return 0;
+                });
+            }
 
-            let html = '';
+            container.className = `grid-container layout-${layoutMode}`;
 
-            streams.forEach((stream) => {
-                html += `
-                    <div class="grid-item">
-                        <iframe src="${stream.url}" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowfullscreen></iframe>
-                        <button class="remove-btn" onclick="removeStream('${stream.id}')">x</button>
-                        <div class="label">YouTube: ${stream.id}</div>
+            if (layoutMode === 'featured' && sorted.length > 1) {
+                // Featured layout: main + sidebar
+                const main = sorted[0];
+                const sidebar = sorted.slice(1);
+
+                container.innerHTML = `
+                    ${renderItem(main, true)}
+                    <div class="sidebar-stack">
+                        ${sidebar.map(s => renderItem(s, false)).join('')}
                     </div>
                 `;
-            });
+            } else {
+                // Grid layout
+                const { cols, rows } = calculateGrid(sorted.length);
+                container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                container.innerHTML = sorted.map(s => renderItem(s, false)).join('');
+            }
+        }
 
-            if (weatherEnabled) {
-                html += `
-                    <div class="grid-item weather-panel">
-                        <iframe src="${WEATHER_URL}" allowfullscreen></iframe>
-                        <button class="remove-btn" onclick="toggleWeather()">x</button>
-                        <div class="label">WeatherWise</div>
+        function renderItem(item, isFeaturedSlot) {
+            const labelClass = settings.showLabels === 'always' ? 'style="opacity:1"' : 
+                              settings.showLabels === 'never' ? 'style="display:none"' : '';
+
+            if (item.type === 'weather') {
+                return `
+                    <div class="grid-item">
+                        <iframe src="${getWindyUrl()}" frameborder="0"></iframe>
+                        <div class="controls-overlay">
+                            <div></div>
+                            <div class="video-controls">
+                                ${isHost ? `<button onclick="toggleWeather()">Remove</button>` : ''}
+                            </div>
+                        </div>
+                        <div class="label" ${labelClass}>Windy Radar</div>
                     </div>
                 `;
             }
 
-            container.innerHTML = html;
+            const muteParam = item.muted ? '1' : '0';
+            const embedUrl = `https://www.youtube.com/embed/${item.id}?autoplay=1&mute=${muteParam}`;
+            const isFeatured = item.id === featuredId;
+
+            return `
+                <div class="grid-item ${isFeaturedSlot ? 'featured' : ''}">
+                    <iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    <div class="controls-overlay">
+                        <div class="video-controls">
+                            <button class="unmute-btn ${!item.muted ? 'active' : ''}" onclick="toggleMute('${item.id}')">${item.muted ? 'Unmute' : 'Muted'}</button>
+                            ${isHost ? `
+                                <button class="${isFeatured ? 'active' : ''}" onclick="setFeatured('${item.id}')">${isFeatured ? 'Featured' : 'Feature'}</button>
+                                <button onclick="removeStream('${item.id}')">Remove</button>
+                            ` : ''}
+                        </div>
+                        <div></div>
+                    </div>
+                    <div class="label" ${labelClass}>${item.id}</div>
+                </div>
+            `;
         }
 
-        // ============ UI CONTROLS ============
-        function togglePanel() {
-            const panel = document.getElementById('controlPanel');
-            const btn = document.getElementById('toggleBtn');
-            const grid = document.getElementById('gridContainer');
-            
-            panel.classList.toggle('hidden');
-            grid.classList.toggle('fullscreen');
-            btn.textContent = panel.classList.contains('hidden') ? 'Show Controls' : 'Hide Controls';
+        // ============ SETTINGS ============
+        function toggleSettings() {
+            document.getElementById('settingsPanel').classList.toggle('open');
         }
 
+        function updateGridGap(val) {
+            settings.gridGap = parseInt(val);
+            document.documentElement.style.setProperty('--grid-gap', val + 'px');
+            document.getElementById('gridGapValue').textContent = val + 'px';
+        }
+
+        function updateShowLabels(val) {
+            settings.showLabels = val;
+            renderGrid();
+        }
+
+        function updateTheme(val) {
+            settings.theme = val;
+            const root = document.documentElement;
+            if (val === 'midnight') {
+                root.style.setProperty('--bg-primary', '#0d1b2a');
+                root.style.setProperty('--bg-secondary', '#1b263b');
+                root.style.setProperty('--bg-tertiary', '#415a77');
+            } else if (val === 'amoled') {
+                root.style.setProperty('--bg-primary', '#000000');
+                root.style.setProperty('--bg-secondary', '#0a0a0a');
+                root.style.setProperty('--bg-tertiary', '#111111');
+            } else {
+                root.style.setProperty('--bg-primary', '#0a0a0f');
+                root.style.setProperty('--bg-secondary', '#1a1a2e');
+                root.style.setProperty('--bg-tertiary', '#16213e');
+            }
+        }
+
+        // ============ IMPORT/EXPORT ============
+        function exportConfig() {
+            const config = {
+                version: 1,
+                room: urlRoom,
+                streams: streams.map(s => ({ id: s.id, muted: s.muted })),
+                settings: {
+                    layout: layoutMode,
+                    featuredId: featuredId,
+                    weather: { enabled: weatherEnabled, lat: weatherLat, lon: weatherLon },
+                    display: settings
+                }
+            };
+            const json = JSON.stringify(config, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `multistream-${urlRoom}-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function showImportModal() {
+            document.getElementById('importData').value = '';
+            document.getElementById('importModal').classList.add('show');
+        }
+
+        function importConfig() {
+            if (!isHost) return alert('Only host can import');
+            try {
+                const data = JSON.parse(document.getElementById('importData').value);
+                if (!data.streams) throw new Error('Invalid config');
+
+                // Clear existing
+                streams.forEach(s => room.get('streams').get(s.id).put(null));
+                streams = [];
+                seenStreams.clear();
+
+                // Add imported streams
+                data.streams.forEach(s => {
+                    room.get('streams').get(s.id).put({
+                        id: s.id,
+                        type: 'youtube',
+                        addedAt: Date.now(),
+                        muted: s.muted !== false
+                    });
+                });
+
+                // Apply settings
+                if (data.settings) {
+                    if (data.settings.layout) {
+                        setLayout(data.settings.layout);
+                    }
+                    if (data.settings.featuredId) {
+                        room.get('settings').get('featuredId').put(data.settings.featuredId);
+                    }
+                    if (data.settings.weather) {
+                        weatherLat = data.settings.weather.lat || weatherLat;
+                        weatherLon = data.settings.weather.lon || weatherLon;
+                        weatherEnabled = data.settings.weather.enabled || false;
+                        room.get('settings').get('weather').put({
+                            enabled: weatherEnabled,
+                            lat: weatherLat,
+                            lon: weatherLon
+                        });
+                    }
+                    if (data.settings.display) {
+                        updateGridGap(data.settings.display.gridGap || 2);
+                        updateShowLabels(data.settings.display.showLabels || 'hover');
+                        updateTheme(data.settings.display.theme || 'dark');
+                    }
+                }
+
+                closeModal('importModal');
+                alert('Config imported!');
+            } catch (e) {
+                alert('Invalid config: ' + e.message);
+            }
+        }
+
+        // ============ MODALS ============
         function showShareModal() {
-            const baseUrl = window.location.origin + window.location.pathname;
-            document.getElementById('viewerLink').value = `${baseUrl}?room=${urlRoom}`;
-            document.getElementById('hostLink').value = `${baseUrl}?room=${urlRoom}&host=${HOST_KEY}`;
+            const base = window.location.origin + window.location.pathname;
+            document.getElementById('viewerLink').value = `${base}?room=${urlRoom}`;
+            document.getElementById('hostLink').value = `${base}?room=${urlRoom}&host=${HOST_KEY}`;
             document.getElementById('shareModal').classList.add('show');
         }
 
-        function closeShareModal() {
-            document.getElementById('shareModal').classList.remove('show');
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
         }
 
         function copyLink(inputId) {
             const input = document.getElementById(inputId);
             input.select();
             document.execCommand('copy');
-            
             const btn = input.nextElementSibling;
-            const originalText = btn.textContent;
             btn.textContent = 'Copied!';
-            setTimeout(() => btn.textContent = originalText, 1500);
+            setTimeout(() => btn.textContent = 'Copy', 1500);
         }
 
-        // ============ CHAT FUNCTIONALITY ============
-        function toggleChat() {
-            chatOpen = !chatOpen;
-            document.getElementById('chatPanel').classList.toggle('open', chatOpen);
-            
-            const chatBtn = document.getElementById(isHost ? 'chatBtn' : 'viewerChatBtn');
-            chatBtn.classList.toggle('active', chatOpen);
-            chatBtn.classList.remove('has-new');
-            
-            if (chatOpen && currentUsername) {
-                document.getElementById('messageInput').focus();
-            }
+        // ============ CHAT ============
+        function toggleChatExpand() {
+            chatExpanded = !chatExpanded;
+            document.getElementById('chatBar').classList.toggle('expanded', chatExpanded);
+            document.getElementById('chatBar').classList.toggle('collapsed', !chatExpanded);
+        }
+
+        function toggleViewerChat() {
+            document.body.classList.toggle('chat-open');
+            chatExpanded = true;
+            document.getElementById('chatBar').classList.add('expanded');
+            document.getElementById('chatBar').classList.remove('collapsed');
         }
 
         function setUsername() {
-            const input = document.getElementById('usernameInput').value.trim();
-            if (!input) return;
-            
-            currentUsername = input.substring(0, 20);
+            const input = document.getElementById('usernameInput');
+            const name = input.value.trim();
+            if (!name) return;
+
+            currentUsername = name.substring(0, 20);
             localStorage.setItem('multistream-username', currentUsername);
-            
-            document.getElementById('usernameArea').innerHTML = `
-                <span style="color: #00d4ff; font-size: 13px;">Chatting as: <strong>${escapeHtml(currentUsername)}</strong></span>
-                <button class="btn-secondary" onclick="changeUsername()" style="padding: 6px 10px; font-size: 12px;">Change</button>
-            `;
-            
-            document.getElementById('messageInput').disabled = false;
-            document.getElementById('sendBtn').disabled = false;
-            document.getElementById('messageInput').focus();
-            
-            sendSystemMessage(`${currentUsername} joined the chat`);
+
+            document.getElementById('usernameInput').style.display = 'none';
+            document.getElementById('messageInput').style.display = 'block';
+            document.getElementById('chatActionBtn').textContent = 'Send';
+            document.getElementById('chatActionBtn').onclick = sendMessage;
+            document.getElementById('usernameDisplay').style.display = 'flex';
+            document.getElementById('currentUserDisplay').textContent = currentUsername;
+
+            sendSystemMessage(`${currentUsername} joined`);
         }
 
         function changeUsername() {
-            document.getElementById('usernameArea').innerHTML = `
-                <input type="text" id="usernameInput" placeholder="Enter username..." maxlength="20" value="${escapeHtml(currentUsername)}">
-                <button class="btn-primary" onclick="setUsername()">Set</button>
-            `;
-            document.getElementById('usernameInput').focus();
+            document.getElementById('usernameInput').style.display = 'block';
+            document.getElementById('usernameInput').value = currentUsername;
+            document.getElementById('messageInput').style.display = 'none';
+            document.getElementById('chatActionBtn').textContent = 'Set Name';
+            document.getElementById('chatActionBtn').onclick = setUsername;
+            document.getElementById('usernameDisplay').style.display = 'none';
         }
 
         function sendMessage() {
+            if (isBanned) return;
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
-            
             if (!text || !currentUsername) return;
-            
-            const message = {
+
+            chat.get('messages').get(sessionId + '-' + Date.now()).put({
                 id: sessionId + '-' + Date.now(),
                 username: currentUsername,
                 text: text,
                 timestamp: Date.now(),
                 sessionId: sessionId,
-                isHost: isHost
-            };
-            
-            chat.get('messages').get(message.id).put(message);
+                isHost: isHost,
+                deleted: false
+            });
             input.value = '';
         }
 
         function sendSystemMessage(text) {
-            const message = {
-                id: 'system-' + Date.now() + '-' + Math.random(),
-                username: 'System',
+            chat.get('messages').get('sys-' + Date.now()).put({
+                id: 'sys-' + Date.now(),
                 text: text,
                 timestamp: Date.now(),
                 system: true
-            };
-            chat.get('messages').get(message.id).put(message);
+            });
         }
 
-        function addMessageToUI(msg) {
-            if (!msg || !msg.id || seenMessages.has(msg.id)) return;
-            seenMessages.add(msg.id);
-            
+        function deleteMessage(msgId) {
+            if (!isHost) return;
+            chat.get('messages').get(msgId).get('deleted').put(true);
+            chat.get('messages').get(msgId).get('text').put('[deleted]');
+        }
+
+        function banUser(userSessionId, username) {
+            if (!isHost) return;
+            if (confirm(`Ban ${username}?`)) {
+                room.get('banned').get(userSessionId).put(true);
+            }
+        }
+
+        function showBannedNotice() {
+            document.getElementById('chatInputBar').innerHTML = '<div class="banned-msg">You have been banned from chat.</div>';
+        }
+
+        function renderMessage(msg) {
+            if (!msg?.id) return;
             const container = document.getElementById('chatMessages');
-            const div = document.createElement('div');
-            
+            let div = messageElements.get(msg.id);
+
+            if (!div) {
+                div = document.createElement('div');
+                messageElements.set(msg.id, div);
+                container.appendChild(div);
+            }
+
             if (msg.system) {
-                div.className = 'chat-message system';
+                div.className = 'chat-msg system';
                 div.textContent = msg.text;
             } else {
                 const isOwn = msg.sessionId === sessionId;
-                div.className = `chat-message ${isOwn ? 'own' : ''}`;
+                div.className = `chat-msg ${msg.deleted ? 'deleted' : ''}`;
+
                 const hostTag = msg.isHost ? '<span class="host-tag">HOST</span>' : '';
-                const usernameClass = msg.isHost ? 'username host' : 'username';
+                const userClass = msg.isHost ? 'msg-user host' : 'msg-user';
+                const modBtns = (isHost && !msg.isHost && !isOwn && !msg.deleted) ? `
+                    <span class="mod-btns">
+                        <button onclick="deleteMessage('${msg.id}')">Del</button>
+                        <button onclick="banUser('${msg.sessionId}','${escapeHtml(msg.username)}')">Ban</button>
+                    </span>
+                ` : '';
+
                 div.innerHTML = `
-                    <div class="meta">
-                        <span class="${usernameClass}">${escapeHtml(msg.username)}${hostTag}</span>
-                        <span class="time">${formatTime(msg.timestamp)}</span>
-                    </div>
-                    <div class="text">${escapeHtml(msg.text)}</div>
+                    <span class="${userClass}">${escapeHtml(msg.username)}${hostTag}</span>
+                    <span class="msg-text">${escapeHtml(msg.text)}</span>
+                    <span class="msg-time">${formatTime(msg.timestamp)}</span>
+                    ${modBtns}
                 `;
             }
-            
-            container.appendChild(div);
+
             container.scrollTop = container.scrollHeight;
-            
-            // Notify if chat is closed
-            if (!chatOpen && !msg.system && msg.sessionId !== sessionId) {
-                const chatBtn = document.getElementById(isHost ? 'chatBtn' : 'viewerChatBtn');
-                chatBtn.classList.add('has-new');
-            }
         }
 
         function escapeHtml(text) {
             const div = document.createElement('div');
-            div.textContent = text;
+            div.textContent = text || '';
             return div.innerHTML;
         }
 
-        function formatTime(timestamp) {
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        function formatTime(ts) {
+            return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
-        // Listen for chat messages
+        // Chat listener
         chat.get('messages').map().on((msg, id) => {
-            if (msg && msg.timestamp) {
-                const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
-                if (msg.timestamp > twoHoursAgo) {
-                    addMessageToUI(msg);
-                }
+            if (msg?.timestamp) {
+                const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+                if (msg.timestamp > cutoff) renderMessage(msg);
             }
         });
 
-        // Restore username if saved
+        // Restore username
         if (currentUsername) {
-            document.getElementById('usernameArea').innerHTML = `
-                <span style="color: #00d4ff; font-size: 13px;">Chatting as: <strong>${escapeHtml(currentUsername)}</strong></span>
-                <button class="btn-secondary" onclick="changeUsername()" style="padding: 6px 10px; font-size: 12px;">Change</button>
-            `;
-            document.getElementById('messageInput').disabled = false;
-            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('usernameInput').style.display = 'none';
+            document.getElementById('messageInput').style.display = 'block';
+            document.getElementById('chatActionBtn').textContent = 'Send';
+            document.getElementById('chatActionBtn').onclick = sendMessage;
+            document.getElementById('usernameDisplay').style.display = 'flex';
+            document.getElementById('currentUserDisplay').textContent = currentUsername;
         }
 
-        // Update room name display
-        document.getElementById('roomNameDisplay').textContent = urlRoom;
+        // ============ INIT ============
+        document.getElementById('chatRoomName').textContent = 'Room: ' + urlRoom;
+        document.getElementById('settingsRoomName').textContent = urlRoom;
+        document.getElementById('layoutGridBtn').classList.add('btn-active');
 
-        // Initialize
-        renderGrid();
-
-        // Close modal on overlay click
-        document.getElementById('shareModal').addEventListener('click', (e) => {
-            if (e.target.id === 'shareModal') closeShareModal();
+        // Modal close on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(m => {
+            m.addEventListener('click', e => {
+                if (e.target === m) m.classList.remove('show');
+            });
         });
+
+        renderGrid();
     </script>
 </body>
 </html>
