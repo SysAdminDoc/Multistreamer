@@ -1,0 +1,259 @@
+(function initStreamSources(root, factory) {
+    const api = factory(root);
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = api;
+    }
+    root.MultiStreamSources = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function createStreamSources(root) {
+    const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+    const TWITCH_CHANNEL_RE = /^[A-Za-z0-9_]{3,25}$/;
+    const TWITCH_VIDEO_RE = /^(?:v)?(\d+)$/i;
+    const TWITCH_RESERVED_PATHS = new Set([
+        'about',
+        'activate',
+        'bits',
+        'creatorcamp',
+        'dashboard',
+        'directory',
+        'downloads',
+        'drops',
+        'jobs',
+        'login',
+        'logout',
+        'moderator',
+        'p',
+        'popout',
+        'settings',
+        'store',
+        'subscriptions',
+        'team',
+        'turbo',
+        'videos',
+        'wallet'
+    ]);
+
+    function parseUrl(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return null;
+
+        try {
+            return new URL(raw);
+        } catch (_) {
+            if (/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}([/:?#].*)?$/.test(raw)) {
+                try {
+                    return new URL('https://' + raw);
+                } catch (_) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    function cleanPathParts(url) {
+        return url.pathname
+            .split('/')
+            .map(part => decodeURIComponent(part.trim()))
+            .filter(Boolean);
+    }
+
+    function makeYouTube(id) {
+        return {
+            id,
+            type: 'youtube',
+            sourceId: id,
+            sourceKind: 'video',
+            displayName: 'YouTube ' + id
+        };
+    }
+
+    function makeTwitchChannel(channel) {
+        const normalized = channel.toLowerCase();
+        return {
+            id: 'twitch-' + normalized,
+            type: 'twitch',
+            sourceId: normalized,
+            sourceKind: 'channel',
+            displayName: 'Twitch: ' + channel
+        };
+    }
+
+    function makeTwitchVideo(videoId) {
+        const id = videoId.replace(/^v/i, '');
+        return {
+            id: 'twitch-vod-' + id,
+            type: 'twitch',
+            sourceId: 'v' + id,
+            sourceKind: 'video',
+            displayName: 'Twitch VOD ' + id
+        };
+    }
+
+    function parseYouTube(input) {
+        const raw = String(input || '').trim();
+        if (YOUTUBE_ID_RE.test(raw)) return makeYouTube(raw);
+
+        const url = parseUrl(raw);
+        if (!url) return null;
+
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        const isYouTube = host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtube-nocookie.com';
+        if (host === 'youtu.be') {
+            const id = cleanPathParts(url)[0];
+            return YOUTUBE_ID_RE.test(id || '') ? makeYouTube(id) : null;
+        }
+        if (!isYouTube) return null;
+
+        const fromQuery = url.searchParams.get('v');
+        if (YOUTUBE_ID_RE.test(fromQuery || '')) return makeYouTube(fromQuery);
+
+        const parts = cleanPathParts(url);
+        if (['embed', 'live', 'shorts'].includes(parts[0]) && YOUTUBE_ID_RE.test(parts[1] || '')) {
+            return makeYouTube(parts[1]);
+        }
+        return null;
+    }
+
+    function parseTwitch(input) {
+        const raw = String(input || '').trim();
+        const prefixed = raw.match(/^twitch:([A-Za-z0-9_]{3,25})$/);
+        if (prefixed) return makeTwitchChannel(prefixed[1]);
+
+        const url = parseUrl(raw);
+        if (!url) return null;
+
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        if (host !== 'twitch.tv' && host !== 'm.twitch.tv') return null;
+
+        const parts = cleanPathParts(url);
+        if (parts[0] === 'videos' && TWITCH_VIDEO_RE.test(parts[1] || '')) {
+            return makeTwitchVideo(parts[1]);
+        }
+
+        const channel = parts[0];
+        if (!TWITCH_CHANNEL_RE.test(channel || '')) return null;
+        if (TWITCH_RESERVED_PATHS.has(channel.toLowerCase())) return null;
+        return makeTwitchChannel(channel);
+    }
+
+    function parseStreamUrl(input) {
+        return parseYouTube(input) || parseTwitch(input);
+    }
+
+    function normalizeStreamRecord(record, fallbackId) {
+        if (!record) return null;
+
+        const rawId = String(record.id || fallbackId || '').trim();
+        const detectedType = String(record.type || (rawId.startsWith('twitch-') ? 'twitch' : 'youtube')).toLowerCase();
+        const type = detectedType === 'twitch' ? 'twitch' : 'youtube';
+        const sourceKind = String(record.sourceKind || (rawId.startsWith('twitch-vod-') ? 'video' : type === 'twitch' ? 'channel' : 'video')).toLowerCase();
+
+        let sourceId = String(record.sourceId || record.videoId || record.channel || '').trim();
+        if (!sourceId) {
+            if (type === 'youtube') {
+                sourceId = rawId || String(fallbackId || '').trim();
+            } else if (sourceKind === 'video') {
+                const video = rawId.replace(/^twitch-vod-/i, '');
+                sourceId = TWITCH_VIDEO_RE.test(video) ? 'v' + video.replace(/^v/i, '') : video;
+            } else {
+                sourceId = rawId.replace(/^twitch-/i, '');
+            }
+        }
+
+        if (type === 'youtube' && !YOUTUBE_ID_RE.test(sourceId)) return null;
+        if (type === 'twitch' && sourceKind === 'channel' && !TWITCH_CHANNEL_RE.test(sourceId)) return null;
+        if (type === 'twitch' && sourceKind === 'video' && !TWITCH_VIDEO_RE.test(sourceId)) return null;
+
+        const normalizedSourceId = type === 'twitch' && sourceKind === 'channel'
+            ? sourceId.toLowerCase()
+            : type === 'twitch'
+                ? 'v' + sourceId.replace(/^v/i, '')
+                : sourceId;
+        const id = rawId || (type === 'youtube'
+            ? normalizedSourceId
+            : sourceKind === 'video'
+                ? 'twitch-vod-' + normalizedSourceId.replace(/^v/i, '')
+                : 'twitch-' + normalizedSourceId);
+
+        return {
+            id,
+            gunKey: String(fallbackId || id),
+            type,
+            sourceId: normalizedSourceId,
+            sourceKind,
+            addedAt: record.addedAt || Date.now(),
+            muted: record.muted !== false,
+            label: record.label || ''
+        };
+    }
+
+    function streamToGunRecord(source, now) {
+        return {
+            id: source.id,
+            type: source.type,
+            sourceId: source.sourceId,
+            sourceKind: source.sourceKind,
+            addedAt: now || Date.now(),
+            muted: true,
+            label: ''
+        };
+    }
+
+    function getTwitchParent(parent) {
+        const explicit = String(parent || '').trim();
+        const fromLocation = root.location && root.location.hostname ? root.location.hostname : '';
+        const value = explicit || fromLocation || 'localhost';
+        return value.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0] || 'localhost';
+    }
+
+    function buildEmbed(record, options) {
+        const stream = normalizeStreamRecord(record, record && record.id);
+        if (!stream) return null;
+
+        if (stream.type === 'youtube') {
+            return {
+                type: 'youtube',
+                label: stream.label || stream.sourceId,
+                videoUrl: 'https://www.youtube.com/embed/' + encodeURIComponent(stream.sourceId) + '?autoplay=1&mute=' + (stream.muted ? '1' : '0'),
+                chatUrl: '',
+                allow: 'accelerometer;autoplay;clipboard-write;encrypted-media;fullscreen;gyroscope;picture-in-picture'
+            };
+        }
+
+        const parent = getTwitchParent(options && options.parent);
+        const muted = stream.muted ? 'true' : 'false';
+        const params = new URLSearchParams({
+            parent,
+            autoplay: 'true',
+            muted
+        });
+
+        if (stream.sourceKind === 'video') {
+            params.set('video', stream.sourceId);
+            return {
+                type: 'twitch',
+                label: stream.label || 'Twitch VOD ' + stream.sourceId.replace(/^v/i, ''),
+                videoUrl: 'https://player.twitch.tv/?' + params.toString(),
+                chatUrl: '',
+                allow: 'autoplay; fullscreen; picture-in-picture'
+            };
+        }
+
+        params.set('channel', stream.sourceId);
+        return {
+            type: 'twitch',
+            label: stream.label || 'Twitch: ' + stream.sourceId,
+            videoUrl: 'https://player.twitch.tv/?' + params.toString(),
+            chatUrl: 'https://www.twitch.tv/embed/' + encodeURIComponent(stream.sourceId) + '/chat?parent=' + encodeURIComponent(parent),
+            allow: 'autoplay; fullscreen; picture-in-picture'
+        };
+    }
+
+    return {
+        parseStreamUrl,
+        normalizeStreamRecord,
+        streamToGunRecord,
+        buildEmbed,
+        getTwitchParent
+    };
+});

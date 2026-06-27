@@ -2,6 +2,11 @@
 .env
 *.log
 CLAUDE.md
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
 
 # Markdown files local-only (except README)
 *.md
