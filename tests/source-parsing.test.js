@@ -41,6 +41,14 @@ test('parses Twitch VOD URLs', () => {
     assert.equal(source.sourceKind, 'video');
 });
 
+test('parses direct Rumble embed URLs', () => {
+    const source = Sources.parseStreamUrl('https://rumble.com/embed/v1io41/');
+    assert.equal(source.id, 'rumble-v1io41');
+    assert.equal(source.type, 'rumble');
+    assert.equal(source.sourceId, 'v1io41');
+    assert.equal(source.sourceKind, 'embed');
+});
+
 test('normalizes legacy YouTube records without type fields', () => {
     const stream = Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', muted: false, label: 'Main' }, 'dQw4w9WgXcQ');
     assert.equal(stream.type, 'youtube');
@@ -65,4 +73,10 @@ test('builds YouTube embed URLs from normalized records', () => {
     const embed = Sources.buildEmbed({ id: 'dQw4w9WgXcQ', muted: true }, { parent: 'example.com' });
     assert.equal(embed.videoUrl, 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1');
     assert.equal(embed.chatUrl, '');
+});
+
+test('builds Rumble embed URLs', () => {
+    const rumble = Sources.buildEmbed(Sources.streamToGunRecord(Sources.parseStreamUrl('rumble:v1io41')), {});
+    assert.equal(rumble.videoUrl, 'https://rumble.com/embed/v1io41/');
+    assert.equal(rumble.chatUrl, '');
 });

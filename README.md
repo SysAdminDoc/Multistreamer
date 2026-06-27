@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.3.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -12,7 +12,7 @@ https://sysadmindoc.github.io/Multistreamer/
 
 ## Features
 
-- **Multi-Video Grid** - Watch multiple YouTube and Twitch streams in a responsive Brady Bunch-style grid
+- **Multi-Video Grid** - Watch multiple YouTube, Twitch, and Rumble streams in a responsive Brady Bunch-style grid
 - **Twitch Chat Sidecar** - Twitch channels render with embedded live chat beside the player
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
@@ -59,7 +59,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 **Controls available:**
 | Control | Description |
 |---------|-------------|
-| Add Stream | Paste YouTube or Twitch URL and click Add |
+| Add Stream | Paste YouTube, Twitch, or Rumble URL and click Add |
 | Set Main | Make a video the featured/large video |
 | Label | Give streams custom names |
 | Mute/Unmute All | Control audio for all streams |
@@ -134,6 +134,7 @@ All these sync in real-time to viewers:
 - YouTube watch, Live, Shorts, embed, `youtu.be`, or raw 11-character video IDs
 - Twitch channel URLs with video plus chat sidecar
 - Twitch VOD URLs (`twitch.tv/videos/...`)
+- Direct Rumble embed URLs (`rumble.com/embed/v.../`)
 
 ### Chat
 
@@ -165,7 +166,8 @@ Save your room configuration as JSON:
   "room": "my-room",
   "streams": [
     { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "label": "Main Camera" },
-    { "id": "twitch-stormwatch", "type": "twitch", "sourceId": "stormwatch", "sourceKind": "channel", "muted": true, "label": "Storm Watch" }
+    { "id": "twitch-stormwatch", "type": "twitch", "sourceId": "stormwatch", "sourceKind": "channel", "muted": true, "label": "Storm Watch" },
+    { "id": "rumble-v1io41", "type": "rumble", "sourceId": "v1io41", "sourceKind": "embed", "muted": true, "label": "Rumble Clip" }
   ],
   "settings": {
     "layout": "featured",
@@ -201,6 +203,7 @@ For local Twitch testing, serve the folder from `localhost` instead of opening `
 
 - [Gun.js](https://gun.eco/) - Decentralized database (loaded via CDN)
 - [Twitch Embeds](https://dev.twitch.tv/docs/embed/) - Twitch player and chat iframes
+- [Rumble](https://rumble.com/) - Direct video embed iframes
 - [Windy.com](https://windy.com/) - Weather radar embeds
 
 ### Privacy

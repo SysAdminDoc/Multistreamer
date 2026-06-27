@@ -8,6 +8,7 @@
     const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/;
     const TWITCH_CHANNEL_RE = /^[A-Za-z0-9_]{3,25}$/;
     const TWITCH_VIDEO_RE = /^(?:v)?(\d+)$/i;
+    const RUMBLE_EMBED_RE = /^v[A-Za-z0-9_-]+$/;
     const TWITCH_RESERVED_PATHS = new Set([
         'about',
         'activate',
@@ -89,6 +90,16 @@
         };
     }
 
+    function makeRumbleEmbed(embedId) {
+        return {
+            id: 'rumble-' + embedId,
+            type: 'rumble',
+            sourceId: embedId,
+            sourceKind: 'embed',
+            displayName: 'Rumble ' + embedId
+        };
+    }
+
     function parseYouTube(input) {
         const raw = String(input || '').trim();
         if (YOUTUBE_ID_RE.test(raw)) return makeYouTube(raw);
@@ -136,17 +147,47 @@
         return makeTwitchChannel(channel);
     }
 
+    function parseRumble(input) {
+        const raw = String(input || '').trim();
+        const prefixed = raw.match(/^rumble:(v[A-Za-z0-9_-]+)$/i);
+        if (prefixed) return makeRumbleEmbed(prefixed[1]);
+
+        const url = parseUrl(raw);
+        if (!url) return null;
+
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        if (host !== 'rumble.com') return null;
+
+        const parts = cleanPathParts(url);
+        if (parts[0] === 'embed' && RUMBLE_EMBED_RE.test(parts[1] || '')) {
+            return makeRumbleEmbed(parts[1]);
+        }
+        if (parts.length === 1 && RUMBLE_EMBED_RE.test(parts[0])) {
+            return makeRumbleEmbed(parts[0]);
+        }
+        return null;
+    }
+
     function parseStreamUrl(input) {
-        return parseYouTube(input) || parseTwitch(input);
+        return parseYouTube(input) || parseTwitch(input) || parseRumble(input);
     }
 
     function normalizeStreamRecord(record, fallbackId) {
         if (!record) return null;
 
         const rawId = String(record.id || fallbackId || '').trim();
-        const detectedType = String(record.type || (rawId.startsWith('twitch-') ? 'twitch' : 'youtube')).toLowerCase();
-        const type = detectedType === 'twitch' ? 'twitch' : 'youtube';
-        const sourceKind = String(record.sourceKind || (rawId.startsWith('twitch-vod-') ? 'video' : type === 'twitch' ? 'channel' : 'video')).toLowerCase();
+        const detectedType = String(record.type || (
+            rawId.startsWith('twitch-') ? 'twitch' :
+                rawId.startsWith('rumble-') ? 'rumble' :
+                    'youtube'
+        )).toLowerCase();
+        const type = ['twitch', 'rumble'].includes(detectedType) ? detectedType : 'youtube';
+        const sourceKind = String(record.sourceKind || (
+            rawId.startsWith('twitch-vod-') ? 'video' :
+                type === 'twitch' ? 'channel' :
+                    type === 'rumble' ? 'embed' :
+                        'video'
+        )).toLowerCase();
 
         let sourceId = String(record.sourceId || record.videoId || record.channel || '').trim();
         if (!sourceId) {
@@ -155,6 +196,8 @@
             } else if (sourceKind === 'video') {
                 const video = rawId.replace(/^twitch-vod-/i, '');
                 sourceId = TWITCH_VIDEO_RE.test(video) ? 'v' + video.replace(/^v/i, '') : video;
+            } else if (type === 'rumble') {
+                sourceId = rawId.replace(/^rumble-/i, '');
             } else {
                 sourceId = rawId.replace(/^twitch-/i, '');
             }
@@ -163,6 +206,7 @@
         if (type === 'youtube' && !YOUTUBE_ID_RE.test(sourceId)) return null;
         if (type === 'twitch' && sourceKind === 'channel' && !TWITCH_CHANNEL_RE.test(sourceId)) return null;
         if (type === 'twitch' && sourceKind === 'video' && !TWITCH_VIDEO_RE.test(sourceId)) return null;
+        if (type === 'rumble' && !RUMBLE_EMBED_RE.test(sourceId)) return null;
 
         const normalizedSourceId = type === 'twitch' && sourceKind === 'channel'
             ? sourceId.toLowerCase()
@@ -173,7 +217,7 @@
             ? normalizedSourceId
             : sourceKind === 'video'
                 ? 'twitch-vod-' + normalizedSourceId.replace(/^v/i, '')
-                : 'twitch-' + normalizedSourceId);
+                : type + '-' + normalizedSourceId);
 
         return {
             id,
@@ -217,6 +261,16 @@
                 videoUrl: 'https://www.youtube.com/embed/' + encodeURIComponent(stream.sourceId) + '?autoplay=1&mute=' + (stream.muted ? '1' : '0'),
                 chatUrl: '',
                 allow: 'accelerometer;autoplay;clipboard-write;encrypted-media;fullscreen;gyroscope;picture-in-picture'
+            };
+        }
+
+        if (stream.type === 'rumble') {
+            return {
+                type: 'rumble',
+                label: stream.label || 'Rumble ' + stream.sourceId,
+                videoUrl: 'https://rumble.com/embed/' + encodeURIComponent(stream.sourceId) + '/',
+                chatUrl: '',
+                allow: 'autoplay; encrypted-media; fullscreen; picture-in-picture'
             };
         }
 

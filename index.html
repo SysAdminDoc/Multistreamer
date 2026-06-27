@@ -948,7 +948,7 @@
         <!-- Control Bar (Host Only) -->
         <div class="control-bar">
             <div class="input-group">
-                <input type="text" id="videoUrl" placeholder="YouTube or Twitch URL..." onkeypress="if(event.key==='Enter')addStream()">
+                <input type="text" id="videoUrl" placeholder="YouTube, Twitch, or Rumble URL..." onkeypress="if(event.key==='Enter')addStream()">
                 <button class="btn-primary" onclick="addStream()">Add</button>
             </div>
             <div class="divider"></div>
@@ -973,7 +973,7 @@
                         <path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/>
                     </svg>
                     <h2 id="emptyTitle">No Streams Yet</h2>
-                    <p id="emptyText">Add YouTube or Twitch URLs to start.</p>
+                    <p id="emptyText">Add YouTube, Twitch, or Rumble URLs to start.</p>
                 </div>
             </div>
 
@@ -1368,7 +1368,7 @@
         function addStream() {
             if (!isHost) return;
             const source = Sources.parseStreamUrl(document.getElementById('videoUrl').value.trim());
-            if (!source) return notify('Paste a valid YouTube video, YouTube Live, Twitch channel, or Twitch VOD URL.', 'error');
+            if (!source) return notify('Paste a valid YouTube video, Twitch channel/VOD, or Rumble embed URL.', 'error');
             if (seenStreams.has(source.id)) return notify('That stream is already in this room.', 'error');
             roomRef.get('streams').get(source.id).put(Sources.streamToGunRecord(source));
             document.getElementById('videoUrl').value = '';
