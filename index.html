@@ -1295,7 +1295,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.9.0';
+        const APP_VERSION = '0.10.0';
+        const CONFIG_VERSION = 4;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
@@ -2083,7 +2084,7 @@
         }
 
         function exportConfig() {
-            const config = { version: 4, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, label: s.label })), settings };
+            const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, label: s.label })), settings };
             const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${roomId}.json`; a.click();
         }
@@ -2092,23 +2093,110 @@
             if (!isHost) return notify('Host access is required to import a config.', 'error');
             try {
                 const data = JSON.parse(document.getElementById('importData').value);
+                const result = validateImportConfig(data);
                 streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
-                (data.streams || []).forEach((s, index) => {
-                    const stream = Sources.normalizeStreamRecord(s, s.id);
-                    if (!stream) return;
-                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: s.muted !== false, label: s.label || '' });
+                result.streams.forEach((stream, index) => {
+                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, label: stream.label });
                 });
-                if (data.settings) {
-                    if (data.settings.layout) roomRef.get('settings').get('layout').put(data.settings.layout);
-                    if (data.settings.featuredId) roomRef.get('settings').get('featuredId').put(data.settings.featuredId);
-                    if (data.settings.weather) roomRef.get('settings').get('weather').put(data.settings.weather);
-                    if (data.settings.display) {
-                        Object.entries(data.settings.display).forEach(([k, v]) => roomRef.get('settings').get('display').get(k).put(v));
-                    }
-                }
+                applyImportedSettings(result.settings);
                 closeModal('importModal');
-                notify('Config imported.');
+                notify(result.skippedStreams ? `Config imported. Skipped ${result.skippedStreams} invalid stream${result.skippedStreams === 1 ? '' : 's'}.` : 'Config imported.');
             } catch (e) { notify('Invalid config: ' + e.message, 'error'); }
+        }
+
+        function validateImportConfig(data) {
+            if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Config must be a JSON object.');
+            const version = data.version ?? 1;
+            if (!Number.isInteger(version) || version < 1) throw new Error('Config version must be a positive integer.');
+            if (version > CONFIG_VERSION) throw new Error(`Config version ${version} is newer than supported version ${CONFIG_VERSION}. Update MultiStream before importing.`);
+            if (!Array.isArray(data.streams)) throw new Error('Config streams must be an array.');
+
+            const streamsOut = [];
+            let skippedStreams = 0;
+            data.streams.forEach(raw => {
+                if (!raw || typeof raw !== 'object') {
+                    skippedStreams++;
+                    return;
+                }
+                const stream = Sources.normalizeStreamRecord(raw, raw.id);
+                if (!stream) {
+                    skippedStreams++;
+                    return;
+                }
+                streamsOut.push({
+                    id: stream.id,
+                    type: stream.type,
+                    sourceId: stream.sourceId,
+                    sourceKind: stream.sourceKind,
+                    muted: raw.muted !== false,
+                    label: typeof raw.label === 'string' ? raw.label.slice(0, 80) : ''
+                });
+            });
+            if (!streamsOut.length && data.streams.length) throw new Error('No valid streams found. Check stream URLs and provider types.');
+
+            return {
+                streams: streamsOut,
+                settings: validateImportSettings(data.settings || {}, streamsOut),
+                skippedStreams
+            };
+        }
+
+        function validateImportSettings(rawSettings, importedStreams) {
+            if (!rawSettings || typeof rawSettings !== 'object' || Array.isArray(rawSettings)) return {};
+            const next = {};
+            if (rawSettings.layout !== undefined) {
+                if (!['grid', 'featured'].includes(rawSettings.layout)) throw new Error('settings.layout must be grid or featured.');
+                next.layout = rawSettings.layout;
+            }
+            if (rawSettings.featuredId !== undefined && rawSettings.featuredId !== null && rawSettings.featuredId !== '') {
+                if (typeof rawSettings.featuredId !== 'string') throw new Error('settings.featuredId must be a stream id.');
+                if (importedStreams.length && !importedStreams.some(stream => stream.id === rawSettings.featuredId)) throw new Error('settings.featuredId must match an imported stream id.');
+                next.featuredId = rawSettings.featuredId;
+            }
+            if (rawSettings.weather !== undefined) next.weather = validateWeatherSettings(rawSettings.weather);
+            if (rawSettings.display !== undefined) next.display = validateDisplaySettings(rawSettings.display);
+            return next;
+        }
+
+        function validateWeatherSettings(weather) {
+            if (!weather || typeof weather !== 'object' || Array.isArray(weather)) throw new Error('settings.weather must be an object.');
+            const lat = Number(weather.lat);
+            const lon = Number(weather.lon);
+            if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error('settings.weather.lat must be between -90 and 90.');
+            if (!Number.isFinite(lon) || lon < -180 || lon > 180) throw new Error('settings.weather.lon must be between -180 and 180.');
+            return { enabled: Boolean(weather.enabled), lat, lon };
+        }
+
+        function validateDisplaySettings(display) {
+            if (!display || typeof display !== 'object' || Array.isArray(display)) throw new Error('settings.display must be an object.');
+            const next = {};
+            if (display.gridGap !== undefined) {
+                const gridGap = Number(display.gridGap);
+                if (!Number.isInteger(gridGap) || gridGap < 0 || gridGap > 10) throw new Error('settings.display.gridGap must be an integer from 0 to 10.');
+                next.gridGap = gridGap;
+            }
+            if (display.labels !== undefined) {
+                if (!['hover', 'always', 'never'].includes(display.labels)) throw new Error('settings.display.labels must be hover, always, or never.');
+                next.labels = display.labels;
+            }
+            if (display.theme !== undefined) {
+                if (!['dark', 'midnight', 'amoled'].includes(display.theme)) throw new Error('settings.display.theme must be dark, midnight, or amoled.');
+                next.theme = display.theme;
+            }
+            if (display.accent !== undefined) {
+                if (typeof display.accent !== 'string' || !/^#[0-9a-f]{6}$/i.test(display.accent)) throw new Error('settings.display.accent must be a hex color like #00d4ff.');
+                next.accent = display.accent;
+            }
+            return next;
+        }
+
+        function applyImportedSettings(importedSettings) {
+            if (importedSettings.layout) roomRef.get('settings').get('layout').put(importedSettings.layout);
+            if (importedSettings.featuredId) roomRef.get('settings').get('featuredId').put(importedSettings.featuredId);
+            if (importedSettings.weather) roomRef.get('settings').get('weather').put(importedSettings.weather);
+            if (importedSettings.display) {
+                Object.entries(importedSettings.display).forEach(([key, value]) => roomRef.get('settings').get('display').get(key).put(value));
+            }
         }
 
         function buildDiagnostics() {

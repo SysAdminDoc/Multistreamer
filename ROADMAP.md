@@ -80,13 +80,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Research-Driven Additions
 
-- [ ] P2 - Version and validate room config imports
-  Why: Export writes `version: 4`, but import accepts loosely shaped JSON and silently skips invalid streams, making migrations brittle as source records evolve.
-  Evidence: `index.html:1565`, `index.html:1571`; existing v4 HLS config example; source normalization tests.
-  Touches: `index.html`, `stream-sources.js`, `tests/source-parsing.test.js`, README import/export section.
-  Acceptance: Imports validate version, streams, settings, weather coordinates, display options, and unknown future versions; users get actionable errors and partial imports are reported.
-  Complexity: S
-
 - [ ] P3 - Make UI copy and time formatting i18n-ready
   Why: All visible strings and chat time formatting are inline English, making future localization or regional event rooms expensive.
   Evidence: `index.html:883` through `index.html:1660`; `index.html:1642` uses default locale time formatting inline.

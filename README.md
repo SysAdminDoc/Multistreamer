@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.9.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.10.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -204,6 +204,12 @@ Save your room configuration as JSON:
 ```
 
 Import configs to quickly set up similar events.
+
+Imported configs are validated before they change the room:
+- Future config versions are rejected with an update message.
+- Stream records are normalized through the same source parser used by the Add Stream control.
+- Invalid stream records are skipped and reported after import.
+- Layout, featured stream, weather coordinates, display labels, theme, grid gap, and accent colors are range-checked before sync.
 
 ## Technical Details
 

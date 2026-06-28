@@ -88,3 +88,14 @@ test('keeps provider adapters and health recovery wired', () => {
     assert.match(html, /class="stream-health"/);
     assert.match(html, /providerHealth: Array\.from\(mountedProviders\.entries\(\)\)/);
 });
+
+test('keeps import config validation wired', () => {
+    assert.match(html, /const CONFIG_VERSION = 4;/);
+    assert.match(html, /version: CONFIG_VERSION/);
+    assert.match(html, /function validateImportConfig\(data\)/);
+    assert.match(html, /Config version \$\{version\} is newer than supported version \$\{CONFIG_VERSION\}/);
+    assert.match(html, /function validateWeatherSettings\(weather\)/);
+    assert.match(html, /function validateDisplaySettings\(display\)/);
+    assert.match(html, /function applyImportedSettings\(importedSettings\)/);
+    assert.match(html, /Skipped \$\{result\.skippedStreams\} invalid stream/);
+});
