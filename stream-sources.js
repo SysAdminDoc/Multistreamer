@@ -100,6 +100,25 @@
         };
     }
 
+    function stableId(prefix, value) {
+        let hash = 0;
+        const raw = String(value || '');
+        for (let i = 0; i < raw.length; i++) {
+            hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
+        }
+        return prefix + '-' + Math.abs(hash).toString(36);
+    }
+
+    function makeHlsPlaylist(url) {
+        return {
+            id: stableId('hls', url.href),
+            type: 'hls',
+            sourceId: url.href,
+            sourceKind: 'playlist',
+            displayName: 'HLS: ' + (url.hostname || 'playlist')
+        };
+    }
+
     function parseYouTube(input) {
         const raw = String(input || '').trim();
         if (YOUTUBE_ID_RE.test(raw)) return makeYouTube(raw);
@@ -168,8 +187,16 @@
         return null;
     }
 
+    function parseHls(input) {
+        const url = parseUrl(input);
+        if (!url) return null;
+        if (!['http:', 'https:'].includes(url.protocol)) return null;
+        if (!url.pathname.toLowerCase().endsWith('.m3u8')) return null;
+        return makeHlsPlaylist(url);
+    }
+
     function parseStreamUrl(input) {
-        return parseYouTube(input) || parseTwitch(input) || parseRumble(input);
+        return parseYouTube(input) || parseTwitch(input) || parseRumble(input) || parseHls(input);
     }
 
     function normalizeStreamRecord(record, fallbackId) {
@@ -179,14 +206,16 @@
         const detectedType = String(record.type || (
             rawId.startsWith('twitch-') ? 'twitch' :
                 rawId.startsWith('rumble-') ? 'rumble' :
-                    'youtube'
+                    rawId.startsWith('hls-') ? 'hls' :
+                        'youtube'
         )).toLowerCase();
-        const type = ['twitch', 'rumble'].includes(detectedType) ? detectedType : 'youtube';
+        const type = ['twitch', 'rumble', 'hls'].includes(detectedType) ? detectedType : 'youtube';
         const sourceKind = String(record.sourceKind || (
             rawId.startsWith('twitch-vod-') ? 'video' :
                 type === 'twitch' ? 'channel' :
                     type === 'rumble' ? 'embed' :
-                        'video'
+                        type === 'hls' ? 'playlist' :
+                            'video'
         )).toLowerCase();
 
         let sourceId = String(record.sourceId || record.videoId || record.channel || '').trim();
@@ -198,6 +227,8 @@
                 sourceId = TWITCH_VIDEO_RE.test(video) ? 'v' + video.replace(/^v/i, '') : video;
             } else if (type === 'rumble') {
                 sourceId = rawId.replace(/^rumble-/i, '');
+            } else if (type === 'hls') {
+                sourceId = record.url || record.src || '';
             } else {
                 sourceId = rawId.replace(/^twitch-/i, '');
             }
@@ -207,6 +238,7 @@
         if (type === 'twitch' && sourceKind === 'channel' && !TWITCH_CHANNEL_RE.test(sourceId)) return null;
         if (type === 'twitch' && sourceKind === 'video' && !TWITCH_VIDEO_RE.test(sourceId)) return null;
         if (type === 'rumble' && !RUMBLE_EMBED_RE.test(sourceId)) return null;
+        if (type === 'hls' && !parseHls(sourceId)) return null;
 
         const normalizedSourceId = type === 'twitch' && sourceKind === 'channel'
             ? sourceId.toLowerCase()
@@ -217,7 +249,9 @@
             ? normalizedSourceId
             : sourceKind === 'video'
                 ? 'twitch-vod-' + normalizedSourceId.replace(/^v/i, '')
-                : type + '-' + normalizedSourceId);
+                : type === 'hls'
+                    ? stableId('hls', normalizedSourceId)
+                    : type + '-' + normalizedSourceId);
 
         return {
             id,
@@ -271,6 +305,17 @@
                 videoUrl: 'https://rumble.com/embed/' + encodeURIComponent(stream.sourceId) + '/',
                 chatUrl: '',
                 allow: 'autoplay; encrypted-media; fullscreen; picture-in-picture'
+            };
+        }
+
+        if (stream.type === 'hls') {
+            return {
+                type: 'hls',
+                label: stream.label || 'HLS: ' + stream.sourceId.replace(/^https?:\/\//i, '').split(/[/?#]/)[0],
+                videoUrl: '',
+                mediaUrl: stream.sourceId,
+                chatUrl: '',
+                allow: ''
             };
         }
 

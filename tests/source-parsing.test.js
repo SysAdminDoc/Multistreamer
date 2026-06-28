@@ -49,6 +49,14 @@ test('parses direct Rumble embed URLs', () => {
     assert.equal(source.sourceKind, 'embed');
 });
 
+test('parses HLS playlist URLs', () => {
+    const source = Sources.parseStreamUrl('https://example.com/live/camera.m3u8?token=abc');
+    assert.match(source.id, /^hls-[a-z0-9]+$/);
+    assert.equal(source.type, 'hls');
+    assert.equal(source.sourceId, 'https://example.com/live/camera.m3u8?token=abc');
+    assert.equal(source.sourceKind, 'playlist');
+});
+
 test('normalizes legacy YouTube records without type fields', () => {
     const stream = Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', muted: false, label: 'Main' }, 'dQw4w9WgXcQ');
     assert.equal(stream.type, 'youtube');
@@ -79,4 +87,11 @@ test('builds Rumble embed URLs', () => {
     const rumble = Sources.buildEmbed(Sources.streamToGunRecord(Sources.parseStreamUrl('rumble:v1io41')), {});
     assert.equal(rumble.videoUrl, 'https://rumble.com/embed/v1io41/');
     assert.equal(rumble.chatUrl, '');
+});
+
+test('builds HLS media records', () => {
+    const hls = Sources.buildEmbed(Sources.streamToGunRecord(Sources.parseStreamUrl('https://example.com/live/camera.m3u8')), {});
+    assert.equal(hls.type, 'hls');
+    assert.equal(hls.mediaUrl, 'https://example.com/live/camera.m3u8');
+    assert.equal(hls.videoUrl, '');
 });

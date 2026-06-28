@@ -10,6 +10,7 @@
     <title>MultiStream</title>
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <script src="stream-sources.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.16/dist/hls.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -503,9 +504,16 @@
             grid-template-columns: minmax(0, 1fr) minmax(220px, 28%);
         }
 
-        .stream-embed iframe {
+        .stream-embed iframe,
+        .stream-embed video {
             display: block;
             background: #000;
+            width: 100%;
+            height: 100%;
+        }
+
+        .stream-embed video {
+            object-fit: contain;
         }
 
         .stream-embed .chat-frame {
@@ -948,7 +956,7 @@
         <!-- Control Bar (Host Only) -->
         <div class="control-bar">
             <div class="input-group">
-                <input type="text" id="videoUrl" placeholder="YouTube, Twitch, or Rumble URL..." onkeypress="if(event.key==='Enter')addStream()">
+                <input type="text" id="videoUrl" placeholder="YouTube, Twitch, Rumble, or HLS URL..." onkeypress="if(event.key==='Enter')addStream()">
                 <button class="btn-primary" onclick="addStream()">Add</button>
             </div>
             <div class="divider"></div>
@@ -973,7 +981,7 @@
                         <path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/>
                     </svg>
                     <h2 id="emptyTitle">No Streams Yet</h2>
-                    <p id="emptyText">Add YouTube, Twitch, or Rumble URLs to start.</p>
+                    <p id="emptyText">Add YouTube, Twitch, Rumble, or HLS URLs to start.</p>
                 </div>
             </div>
 
@@ -1135,6 +1143,7 @@
         const seenStreams = new Map();
         const msgEls = new Map();
         const Sources = window.MultiStreamSources;
+        const hlsPlayers = new Map();
 
         // ========== URL PARAMS ==========
         const params = new URLSearchParams(location.search);
@@ -1368,7 +1377,7 @@
         function addStream() {
             if (!isHost) return;
             const source = Sources.parseStreamUrl(document.getElementById('videoUrl').value.trim());
-            if (!source) return notify('Paste a valid YouTube video, Twitch channel/VOD, or Rumble embed URL.', 'error');
+            if (!source) return notify('Paste a valid YouTube video, Twitch channel/VOD, Rumble embed, or HLS .m3u8 URL.', 'error');
             if (seenStreams.has(source.id)) return notify('That stream is already in this room.', 'error');
             roomRef.get('streams').get(source.id).put(Sources.streamToGunRecord(source));
             document.getElementById('videoUrl').value = '';
@@ -1421,6 +1430,7 @@
             const container = document.getElementById('gridContainer');
             const items = [...streams];
             if (settings.weather.enabled) items.push({ id: '__weather__', type: 'weather' });
+            destroyHlsPlayers();
 
             if (!items.length) {
                 container.className = 'grid-container';
@@ -1441,12 +1451,14 @@
                 container.style.gridTemplateColumns = '1fr 280px';
                 container.style.gridTemplateRows = '1fr';
                 container.innerHTML = `${renderItem(sorted[0], labelMode)}<div class="sidebar-stack">${sorted.slice(1).map(s => renderItem(s, labelMode)).join('')}</div>`;
+                hydrateHlsPlayers();
             } else {
                 const n = sorted.length;
                 const cols = n <= 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : n <= 6 ? 3 : n <= 9 ? 3 : Math.ceil(Math.sqrt(n));
                 container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
                 container.style.gridTemplateRows = '';
                 container.innerHTML = sorted.map(s => renderItem(s, labelMode)).join('');
+                hydrateHlsPlayers();
             }
         }
 
@@ -1467,8 +1479,35 @@
             const streamClass = `grid-item ${embed.type}-source${hasChat ? ' has-chat' : ''}`;
             const labelHtml = label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label);
             const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}"></iframe>` : '';
+            const mediaFrame = embed.type === 'hls'
+                ? `<video class="video-frame hls-video" data-hls-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls></video>`
+                : `<iframe class="video-frame" src="${escAttr(embed.videoUrl)}" allow="${escAttr(embed.allow)}"></iframe>`;
 
-            return `<div class="${streamClass}"><div class="stream-embed ${hasChat ? 'with-chat' : ''}"><iframe class="video-frame" src="${escAttr(embed.videoUrl)}" allow="${escAttr(embed.allow)}"></iframe>${chatFrame}</div><div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')">${muted ? 'Unmute' : 'Mute'}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')">${isFeatured ? 'Main' : 'Set Main'}</button><button class="host-only" onclick="editLabel('${id}')">Label</button><button class="host-only" onclick="removeStream('${id}')">Remove</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div><div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')">${muted ? 'Unmute' : 'Mute'}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')">${isFeatured ? 'Main' : 'Set Main'}</button><button class="host-only" onclick="editLabel('${id}')">Label</button><button class="host-only" onclick="removeStream('${id}')">Remove</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+        }
+
+        function destroyHlsPlayers() {
+            hlsPlayers.forEach(player => player.destroy());
+            hlsPlayers.clear();
+        }
+
+        function hydrateHlsPlayers() {
+            document.querySelectorAll('video[data-hls-src]').forEach(video => {
+                const src = video.dataset.hlsSrc;
+                if (!src) return;
+                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = src;
+                    return;
+                }
+                if (window.Hls?.isSupported()) {
+                    const player = new Hls();
+                    player.loadSource(src);
+                    player.attachMedia(video);
+                    hlsPlayers.set(video, player);
+                } else {
+                    video.insertAdjacentHTML('afterend', '<div class="empty-state"><h2>HLS Unsupported</h2><p>This browser cannot play HLS.</p></div>');
+                }
+            });
         }
 
         // ========== TITLE & ANNOUNCEMENT ==========
