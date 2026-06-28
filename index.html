@@ -322,6 +322,58 @@
             border-radius: 15px;
         }
 
+        .top-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 112px;
+            padding: 5px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background: #f59e0b;
+        }
+
+        .sync-status[data-state="connected"] .sync-dot { background: #4ade80; }
+        .sync-status[data-state="reconnecting"] .sync-dot { background: #f59e0b; animation: pulse 1.4s infinite; }
+        .sync-status[data-state="offline"] .sync-dot { background: #f87171; }
+
+        .sync-diag-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 9px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .sync-diag-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .sync-diag-btn.show {
+            display: inline-flex;
+        }
+
         .viewer-dot {
             width: 8px;
             height: 8px;
@@ -940,11 +992,18 @@
                 <input type="text" class="room-title-input" id="roomTitleInput" maxlength="50">
                 <button class="edit-title-btn host-only-inline" onclick="toggleEditTitle()">Edit</button>
             </div>
-            <div class="viewer-count">
-                <span class="viewer-dot"></span>
-                <span id="viewerCount">1</span> watching
+            <div class="top-status">
+                <div class="sync-status" id="syncStatus" data-state="connecting" title="Sync connecting">
+                    <span class="sync-dot"></span>
+                    <span id="syncStatusText">Connecting</span>
+                </div>
+                <button class="sync-diag-btn" id="syncDiagBtn" onclick="copyDiagnostics()">Diagnostics</button>
+                <div class="viewer-count">
+                    <span class="viewer-dot"></span>
+                    <span id="viewerCount">0</span> watching
+                </div>
+                <span class="host-badge host-only-inline">HOST</span>
             </div>
-            <span class="host-badge host-only-inline">HOST</span>
         </div>
 
         <!-- Announcement -->
@@ -1128,6 +1187,11 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
+        const APP_VERSION = '0.6.0';
+        const PRESENCE_TTL_MS = 60000;
+        const PRESENCE_HEARTBEAT_MS = 30000;
+        const RELAY_RECONNECT_AFTER_MS = 12000;
+        const RELAY_OFFLINE_AFTER_MS = 45000;
 
         // ========== GLOBAL STATE ==========
         let gun = null;
@@ -1144,6 +1208,18 @@
         const msgEls = new Map();
         const Sources = window.MultiStreamSources;
         const hlsPlayers = new Map();
+        const recentErrors = [];
+        const relayHealth = {
+            state: 'connecting',
+            statusText: 'Connecting',
+            startedAt: Date.now(),
+            connectedPeers: new Map(),
+            lastConnectedAt: 0,
+            lastHeartbeatAt: 0,
+            lastRetryAt: 0,
+            retryCount: 0,
+            events: []
+        };
 
         // ========== URL PARAMS ==========
         const params = new URLSearchParams(location.search);
@@ -1225,6 +1301,8 @@
         }
 
         // ========== PAGE INIT ==========
+        setupRuntimeDiagnostics();
+
         if (roomId) {
             document.getElementById('setupPage').style.display = 'none';
             document.getElementById('viewerPage').classList.add('active');
@@ -1240,6 +1318,7 @@
             chatRef = gun.get('ms4-chat-' + roomId);
             document.getElementById('roomTitle').textContent = roomId;
             document.title = roomId + ' - MultiStream';
+            setupRelayHealth();
 
             // Check host
             roomRef.get('meta').get('hostKey').once(key => {
@@ -1315,8 +1394,8 @@
             roomRef.get('settings').get('display').get('theme').on(v => { if (v) applyDisplay({ theme: v }); });
             roomRef.get('settings').get('display').get('accent').on(v => { if (v) applyDisplay({ accent: v }); });
 
-            roomRef.get('presence').get(sessionId).put({ online: true, time: Date.now() });
-            setInterval(() => roomRef.get('presence').get(sessionId).put({ online: true, time: Date.now() }), 30000);
+            writePresence();
+            setInterval(writePresence, PRESENCE_HEARTBEAT_MS);
             countViewers();
             setInterval(countViewers, 15000);
 
@@ -1332,13 +1411,115 @@
             document.querySelectorAll('.host-only-inline').forEach(el => el.style.display = isHost ? '' : 'none');
         }
 
+        function setupRelayHealth() {
+            updateRelayStatus('connecting', 'Connecting');
+            recordRelayEvent('init', 'Relay setup started');
+
+            try {
+                gun.on('hi', peer => {
+                    const url = peer?.url || peer?.id || 'relay';
+                    relayHealth.connectedPeers.set(url, Date.now());
+                    relayHealth.lastConnectedAt = Date.now();
+                    recordRelayEvent('connected', url);
+                    updateRelayStatus('connected', 'Synced');
+                });
+
+                gun.on('bye', peer => {
+                    const url = peer?.url || peer?.id || 'relay';
+                    relayHealth.connectedPeers.delete(url);
+                    recordRelayEvent('disconnected', url);
+                    checkRelayHealth();
+                });
+            } catch (error) {
+                recordRelayEvent('health-error', error.message);
+            }
+
+            window.addEventListener('online', () => {
+                recordRelayEvent('browser-online', 'Browser online');
+                retryRelayConnection();
+            });
+            window.addEventListener('offline', () => {
+                recordRelayEvent('browser-offline', 'Browser offline');
+                updateRelayStatus('offline', 'Offline');
+            });
+
+            setInterval(checkRelayHealth, 5000);
+            setInterval(() => {
+                if (relayHealth.state !== 'connected') retryRelayConnection();
+            }, 20000);
+        }
+
+        function updateRelayStatus(state, text) {
+            relayHealth.state = state;
+            relayHealth.statusText = text;
+            const status = document.getElementById('syncStatus');
+            const label = document.getElementById('syncStatusText');
+            const diag = document.getElementById('syncDiagBtn');
+            if (!status || !label || !diag) return;
+
+            status.dataset.state = state;
+            status.title = `Sync ${text.toLowerCase()}`;
+            label.textContent = text;
+            diag.classList.toggle('show', state !== 'connected');
+        }
+
+        function checkRelayHealth() {
+            if (!navigator.onLine) {
+                updateRelayStatus('offline', 'Offline');
+                return;
+            }
+
+            const now = Date.now();
+            const connected = relayHealth.connectedPeers.size > 0;
+            if (connected) {
+                updateRelayStatus('connected', 'Synced');
+                return;
+            }
+
+            const lastConnection = relayHealth.lastConnectedAt || relayHealth.startedAt;
+            const elapsed = now - lastConnection;
+            if (elapsed > RELAY_OFFLINE_AFTER_MS) {
+                updateRelayStatus('offline', 'Offline');
+            } else if (elapsed > RELAY_RECONNECT_AFTER_MS) {
+                updateRelayStatus('reconnecting', 'Reconnecting');
+            }
+        }
+
+        function retryRelayConnection() {
+            if (!gun || !navigator.onLine) return;
+            relayHealth.retryCount++;
+            relayHealth.lastRetryAt = Date.now();
+            recordRelayEvent('retry', `Retry ${relayHealth.retryCount}`);
+            updateRelayStatus('reconnecting', 'Reconnecting');
+
+            GUN_RELAYS.forEach(relay => {
+                try {
+                    gun.opt({ peers: [relay] });
+                } catch (error) {
+                    recordRelayEvent('retry-error', `${relay}: ${error.message}`);
+                }
+            });
+        }
+
+        function recordRelayEvent(type, detail) {
+            relayHealth.events.push({ type, detail, time: new Date().toISOString() });
+            relayHealth.events = relayHealth.events.slice(-20);
+        }
+
+        function writePresence() {
+            if (!roomRef) return;
+            const now = Date.now();
+            relayHealth.lastHeartbeatAt = now;
+            roomRef.get('presence').get(sessionId).put({ online: true, time: now, role: isHost ? 'host' : 'viewer' });
+        }
+
         function countViewers() {
-            const cutoff = Date.now() - 60000;
+            const cutoff = Date.now() - PRESENCE_TTL_MS;
             let count = 0;
             roomRef.get('presence').map().once((p) => {
                 if (p?.time > cutoff) count++;
             });
-            setTimeout(() => document.getElementById('viewerCount').textContent = Math.max(1, count), 500);
+            setTimeout(() => document.getElementById('viewerCount').textContent = count, 500);
         }
 
         function applyDisplay(d) {
@@ -1508,6 +1689,15 @@
                 }
                 if (window.Hls?.isSupported()) {
                     const player = new Hls();
+                    player.on(Hls.Events.ERROR, (event, data) => {
+                        recordRuntimeError('hls', data?.details || data?.type || event, {
+                            fatal: Boolean(data?.fatal),
+                            type: data?.type,
+                            details: data?.details,
+                            url: src
+                        });
+                        if (data?.fatal) notify('HLS playback error. Reload the stream or verify the source URL.', 'error');
+                    });
                     player.loadSource(src);
                     player.attachMedia(video);
                     hlsPlayers.set(video, player);
@@ -1596,6 +1786,131 @@
                 closeModal('importModal');
                 notify('Config imported.');
             } catch (e) { notify('Invalid config: ' + e.message, 'error'); }
+        }
+
+        function buildDiagnostics() {
+            const providerCounts = streams.reduce((counts, stream) => {
+                const type = stream.type || 'youtube';
+                counts[type] = (counts[type] || 0) + 1;
+                return counts;
+            }, {});
+            const now = Date.now();
+            return {
+                app: 'Multistreamer',
+                appVersion: APP_VERSION,
+                room: roomId || '',
+                mode: isHost ? 'host' : 'viewer',
+                url: redactSensitiveUrl(location.href),
+                generatedAt: new Date(now).toISOString(),
+                browser: {
+                    online: navigator.onLine,
+                    userAgent: navigator.userAgent,
+                    hlsJs: Boolean(window.Hls),
+                    hlsJsSupported: Boolean(window.Hls?.isSupported?.()),
+                    nativeHls: Boolean(document.createElement('video').canPlayType('application/vnd.apple.mpegurl'))
+                },
+                relay: {
+                    state: relayHealth.state,
+                    statusText: relayHealth.statusText,
+                    relays: GUN_RELAYS.map(redactSensitiveUrl),
+                    connectedPeers: Array.from(relayHealth.connectedPeers.keys()).map(redactSensitiveUrl),
+                    startedAt: new Date(relayHealth.startedAt).toISOString(),
+                    lastConnectedAt: relayHealth.lastConnectedAt ? new Date(relayHealth.lastConnectedAt).toISOString() : null,
+                    lastHeartbeatAt: relayHealth.lastHeartbeatAt ? new Date(relayHealth.lastHeartbeatAt).toISOString() : null,
+                    lastRetryAt: relayHealth.lastRetryAt ? new Date(relayHealth.lastRetryAt).toISOString() : null,
+                    retryCount: relayHealth.retryCount,
+                    events: relayHealth.events.slice(-10)
+                },
+                presence: {
+                    localSessionId: sessionId,
+                    displayedViewers: Number(document.getElementById('viewerCount')?.textContent || 0),
+                    ttlMs: PRESENCE_TTL_MS,
+                    heartbeatMs: PRESENCE_HEARTBEAT_MS
+                },
+                streams: {
+                    total: streams.length,
+                    providerCounts
+                },
+                recentErrors: recentErrors.slice(-10)
+            };
+        }
+
+        async function copyDiagnostics() {
+            const payload = JSON.stringify(buildDiagnostics(), null, 2);
+            try {
+                if (navigator.clipboard?.writeText && window.isSecureContext) {
+                    await navigator.clipboard.writeText(payload);
+                } else {
+                    fallbackCopyText(payload);
+                }
+                notify('Diagnostics copied.');
+            } catch (error) {
+                fallbackCopyText(payload);
+                notify('Diagnostics copied.');
+            }
+        }
+
+        function fallbackCopyText(text) {
+            const area = document.createElement('textarea');
+            area.value = text;
+            area.setAttribute('readonly', '');
+            area.style.position = 'fixed';
+            area.style.left = '-9999px';
+            document.body.appendChild(area);
+            area.select();
+            document.execCommand('copy');
+            area.remove();
+        }
+
+        function redactSensitiveUrl(value) {
+            if (!value) return '';
+            try {
+                const url = new URL(value, location.origin);
+                if (url.searchParams.has('host')) url.searchParams.set('host', '[redacted]');
+                return url.toString().replaceAll('%5Bredacted%5D', '[redacted]');
+            } catch {
+                return String(value).replace(/([?&]host=)[^&]+/i, '$1[redacted]');
+            }
+        }
+
+        function setupRuntimeDiagnostics() {
+            window.addEventListener('error', event => {
+                recordRuntimeError('runtime', event.message, {
+                    file: event.filename,
+                    line: event.lineno,
+                    column: event.colno
+                });
+            });
+            window.addEventListener('unhandledrejection', event => {
+                const reason = event.reason;
+                recordRuntimeError('promise', reason?.message || String(reason || 'Unhandled promise rejection'), {});
+            });
+        }
+
+        function recordRuntimeError(type, message, details = {}) {
+            recentErrors.push({
+                type,
+                message: String(message || 'Unknown error').slice(0, 240),
+                details: sanitizeDiagnosticDetails(details),
+                time: new Date().toISOString()
+            });
+            if (recentErrors.length > 20) recentErrors.splice(0, recentErrors.length - 20);
+        }
+
+        function sanitizeDiagnosticDetails(details) {
+            return Object.entries(details || {}).reduce((clean, [key, value]) => {
+                if (value === undefined || value === null || value === '') return clean;
+                if (/url|href|link/i.test(key)) clean[key] = redactSensitiveUrl(String(value));
+                else if (['string', 'number', 'boolean'].includes(typeof value)) clean[key] = value;
+                else {
+                    try {
+                        clean[key] = JSON.stringify(value).slice(0, 240);
+                    } catch {
+                        clean[key] = String(value).slice(0, 240);
+                    }
+                }
+                return clean;
+            }, {});
         }
 
         // ========== CHAT ==========

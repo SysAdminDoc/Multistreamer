@@ -80,13 +80,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Research-Driven Additions
 
-- [ ] P0 - Add relay and sync health recovery UI
-  Why: Rooms depend on `https://gun.o8.is/gun`, but relay failures, reconnecting, stale presence, and read-only degraded mode are invisible to hosts/viewers.
-  Evidence: `index.html:1128`, `index.html:1238`, `index.html:1320`; README Gun relay notes; Gun docs; Watch2Gether room reliability expectations.
-  Touches: `index.html`, README, optional `stream-sources.js` only for shared constants if split later.
-  Acceptance: App shows connected/reconnecting/offline states, retries relay connections, stops counting stale viewers as live, and offers export/copy diagnostics when sync is unhealthy.
-  Complexity: M
-
 - [ ] P1 - Add an accessibility and mobile field-use pass
   Why: Rendered inspection found unlabeled inputs, dialog containers without modal semantics, focus not trapped/restored, icon-only buttons without accessible names, and clipped room titles on 390px mobile width.
   Evidence: rendered DOM check; `index.html:895`, `index.html:923`, `index.html:989`, `index.html:1041`; WAI-ARIA dialog pattern; W3C form label guidance.
@@ -114,13 +107,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
   Touches: `index.html`, `stream-sources.js`, `tests/source-parsing.test.js`, README import/export section.
   Acceptance: Imports validate version, streams, settings, weather coordinates, display options, and unknown future versions; users get actionable errors and partial imports are reported.
   Complexity: S
-
-- [ ] P2 - Add diagnostics export for rooms and streams
-  Why: Debugging a static app that depends on public relays and third-party embeds needs a shareable, privacy-reviewed snapshot of room state, provider types, browser support, relay status, and recent errors.
-  Evidence: `CLAUDE.md` Gun relay gotcha; `index.html:1128`, `index.html:1494`; OBS/VDO.Ninja diagnostics patterns.
-  Touches: `index.html`, README troubleshooting section.
-  Acceptance: Host can export or copy a diagnostics JSON/text bundle with room ID, app version, provider counts, relay status, browser media support, recent stream errors, and redacted host credentials.
-  Complexity: M
 
 - [ ] P3 - Make UI copy and time formatting i18n-ready
   Why: All visible strings and chat time formatting are inline English, making future localization or regional event rooms expensive.

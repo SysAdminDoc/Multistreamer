@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.5.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.6.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -16,6 +16,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Twitch Chat Sidecar** - Twitch channels render with embedded live chat beside the player
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
+- **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
 - **Live Chat** - Built-in chat room synced across all viewers
 - **Host Controls** - Only hosts can add/remove streams; viewers just watch
 - **No Backend Required** - Uses Gun.js for P2P sync, works on static hosting (GitHub Pages)
@@ -66,6 +67,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 | Weather | Add a Windy.com radar panel |
 | Settings | Customize theme, colors, layout |
 | Share | Get viewer/host links |
+| Diagnostics | Copy room, relay, browser, and stream health data with host keys redacted |
 | Clear | Remove all streams |
 
 **Room Management:**
@@ -129,6 +131,13 @@ All these sync in real-time to viewers:
 - Grid gap & label visibility
 - Weather panel & location
 
+### Sync Health and Diagnostics
+
+- The top bar shows relay health as Connecting, Synced, Reconnecting, or Offline.
+- Presence counts ignore stale sessions after 60 seconds so disconnected viewers do not remain counted as live.
+- When the public relay disconnects, the app retries the configured relay list automatically.
+- The Diagnostics button copies a JSON bundle with app version, room ID, redacted room URL, relay state, retry history, provider counts, browser media support, and recent runtime/HLS errors.
+
 ### Supported Stream Sources
 
 - YouTube watch, Live, Shorts, embed, `youtu.be`, or raw 11-character video IDs
@@ -189,6 +198,7 @@ Import configs to quickly set up similar events.
 MultiStream uses [Gun.js](https://gun.eco/) for decentralized, real-time data sync:
 - No server/database required
 - Data syncs via public relay servers
+- Relay health is visible in the top bar, and stale viewer sessions expire automatically
 - Works on any static hosting (GitHub Pages, Netlify, etc.)
 - Room state persists even when host disconnects
 
