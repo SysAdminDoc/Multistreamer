@@ -1,0 +1,137 @@
+# Roadmap
+
+Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/viewer state via Gun.js. Roadmap targets platform reach, more robust sync, and event-tracking-specific features.
+
+## Planned Features
+
+### Source Expansion
+- DASH manifest support for lower-latency live
+- Generic `<iframe>` allowlist for user-supplied embeds
+
+### Sync & Latency
+- NTP-calibrated playback sync (delay each player by rolling average of viewer buffers)
+- Scrub sync: host scrubs → all viewers seek to same timestamp
+- Latency offset per-stream (compensate for Twitch 2s vs YouTube 8s lag)
+- Leader-election for when host drops out (viewer quorum chooses new host)
+
+### Layout & Controls
+- Manual grid layouts (1+2, 2+3, 3+1, custom CSS grid template)
+- Per-stream audio mix slider instead of binary mute
+- Pop-out mode: open a single stream in a floating picture-in-picture
+- Keyboard shortcuts: 1-9 to focus a stream, `M` to mute all, `F` featured
+
+### Chat & Moderation
+- Host ban / kick with moderation tokens
+- Emote / sticker reactions with ephemeral overlay
+- Chat history export (JSON/TXT)
+- Slow-mode and per-user rate limits
+- YouTube LiveChat mirror into the built-in chat (merge feeds)
+
+### Weather / Overlays
+- Configurable overlay iframes beyond Windy (RadarScope-lite, Ventusky, lightning live)
+- Incident overlay: pinned NWS alert text scroll
+- Camera markers on a small minimap tied to each stream's geo-tag
+
+### Deployment & Persistence
+- Optional self-hosted Gun relay deployment guide with Docker
+- Firebase / Supabase alternative backend for persistence guarantees
+- Room passwords (hash) so viewer URL doesn't leak host access
+- Scheduled rooms: auto-activate at a time and auto-close after N hours
+
+## Competitive Research
+- **MultiTwitch.tv** — simplest reference UX, low friction; borrow the URL-based room pattern.
+- **LiveStreamPool** — better multi-source integration (mixed platforms in one grid).
+- **Blackmagic ATEM / vMix** — studio-grade multi-source mixing; borrow "Program/Preview" metaphor for featured.
+- **Watch2Gether** — playlist queue + chat + sync; closer to watch-party angle.
+
+## Nice-to-Haves
+- Mobile-optimized 1-column scroll with floating featured
+- Offline-first PWA with cached Gun.js data
+- Audio-only mode (strips video, just mixes audio streams — radio scanner style)
+- Timeline / clip mode: bookmark timestamps, export shareable links to key moments
+- Stats overlay: concurrent viewers per stream from public APIs
+- Integration with OBS browser source (send full grid as one composited feed)
+
+## Open-Source Research (Round 2)
+
+### Related OSS Projects
+- https://github.com/LordKnish/StreamGrid — cross-platform (Win/macOS/Linux) drag-drop grid, supports YouTube/Twitch/RTSP/HLS/MPEG-DASH/local files
+- https://github.com/pjmagee/multi-stream-viewer — Blazor WebAssembly, Twitch + YouTube + Kick
+- https://github.com/Worsttrumpet/MultiStream-Grid — browser multistream viewer, Twitch/Kick/YouTube
+- https://github.com/ilanzgx/multistream — Electron desktop, integrated chat per stream
+- https://github.com/VenomousRhyme41/Multi-Stream-Viewer — up to 4 streams, theater mode
+- https://github.com/smitch88/multi-stream-twitch — React/Redux/ImmutableJS reference architecture
+- https://github.com/kree-nickm/better-multi-twitch — snap-to-grid window manager (archived, read for ideas only)
+
+### Features to Borrow
+- RTSP/RTSPS + HLS + MPEG-DASH source support in addition to YouTube (StreamGrid) — unlocks IP camera feeds, weather radar loops, storm-chaser streams for the original use case
+- Per-stream integrated chat (ilanzgx/multistream) — MultiStream has one room chat, add per-source chat tabs as an option
+- Theater mode / distraction-free full-bleed grid (VenomousRhyme41) — one keystroke hides all chrome
+- Vertical-monitor layout presets (pjmagee/multi-stream-viewer) — 1×N column layout for ultrawide/vertical displays
+- Snap-to-grid free window placement as alternative to fixed grid (better-multi-twitch) — power user mode
+- URL-based room sharing with encoded layout state (StreamGrid) — MultiStream has Gun.js rooms, add link-only ephemeral rooms
+- Local file / RTSP ingestion for watch-parties of personal media (StreamGrid) — expands beyond YouTube-only use case
+
+### Patterns & Architectures Worth Studying
+- Gun.js P2P vs WebRTC mesh for layout sync — MultiStream uses Gun.js which works on static hosting; compare against self-hosted WebSocket for paid-tier features
+- Blazor WASM approach (pjmagee) — alternative stack if the Gun.js sync becomes unreliable at scale
+- Redux/ImmutableJS time-travel debugging (smitch88) — useful for replaying host-state changes during moderation disputes
+- Per-stream iframe sandbox with `allow-scripts allow-same-origin` denied (security pattern) — prevents a malicious embed from tracking viewers across streams
+
+## Research-Driven Additions
+
+- [ ] P0 - Harden third-party embed and CDN boundaries
+  Why: Current rendered stream iframes have no title, sandbox, lazy loading, or referrer policy, and CDN scripts load without SRI or local fallback.
+  Evidence: `index.html:11`, `index.html:13`, `index.html:1481`, `index.html:1484`; MDN SRI and iframe docs; Twitch/YouTube embed docs.
+  Touches: `index.html`, `stream-sources.js`, `tests/source-parsing.test.js`, README security notes.
+  Acceptance: Every generated iframe has a useful title, least-privilege allow/sandbox/referrer/loading attributes per provider, CDN assets are pinned with integrity or vendored fallback, and tests assert embed policy output.
+  Complexity: M
+
+- [ ] P0 - Add relay and sync health recovery UI
+  Why: Rooms depend on `https://gun.o8.is/gun`, but relay failures, reconnecting, stale presence, and read-only degraded mode are invisible to hosts/viewers.
+  Evidence: `index.html:1128`, `index.html:1238`, `index.html:1320`; README Gun relay notes; Gun docs; Watch2Gether room reliability expectations.
+  Touches: `index.html`, README, optional `stream-sources.js` only for shared constants if split later.
+  Acceptance: App shows connected/reconnecting/offline states, retries relay connections, stops counting stale viewers as live, and offers export/copy diagnostics when sync is unhealthy.
+  Complexity: M
+
+- [ ] P1 - Add an accessibility and mobile field-use pass
+  Why: Rendered inspection found unlabeled inputs, dialog containers without modal semantics, focus not trapped/restored, icon-only buttons without accessible names, and clipped room titles on 390px mobile width.
+  Evidence: rendered DOM check; `index.html:895`, `index.html:923`, `index.html:989`, `index.html:1041`; WAI-ARIA dialog pattern; W3C form label guidance.
+  Touches: `index.html`, README accessibility notes, rendered test harness.
+  Acceptance: Form controls have labels or aria labels, modals expose `role="dialog"` and `aria-modal`, focus is trapped/restored, icon buttons have names/tooltips, and 390px/844px mobile layout has no clipped primary text.
+  Complexity: M
+
+- [ ] P1 - Introduce provider player adapters with health events
+  Why: YouTube/Twitch/HLS are currently rendered as strings, so the app cannot detect blocked embeds, HLS fatal errors, stalled playback, or provider-specific control capabilities needed by existing sync/audio roadmap items.
+  Evidence: `index.html:1476`, `index.html:1494`; YouTube IFrame API; Twitch embed docs; hls.js events/error recovery docs; dash.js adapter pattern.
+  Touches: `index.html`, `stream-sources.js`, `tests/source-parsing.test.js`, new rendered tests.
+  Acceptance: Each provider has a small adapter exposing mount, destroy, mute, health, and reload; HLS fatal/network/media errors show per-stream recovery UI; YouTube/Twitch adapters are ready for playback-sync work.
+  Complexity: L
+
+- [ ] P1 - Add rendered workflow, accessibility, and mobile regression tests
+  Why: Existing tests cover parser output only, while host/viewer mode, settings, import/export, chat, HLS playback shell, and responsive layout are untested.
+  Evidence: `tests/source-parsing.test.js`; rendered app checks; WAI-ARIA and PWA guidance.
+  Touches: `package.json`, `tests/`, `index.html`, README test instructions.
+  Acceptance: Local test command exercises room creation, host add/remove stream, viewer mode hiding host controls, import/export validation, modal a11y attributes, and 390px mobile layout without relying on external provider playback.
+  Complexity: M
+
+- [ ] P2 - Version and validate room config imports
+  Why: Export writes `version: 4`, but import accepts loosely shaped JSON and silently skips invalid streams, making migrations brittle as source records evolve.
+  Evidence: `index.html:1565`, `index.html:1571`; existing v4 HLS config example; source normalization tests.
+  Touches: `index.html`, `stream-sources.js`, `tests/source-parsing.test.js`, README import/export section.
+  Acceptance: Imports validate version, streams, settings, weather coordinates, display options, and unknown future versions; users get actionable errors and partial imports are reported.
+  Complexity: S
+
+- [ ] P2 - Add diagnostics export for rooms and streams
+  Why: Debugging a static app that depends on public relays and third-party embeds needs a shareable, privacy-reviewed snapshot of room state, provider types, browser support, relay status, and recent errors.
+  Evidence: `CLAUDE.md` Gun relay gotcha; `index.html:1128`, `index.html:1494`; OBS/VDO.Ninja diagnostics patterns.
+  Touches: `index.html`, README troubleshooting section.
+  Acceptance: Host can export or copy a diagnostics JSON/text bundle with room ID, app version, provider counts, relay status, browser media support, recent stream errors, and redacted host credentials.
+  Complexity: M
+
+- [ ] P3 - Make UI copy and time formatting i18n-ready
+  Why: All visible strings and chat time formatting are inline English, making future localization or regional event rooms expensive.
+  Evidence: `index.html:883` through `index.html:1660`; `index.html:1642` uses default locale time formatting inline.
+  Touches: `index.html`, README contributor notes, rendered tests.
+  Acceptance: Visible strings move to a simple message catalog, time formatting is centralized, and tests verify default English output remains unchanged.
+  Complexity: M
