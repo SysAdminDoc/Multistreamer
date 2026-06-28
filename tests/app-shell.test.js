@@ -93,9 +93,35 @@ test('keeps import config validation wired', () => {
     assert.match(html, /const CONFIG_VERSION = 4;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
-    assert.match(html, /Config version \$\{version\} is newer than supported version \$\{CONFIG_VERSION\}/);
+    assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);
+    assert.match(html, /throw new Error\(t\('configVersionFuture', \{ version, supported: CONFIG_VERSION \}\)\)/);
     assert.match(html, /function validateWeatherSettings\(weather\)/);
     assert.match(html, /function validateDisplaySettings\(display\)/);
     assert.match(html, /function applyImportedSettings\(importedSettings\)/);
-    assert.match(html, /Skipped \$\{result\.skippedStreams\} invalid stream/);
+    assert.match(html, /configImportedSkipped: 'Config imported\. Skipped \{count\} invalid \{streamWord\}\.'/);
+    assert.match(html, /t\('configImportedSkipped', \{ count: result\.skippedStreams/);
+});
+
+test('keeps UI copy and chat time formatting localization-ready', () => {
+    assert.match(html, /const locale = document\.documentElement\.lang \|\| navigator\.language \|\| 'en';/);
+    assert.match(html, /const messages = \{/);
+    assert.match(html, /function t\(key, vars = \{\}\)/);
+    assert.match(html, /function applyLocalizedCopy\(root = document\)/);
+    assert.match(html, /function formatChatTime\(timestamp\)/);
+    assert.match(html, /new Intl\.DateTimeFormat\(locale, \{ hour: '2-digit', minute: '2-digit' \}\)/);
+    assert.doesNotMatch(html, /toLocaleTimeString/);
+
+    [
+        'setupSubtitle',
+        'validStreamPrompt',
+        'configVersionFuture',
+        'configImportedSkipped',
+        'userJoined'
+    ].forEach(key => assert.match(html, new RegExp(`\\b${key}:`), `${key} should be defined in messages`));
+
+    const translationKeys = [...html.matchAll(/data-i18n(?:-[a-z-]+)?="([^"]+)"/g)].map(match => match[1]);
+    assert.ok(translationKeys.length > 40, 'static copy should be wired through data-i18n attributes');
+    translationKeys.forEach(key => {
+        assert.match(html, new RegExp(`\\b${key}:`), `${key} should be defined in messages`);
+    });
 });

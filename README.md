@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.10.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.11.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -19,6 +19,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
 - **Provider Health** - Player adapter health snapshots, HLS recovery, and per-stream reload controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
+- **Localization-Ready UI** - Visible app copy and chat timestamps flow through a message catalog and locale-aware formatter
 - **Live Chat** - Built-in chat room synced across all viewers
 - **Host Controls** - Only hosts can add/remove streams; viewers just watch
 - **No Backend Required** - Uses Gun.js for P2P sync, works on static hosting (GitHub Pages)
@@ -210,6 +211,11 @@ Imported configs are validated before they change the room:
 - Stream records are normalized through the same source parser used by the Add Stream control.
 - Invalid stream records are skipped and reported after import.
 - Layout, featured stream, weather coordinates, display labels, theme, grid gap, and accent colors are range-checked before sync.
+
+### Localization
+
+- Static UI labels, placeholders, button text, toast copy, validation messages, and generated control labels use the in-page message catalog.
+- Chat timestamps are formatted through one locale-aware formatter so future language packs do not need to touch chat rendering code.
 
 ## Technical Details
 
