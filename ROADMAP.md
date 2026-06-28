@@ -80,13 +80,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Research-Driven Additions
 
-- [ ] P1 - Add rendered workflow, accessibility, and mobile regression tests
-  Why: Existing tests cover parser output only, while host/viewer mode, settings, import/export, chat, HLS playback shell, and responsive layout are untested.
-  Evidence: `tests/source-parsing.test.js`; rendered app checks; WAI-ARIA and PWA guidance.
-  Touches: `package.json`, `tests/`, `index.html`, README test instructions.
-  Acceptance: Local test command exercises room creation, host add/remove stream, viewer mode hiding host controls, import/export validation, modal a11y attributes, and 390px mobile layout without relying on external provider playback.
-  Complexity: M
-
 - [ ] P2 - Version and validate room config imports
   Why: Export writes `version: 4`, but import accepts loosely shaped JSON and silently skips invalid streams, making migrations brittle as source records evolve.
   Evidence: `index.html:1565`, `index.html:1571`; existing v4 HLS config example; source normalization tests.

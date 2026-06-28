@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.8.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.9.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -232,6 +232,15 @@ For local Twitch testing, serve the folder from `localhost` instead of opening `
 - [Rumble](https://rumble.com/) - Direct video embed iframes
 - [hls.js](https://github.com/video-dev/hls.js/) - HLS playback in browsers without native HLS support (vendored locally)
 - [Windy.com](https://windy.com/) - Weather radar embeds
+
+### Local Testing
+
+```bash
+npm install
+npm test
+```
+
+The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, import validation, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
 
 ### Embed Security
 
