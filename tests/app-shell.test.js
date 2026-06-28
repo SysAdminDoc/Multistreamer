@@ -75,3 +75,16 @@ test('keeps mobile header compact and chat toggle stateful', () => {
     assert.match(html, /id="chatToggleBtn"[^>]+aria-expanded="true"/);
     assert.match(html, /chatToggleBtn'\)\.setAttribute\('aria-expanded', String\(chatExpanded\)\)/);
 });
+
+test('keeps provider adapters and health recovery wired', () => {
+    assert.match(html, /const providerAdapters = \{/);
+    assert.match(html, /youtube: createIframeAdapter\('youtube'\)/);
+    assert.match(html, /twitch: createIframeAdapter\('twitch'\)/);
+    assert.match(html, /hls: createHlsAdapter\(\)/);
+    assert.match(html, /function mountProviderAdapters\(\)/);
+    assert.match(html, /function destroyProviderAdapters\(\)/);
+    assert.match(html, /function handleHlsError\(instance, event, data = \{\}\)/);
+    assert.match(html, /function reloadStream\(id\)/);
+    assert.match(html, /class="stream-health"/);
+    assert.match(html, /providerHealth: Array\.from\(mountedProviders\.entries\(\)\)/);
+});

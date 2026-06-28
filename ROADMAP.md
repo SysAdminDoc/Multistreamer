@@ -80,13 +80,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Research-Driven Additions
 
-- [ ] P1 - Introduce provider player adapters with health events
-  Why: YouTube/Twitch/HLS are currently rendered as strings, so the app cannot detect blocked embeds, HLS fatal errors, stalled playback, or provider-specific control capabilities needed by existing sync/audio roadmap items.
-  Evidence: `index.html:1476`, `index.html:1494`; YouTube IFrame API; Twitch embed docs; hls.js events/error recovery docs; dash.js adapter pattern.
-  Touches: `index.html`, `stream-sources.js`, `tests/source-parsing.test.js`, new rendered tests.
-  Acceptance: Each provider has a small adapter exposing mount, destroy, mute, health, and reload; HLS fatal/network/media errors show per-stream recovery UI; YouTube/Twitch adapters are ready for playback-sync work.
-  Complexity: L
-
 - [ ] P1 - Add rendered workflow, accessibility, and mobile regression tests
   Why: Existing tests cover parser output only, while host/viewer mode, settings, import/export, chat, HLS playback shell, and responsive layout are untested.
   Evidence: `tests/source-parsing.test.js`; rendered app checks; WAI-ARIA and PWA guidance.

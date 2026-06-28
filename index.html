@@ -630,6 +630,46 @@
 
         body.viewer-mode .grid-item .host-only { display: none; }
 
+        .stream-health {
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            bottom: 34px;
+            z-index: 4;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 7px 9px;
+            border: 1px solid rgba(248,113,113,0.45);
+            border-radius: 6px;
+            background: rgba(10,10,15,0.92);
+            color: #fca5a5;
+            font-size: 12px;
+            backdrop-filter: blur(8px);
+        }
+
+        .stream-health button {
+            padding: 4px 8px;
+            border: 1px solid rgba(252,165,165,0.6);
+            border-radius: 4px;
+            background: rgba(127,29,29,0.45);
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .grid-item[data-health="loading"] .stream-health,
+        .grid-item[data-health="recovering"] .stream-health,
+        .grid-item[data-health="error"] .stream-health {
+            display: flex;
+        }
+
+        .grid-item[data-health="loading"] .stream-health,
+        .grid-item[data-health="recovering"] .stream-health {
+            border-color: rgba(245,158,11,0.55);
+            color: #fcd34d;
+        }
+
         .grid-item .label {
             position: absolute;
             bottom: 0;
@@ -1255,7 +1295,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.7.0';
+        const APP_VERSION = '0.8.0';
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
@@ -1275,7 +1315,7 @@
         const seenStreams = new Map();
         const msgEls = new Map();
         const Sources = window.MultiStreamSources;
-        const hlsPlayers = new Map();
+        const mountedProviders = new Map();
         const recentErrors = [];
         let activeModalId = null;
         let modalReturnFocus = null;
@@ -1289,6 +1329,12 @@
             lastRetryAt: 0,
             retryCount: 0,
             events: []
+        };
+        const providerAdapters = {
+            youtube: createIframeAdapter('youtube'),
+            twitch: createIframeAdapter('twitch'),
+            rumble: createIframeAdapter('rumble'),
+            hls: createHlsAdapter()
         };
 
         // ========== URL PARAMS ==========
@@ -1642,6 +1688,8 @@
             const s = streams.find(x => x.id === id);
             if (s) {
                 s.muted = !s.muted;
+                const mounted = mountedProviders.get(id);
+                mounted?.adapter.mute(mounted.instance, s.muted);
                 if (isHost) roomRef.get('streams').get(id).get('muted').put(s.muted);
                 render();
             }
@@ -1682,7 +1730,7 @@
             const container = document.getElementById('gridContainer');
             const items = [...streams];
             if (settings.weather.enabled) items.push({ id: '__weather__', type: 'weather' });
-            destroyHlsPlayers();
+            destroyProviderAdapters();
 
             if (!items.length) {
                 container.className = 'grid-container';
@@ -1703,14 +1751,14 @@
                 container.style.gridTemplateColumns = '1fr 280px';
                 container.style.gridTemplateRows = '1fr';
                 container.innerHTML = `${renderItem(sorted[0], labelMode)}<div class="sidebar-stack">${sorted.slice(1).map(s => renderItem(s, labelMode)).join('')}</div>`;
-                hydrateHlsPlayers();
+                mountProviderAdapters();
             } else {
                 const n = sorted.length;
                 const cols = n <= 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : n <= 6 ? 3 : n <= 9 ? 3 : Math.ceil(Math.sqrt(n));
                 container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
                 container.style.gridTemplateRows = '';
                 container.innerHTML = sorted.map(s => renderItem(s, labelMode)).join('');
-                hydrateHlsPlayers();
+                mountProviderAdapters();
             }
         }
 
@@ -1740,43 +1788,186 @@
             const controlLabel = escAttr(label || embed.label || id);
             const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}" ${frameAttrs({ title: embed.chatTitle, sandbox: embed.chatSandbox, referrerPolicy: embed.chatReferrerPolicy, loading: embed.chatLoading })}></iframe>` : '';
             const mediaFrame = embed.type === 'hls'
-                ? `<video class="video-frame hls-video" data-hls-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`
-                : `<iframe class="video-frame" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
+                ? `<video class="video-frame hls-video" data-provider="hls" data-stream-id="${escAttr(id)}" data-hls-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`
+                : `<iframe class="video-frame" data-provider="${escAttr(embed.type)}" data-stream-id="${escAttr(id)}" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
+            const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="Reload ${controlLabel}">Reload</button></div>`;
 
-            return `<div class="${streamClass}"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div><div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? 'Unmute' : 'Mute'} ${controlLabel}">${muted ? 'Unmute' : 'Mute'}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${isFeatured ? 'Unset main stream' : 'Set main stream'} for ${controlLabel}">${isFeatured ? 'Main' : 'Set Main'}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="Edit label for ${controlLabel}">Label</button><button class="host-only" onclick="removeStream('${id}')" aria-label="Remove ${controlLabel}">Remove</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? 'Unmute' : 'Mute'} ${controlLabel}">${muted ? 'Unmute' : 'Mute'}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${isFeatured ? 'Unset main stream' : 'Set main stream'} for ${controlLabel}">${isFeatured ? 'Main' : 'Set Main'}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="Edit label for ${controlLabel}">Label</button><button class="host-only" onclick="removeStream('${id}')" aria-label="Remove ${controlLabel}">Remove</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
 
-        function destroyHlsPlayers() {
-            hlsPlayers.forEach(player => player.destroy());
-            hlsPlayers.clear();
+        function destroyProviderAdapters() {
+            mountedProviders.forEach(({ adapter, instance }) => adapter.destroy(instance));
+            mountedProviders.clear();
         }
 
-        function hydrateHlsPlayers() {
-            document.querySelectorAll('video[data-hls-src]').forEach(video => {
-                const src = video.dataset.hlsSrc;
-                if (!src) return;
-                if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = src;
-                    return;
-                }
-                if (window.Hls?.isSupported()) {
-                    const player = new Hls();
-                    player.on(Hls.Events.ERROR, (event, data) => {
-                        recordRuntimeError('hls', data?.details || data?.type || event, {
-                            fatal: Boolean(data?.fatal),
-                            type: data?.type,
-                            details: data?.details,
-                            url: src
-                        });
-                        if (data?.fatal) notify('HLS playback error. Reload the stream or verify the source URL.', 'error');
-                    });
-                    player.loadSource(src);
-                    player.attachMedia(video);
-                    hlsPlayers.set(video, player);
-                } else {
-                    video.insertAdjacentHTML('afterend', '<div class="empty-state"><h2>HLS Unsupported</h2><p>This browser cannot play HLS.</p></div>');
-                }
+        function mountProviderAdapters() {
+            document.querySelectorAll('.grid-item[data-stream-id]').forEach(tile => {
+                const stream = streams.find(s => s.id === tile.dataset.streamId);
+                if (!stream) return;
+                const type = stream.type || 'youtube';
+                const adapter = providerAdapters[type];
+                if (!adapter) return;
+                const instance = adapter.mount(stream, tile);
+                mountedProviders.set(stream.id, { adapter, instance });
             });
+        }
+
+        function createIframeAdapter(type) {
+            return {
+                mount(stream, tile) {
+                    const iframe = tile.querySelector('iframe.video-frame');
+                    const instance = { type, streamId: stream.id, iframe, state: 'loading' };
+                    setStreamHealth(stream.id, 'loading', `${typeLabel(type)} player loading`);
+                    const markReady = () => {
+                        clearTimeout(instance.readyTimer);
+                        instance.state = 'ready';
+                        setStreamHealth(stream.id, 'ready', '');
+                    };
+                    instance.onLoad = markReady;
+                    instance.readyTimer = setTimeout(markReady, 3000);
+                    iframe?.addEventListener('load', instance.onLoad);
+                    if (!iframe) markReady();
+                    return instance;
+                },
+                destroy(instance) {
+                    clearTimeout(instance.readyTimer);
+                    instance.iframe?.removeEventListener('load', instance.onLoad);
+                    instance.iframe = null;
+                },
+                mute(instance, muted) {
+                    instance.muted = muted;
+                },
+                health(instance) {
+                    return { provider: instance.type, state: instance.state };
+                },
+                reload(instance) {
+                    if (!instance.iframe) return;
+                    const src = instance.iframe.src;
+                    instance.state = 'loading';
+                    setStreamHealth(instance.streamId, 'loading', `${typeLabel(instance.type)} player reloading`);
+                    instance.iframe.src = 'about:blank';
+                    requestAnimationFrame(() => { instance.iframe.src = src; });
+                }
+            };
+        }
+
+        function createHlsAdapter() {
+            return {
+                mount(stream, tile) {
+                    const video = tile.querySelector('video[data-hls-src]');
+                    const instance = { type: 'hls', streamId: stream.id, video, player: null, source: video?.dataset.hlsSrc || '', state: 'loading' };
+                    if (!video || !instance.source) {
+                        instance.state = 'error';
+                        setStreamHealth(stream.id, 'error', 'HLS source missing');
+                        return instance;
+                    }
+
+                    setStreamHealth(stream.id, 'loading', 'HLS stream loading');
+                    instance.onReady = () => {
+                        instance.state = 'ready';
+                        setStreamHealth(stream.id, 'ready', '');
+                    };
+                    instance.onError = () => {
+                        instance.state = 'error';
+                        setStreamHealth(stream.id, 'error', 'HLS media error');
+                        recordRuntimeError('hls', 'Media element error', { url: instance.source });
+                    };
+                    video.addEventListener('loadeddata', instance.onReady);
+                    video.addEventListener('error', instance.onError);
+
+                    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                        video.src = instance.source;
+                        return instance;
+                    }
+                    if (!window.Hls?.isSupported()) {
+                        instance.state = 'error';
+                        setStreamHealth(stream.id, 'error', 'HLS is unsupported in this browser');
+                        return instance;
+                    }
+
+                    instance.player = new Hls();
+                    instance.player.on(Hls.Events.ERROR, (event, data) => handleHlsError(instance, event, data));
+                    instance.player.loadSource(instance.source);
+                    instance.player.attachMedia(video);
+                    return instance;
+                },
+                destroy(instance) {
+                    instance.player?.destroy();
+                    instance.player = null;
+                    if (instance.video) {
+                        instance.video.removeEventListener('loadeddata', instance.onReady);
+                        instance.video.removeEventListener('error', instance.onError);
+                        instance.video.src = '';
+                    }
+                    instance.video = null;
+                },
+                mute(instance, muted) {
+                    if (instance.video) instance.video.muted = muted;
+                },
+                health(instance) {
+                    return { provider: 'hls', state: instance.state, source: instance.source };
+                },
+                reload(instance) {
+                    setStreamHealth(instance.streamId, 'loading', 'HLS stream reloading');
+                    instance.state = 'loading';
+                    const stream = streams.find(s => s.id === instance.streamId);
+                    const tile = document.querySelector(`.grid-item[data-stream-id="${CSS.escape(instance.streamId)}"]`);
+                    if (!stream || !tile) return;
+                    providerAdapters.hls.destroy(instance);
+                    const next = providerAdapters.hls.mount(stream, tile);
+                    mountedProviders.set(instance.streamId, { adapter: providerAdapters.hls, instance: next });
+                }
+            };
+        }
+
+        function handleHlsError(instance, event, data = {}) {
+            recordRuntimeError('hls', data.details || data.type || event, {
+                fatal: Boolean(data.fatal),
+                type: data.type,
+                details: data.details,
+                url: instance.source
+            });
+            if (!data.fatal) return;
+
+            const networkError = data.type === Hls.ErrorTypes?.NETWORK_ERROR || data.type === 'networkError';
+            const mediaError = data.type === Hls.ErrorTypes?.MEDIA_ERROR || data.type === 'mediaError';
+            if (networkError) {
+                instance.state = 'recovering';
+                setStreamHealth(instance.streamId, 'recovering', 'HLS network error. Retrying...');
+                instance.player?.startLoad();
+                return;
+            }
+            if (mediaError) {
+                instance.state = 'recovering';
+                setStreamHealth(instance.streamId, 'recovering', 'HLS media error. Recovering...');
+                instance.player?.recoverMediaError();
+                return;
+            }
+
+            instance.state = 'error';
+            setStreamHealth(instance.streamId, 'error', 'HLS playback error');
+            notify('HLS playback error. Reload the stream or verify the source URL.', 'error');
+        }
+
+        function setStreamHealth(streamId, state, message) {
+            const tile = document.querySelector(`.grid-item[data-stream-id="${CSS.escape(streamId)}"]`);
+            if (!tile) return;
+            tile.dataset.health = state;
+            const label = tile.querySelector('.stream-health-text');
+            if (label) label.textContent = message || '';
+        }
+
+        function reloadStream(id) {
+            const entry = mountedProviders.get(id);
+            if (entry) {
+                entry.adapter.reload(entry.instance);
+                return;
+            }
+            render();
+        }
+
+        function typeLabel(type) {
+            return type === 'hls' ? 'HLS' : type.charAt(0).toUpperCase() + type.slice(1);
         }
 
         // ========== TITLE & ANNOUNCEMENT ==========
@@ -1961,7 +2152,11 @@
                 },
                 streams: {
                     total: streams.length,
-                    providerCounts
+                    providerCounts,
+                    providerHealth: Array.from(mountedProviders.entries()).map(([id, entry]) => ({
+                        id,
+                        ...entry.adapter.health(entry.instance)
+                    }))
                 },
                 recentErrors: recentErrors.slice(-10)
             };
