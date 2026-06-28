@@ -8,9 +8,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MultiStream</title>
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="vendor/gun-0.2020.1241.min.js"></script>
     <script src="stream-sources.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.16/dist/hls.min.js"></script>
+    <script src="vendor/hls-1.6.16.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -1468,7 +1468,14 @@
             if (item.type === 'weather') {
                 const { lat, lon } = settings.weather;
                 const src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=&calendar=now&type=map`;
-                return `<div class="grid-item"><iframe src="${src}" frameborder="0"></iframe><div class="overlay"><div class="controls">${isHost ? '<button class="host-only" onclick="toggleWeather()">Remove</button>' : ''}</div></div><div class="label ${labelClass}">Weather Radar</div></div>`;
+                const attrs = frameAttrs({
+                    title: 'Weather radar',
+                    sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups',
+                    referrerPolicy: 'strict-origin-when-cross-origin',
+                    loading: 'lazy',
+                    allow: 'fullscreen'
+                });
+                return `<div class="grid-item"><iframe src="${src}" ${attrs}></iframe><div class="overlay"><div class="controls">${isHost ? '<button class="host-only" onclick="toggleWeather()">Remove</button>' : ''}</div></div><div class="label ${labelClass}">Weather Radar</div></div>`;
             }
 
             const { id, muted, label } = item;
@@ -1478,10 +1485,10 @@
             const hasChat = !!embed.chatUrl;
             const streamClass = `grid-item ${embed.type}-source${hasChat ? ' has-chat' : ''}`;
             const labelHtml = label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label);
-            const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}"></iframe>` : '';
+            const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}" ${frameAttrs({ title: embed.chatTitle, sandbox: embed.chatSandbox, referrerPolicy: embed.chatReferrerPolicy, loading: embed.chatLoading })}></iframe>` : '';
             const mediaFrame = embed.type === 'hls'
                 ? `<video class="video-frame hls-video" data-hls-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls></video>`
-                : `<iframe class="video-frame" src="${escAttr(embed.videoUrl)}" allow="${escAttr(embed.allow)}"></iframe>`;
+                : `<iframe class="video-frame" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
 
             return `<div class="${streamClass}"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div><div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')">${muted ? 'Unmute' : 'Mute'}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')">${isFeatured ? 'Main' : 'Set Main'}</button><button class="host-only" onclick="editLabel('${id}')">Label</button><button class="host-only" onclick="removeStream('${id}')">Remove</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
@@ -1656,6 +1663,19 @@
 
         function esc(t) { const d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; }
         function escAttr(t) { return esc(t).replace(/"/g, '&quot;'); }
+        function frameAttrs(frame) {
+            const attrs = [
+                ['title', frame.title],
+                ['loading', frame.loading || 'lazy'],
+                ['referrerpolicy', frame.referrerPolicy || 'strict-origin-when-cross-origin'],
+                ['sandbox', frame.sandbox],
+                ['allow', frame.allow]
+            ];
+            return attrs
+                .filter(([, value]) => value)
+                .map(([key, value]) => `${key}="${escAttr(value)}"`)
+                .join(' ');
+        }
     </script>
 </body>
 </html>

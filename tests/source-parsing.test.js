@@ -71,20 +71,33 @@ test('builds Twitch embed and chat URLs with a parent domain', () => {
     const embed = Sources.buildEmbed(record, { parent: 'example.com' });
 
     assert.equal(embed.type, 'twitch');
+    assert.equal(embed.title, 'Twitch channel twitchdev');
+    assert.equal(embed.loading, 'lazy');
+    assert.match(embed.sandbox, /allow-scripts/);
+    assert.equal(embed.referrerPolicy, 'strict-origin-when-cross-origin');
     assert.match(embed.videoUrl, /^https:\/\/player\.twitch\.tv\/\?/);
     assert.match(embed.videoUrl, /parent=example\.com/);
     assert.match(embed.videoUrl, /channel=twitchdev/);
     assert.equal(embed.chatUrl, 'https://www.twitch.tv/embed/twitchdev/chat?parent=example.com');
+    assert.equal(embed.chatTitle, 'Twitch chat twitchdev');
+    assert.match(embed.chatSandbox, /allow-forms/);
 });
 
 test('builds YouTube embed URLs from normalized records', () => {
     const embed = Sources.buildEmbed({ id: 'dQw4w9WgXcQ', muted: true }, { parent: 'example.com' });
+    assert.equal(embed.title, 'YouTube video dQw4w9WgXcQ');
+    assert.equal(embed.loading, 'lazy');
+    assert.match(embed.sandbox, /allow-presentation/);
+    assert.equal(embed.referrerPolicy, 'strict-origin-when-cross-origin');
     assert.equal(embed.videoUrl, 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1');
     assert.equal(embed.chatUrl, '');
 });
 
 test('builds Rumble embed URLs', () => {
     const rumble = Sources.buildEmbed(Sources.streamToGunRecord(Sources.parseStreamUrl('rumble:v1io41')), {});
+    assert.equal(rumble.title, 'Rumble video v1io41');
+    assert.equal(rumble.loading, 'lazy');
+    assert.match(rumble.sandbox, /allow-scripts/);
     assert.equal(rumble.videoUrl, 'https://rumble.com/embed/v1io41/');
     assert.equal(rumble.chatUrl, '');
 });

@@ -80,13 +80,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Research-Driven Additions
 
-- [ ] P0 - Harden third-party embed and CDN boundaries
-  Why: Current rendered stream iframes have no title, sandbox, lazy loading, or referrer policy, and CDN scripts load without SRI or local fallback.
-  Evidence: `index.html:11`, `index.html:13`, `index.html:1481`, `index.html:1484`; MDN SRI and iframe docs; Twitch/YouTube embed docs.
-  Touches: `index.html`, `stream-sources.js`, `tests/source-parsing.test.js`, README security notes.
-  Acceptance: Every generated iframe has a useful title, least-privilege allow/sandbox/referrer/loading attributes per provider, CDN assets are pinned with integrity or vendored fallback, and tests assert embed policy output.
-  Complexity: M
-
 - [ ] P0 - Add relay and sync health recovery UI
   Why: Rooms depend on `https://gun.o8.is/gun`, but relay failures, reconnecting, stale presence, and read-only degraded mode are invisible to hosts/viewers.
   Evidence: `index.html:1128`, `index.html:1238`, `index.html:1320`; README Gun relay notes; Gun docs; Watch2Gether room reliability expectations.

@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.4.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.5.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -203,11 +203,16 @@ For local Twitch testing, serve the folder from `localhost` instead of opening `
 
 ### Dependencies
 
-- [Gun.js](https://gun.eco/) - Decentralized database (loaded via CDN)
+- [Gun.js](https://gun.eco/) - Decentralized database (vendored locally)
 - [Twitch Embeds](https://dev.twitch.tv/docs/embed/) - Twitch player and chat iframes
 - [Rumble](https://rumble.com/) - Direct video embed iframes
-- [hls.js](https://github.com/video-dev/hls.js/) - HLS playback in browsers without native HLS support
+- [hls.js](https://github.com/video-dev/hls.js/) - HLS playback in browsers without native HLS support (vendored locally)
 - [Windy.com](https://windy.com/) - Weather radar embeds
+
+### Embed Security
+
+- Third-party video, chat, and weather iframes include titles, lazy loading, referrer policy, and sandbox policies.
+- Runtime JavaScript libraries are loaded from pinned local files in `vendor/` instead of unpinned CDN URLs.
 
 ### Privacy
 

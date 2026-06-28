@@ -284,13 +284,39 @@
         return value.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0] || 'localhost';
     }
 
+    function framePolicy(provider) {
+        const base = {
+            loading: 'lazy',
+            referrerPolicy: 'strict-origin-when-cross-origin'
+        };
+
+        if (provider === 'youtube') {
+            return {
+                ...base,
+                sandbox: 'allow-scripts allow-same-origin allow-presentation allow-popups'
+            };
+        }
+        if (provider === 'twitch-chat') {
+            return {
+                ...base,
+                sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups'
+            };
+        }
+        return {
+            ...base,
+            sandbox: 'allow-scripts allow-same-origin allow-presentation allow-popups'
+        };
+    }
+
     function buildEmbed(record, options) {
         const stream = normalizeStreamRecord(record, record && record.id);
         if (!stream) return null;
 
         if (stream.type === 'youtube') {
             return {
+                ...framePolicy('youtube'),
                 type: 'youtube',
+                title: 'YouTube video ' + stream.sourceId,
                 label: stream.label || stream.sourceId,
                 videoUrl: 'https://www.youtube.com/embed/' + encodeURIComponent(stream.sourceId) + '?autoplay=1&mute=' + (stream.muted ? '1' : '0'),
                 chatUrl: '',
@@ -300,7 +326,9 @@
 
         if (stream.type === 'rumble') {
             return {
+                ...framePolicy('rumble'),
                 type: 'rumble',
+                title: 'Rumble video ' + stream.sourceId,
                 label: stream.label || 'Rumble ' + stream.sourceId,
                 videoUrl: 'https://rumble.com/embed/' + encodeURIComponent(stream.sourceId) + '/',
                 chatUrl: '',
@@ -311,6 +339,7 @@
         if (stream.type === 'hls') {
             return {
                 type: 'hls',
+                title: 'HLS stream ' + stream.sourceId,
                 label: stream.label || 'HLS: ' + stream.sourceId.replace(/^https?:\/\//i, '').split(/[/?#]/)[0],
                 videoUrl: '',
                 mediaUrl: stream.sourceId,
@@ -330,7 +359,9 @@
         if (stream.sourceKind === 'video') {
             params.set('video', stream.sourceId);
             return {
+                ...framePolicy('twitch'),
                 type: 'twitch',
+                title: 'Twitch VOD ' + stream.sourceId.replace(/^v/i, ''),
                 label: stream.label || 'Twitch VOD ' + stream.sourceId.replace(/^v/i, ''),
                 videoUrl: 'https://player.twitch.tv/?' + params.toString(),
                 chatUrl: '',
@@ -339,11 +370,18 @@
         }
 
         params.set('channel', stream.sourceId);
+        const chatPolicy = framePolicy('twitch-chat');
         return {
+            ...framePolicy('twitch'),
             type: 'twitch',
+            title: 'Twitch channel ' + stream.sourceId,
             label: stream.label || 'Twitch: ' + stream.sourceId,
             videoUrl: 'https://player.twitch.tv/?' + params.toString(),
             chatUrl: 'https://www.twitch.tv/embed/' + encodeURIComponent(stream.sourceId) + '/chat?parent=' + encodeURIComponent(parent),
+            chatTitle: 'Twitch chat ' + stream.sourceId,
+            chatSandbox: chatPolicy.sandbox,
+            chatReferrerPolicy: chatPolicy.referrerPolicy,
+            chatLoading: chatPolicy.loading,
             allow: 'autoplay; fullscreen; picture-in-picture'
         };
     }
