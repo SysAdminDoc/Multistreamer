@@ -26,3 +26,52 @@ test('exposes sync health and redacted diagnostics fields', () => {
     assert.match(html, /function redactSensitiveUrl\(value\)/);
     assert.match(html, /url\.searchParams\.set\('host', '\[redacted\]'\)/);
 });
+
+test('keeps primary form controls labelled', () => {
+    [
+        'newRoomName',
+        'newRoomTitle',
+        'newHostKey',
+        'generatedHostLink',
+        'generatedViewerLink',
+        'joinRoomName',
+        'joinHostKey',
+        'roomTitleInput',
+        'videoUrl',
+        'usernameInput',
+        'messageInput',
+        'gridGapSlider',
+        'labelsSelect',
+        'themeSelect',
+        'accentColor',
+        'weatherLat',
+        'weatherLon',
+        'shareViewerLink',
+        'shareHostLink',
+        'announcementInput',
+        'importData',
+        'labelInput'
+    ].forEach(id => {
+        const hasLabel = new RegExp(`<label[^>]+for="${id}"`).test(html);
+        const hasAria = new RegExp(`id="${id}"[^>]+aria-(label|labelledby)=`).test(html);
+        assert.ok(hasLabel || hasAria, `${id} should have a label or ARIA name`);
+    });
+});
+
+test('keeps dialogs semantic and keyboard-managed', () => {
+    ['shareModal', 'announcementModal', 'importModal', 'labelModal'].forEach(id => {
+        const pattern = new RegExp(`id="${id}"[^>]+role="dialog"[^>]+aria-modal="true"[^>]+aria-labelledby=`);
+        assert.match(html, pattern);
+    });
+    assert.match(html, /function openModal\(id, focusSelector = ''\)/);
+    assert.match(html, /function handleModalKeydown\(event\)/);
+    assert.match(html, /event\.key === 'Escape'/);
+    assert.match(html, /event\.key !== 'Tab'/);
+});
+
+test('keeps mobile header compact and chat toggle stateful', () => {
+    assert.match(html, /\.top-bar \{\s+display: grid;/);
+    assert.match(html, /grid-template-columns: minmax\(0, 1fr\);/);
+    assert.match(html, /id="chatToggleBtn"[^>]+aria-expanded="true"/);
+    assert.match(html, /chatToggleBtn'\)\.setAttribute\('aria-expanded', String\(chatExpanded\)\)/);
+});

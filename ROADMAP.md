@@ -80,13 +80,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Research-Driven Additions
 
-- [ ] P1 - Add an accessibility and mobile field-use pass
-  Why: Rendered inspection found unlabeled inputs, dialog containers without modal semantics, focus not trapped/restored, icon-only buttons without accessible names, and clipped room titles on 390px mobile width.
-  Evidence: rendered DOM check; `index.html:895`, `index.html:923`, `index.html:989`, `index.html:1041`; WAI-ARIA dialog pattern; W3C form label guidance.
-  Touches: `index.html`, README accessibility notes, rendered test harness.
-  Acceptance: Form controls have labels or aria labels, modals expose `role="dialog"` and `aria-modal`, focus is trapped/restored, icon buttons have names/tooltips, and 390px/844px mobile layout has no clipped primary text.
-  Complexity: M
-
 - [ ] P1 - Introduce provider player adapters with health events
   Why: YouTube/Twitch/HLS are currently rendered as strings, so the app cannot detect blocked embeds, HLS fatal errors, stalled playback, or provider-specific control capabilities needed by existing sync/audio roadmap items.
   Evidence: `index.html:1476`, `index.html:1494`; YouTube IFrame API; Twitch embed docs; hls.js events/error recovery docs; dash.js adapter pattern.
