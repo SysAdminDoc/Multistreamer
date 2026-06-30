@@ -148,6 +148,8 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.keyboard.press('Escape');
     await host.waitForFunction(() => document.getElementById('shareModal').getAttribute('aria-hidden') === 'true');
     assert.equal(await host.evaluate(() => document.activeElement.textContent.trim()), 'Share');
+    await host.click('#settingsPanel .settings-header button');
+    await host.waitForFunction(() => !document.getElementById('settingsPanel').classList.contains('open'));
 
     const viewer = await context.newPage();
     await viewer.goto(`${baseUrl}/?room=${room}`, { waitUntil: 'domcontentloaded' });
@@ -169,6 +171,34 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
         });
     });
     await host.waitForSelector('#chatMessages .mod-actions button[aria-label="Ban Viewer QA"]');
+    await host.evaluate(() => {
+        window.__chatDownloads = [];
+        window.__originalDownloadBlob = downloadBlob;
+        downloadBlob = (filename, type, content) => window.__chatDownloads.push({ filename, type, content });
+    });
+    await host.click('#chatActions button:has-text("JSON")');
+    await host.click('#chatActions button:has-text("TXT")');
+    const chatDownloads = await host.evaluate(() => {
+        const downloads = window.__chatDownloads;
+        downloadBlob = window.__originalDownloadBlob;
+        delete window.__chatDownloads;
+        delete window.__originalDownloadBlob;
+        return downloads;
+    });
+    assert.equal(chatDownloads.length, 2);
+    const chatJsonDownload = chatDownloads.find(download => download.type === 'application/json');
+    assert.match(chatJsonDownload.filename, new RegExp(`^${room}-chat-.*\\.json$`));
+    const exportedChat = JSON.parse(chatJsonDownload.content);
+    assert.equal(exportedChat.room, room);
+    const exportedModerationMessage = exportedChat.messages.find(message => message.text === 'moderate me');
+    assert.equal(exportedModerationMessage.username, 'Viewer QA');
+    assert.equal(Object.hasOwn(exportedModerationMessage, 'sessionId'), false);
+    assert.equal(Object.hasOwn(exportedModerationMessage, 'moderationToken'), false);
+
+    const chatTxtDownload = chatDownloads.find(download => download.type === 'text/plain');
+    assert.match(chatTxtDownload.filename, new RegExp(`^${room}-chat-.*\\.txt$`));
+    assert.match(chatTxtDownload.content, /Viewer QA: moderate me/);
+
     await host.click('#chatMessages .mod-actions button[aria-label="Ban Viewer QA"]');
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Ban applied to Viewer QA')));
     await viewer.evaluate(() => {

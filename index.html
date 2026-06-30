@@ -830,6 +830,26 @@
 
         .chat-header .toggle { margin-left: auto; color: var(--text-secondary); }
 
+        .chat-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .chat-actions button {
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+
+        .chat-actions button:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
         .chat-messages {
             flex: 1;
             overflow-y: auto;
@@ -1155,7 +1175,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            width: 100%;
+            flex: 1;
+            min-width: 0;
             gap: 10px;
             border: 0;
             background: transparent;
@@ -1344,6 +1365,10 @@
                         <span data-i18n="chat">Chat</span>
                         <span class="toggle" id="chatToggle" aria-hidden="true">&#9650;</span>
                     </button>
+                    <div class="chat-actions" id="chatActions">
+                        <button type="button" onclick="exportChatHistory('json')" data-i18n="exportChatJson">JSON</button>
+                        <button type="button" onclick="exportChatHistory('txt')" data-i18n="exportChatTxt">TXT</button>
+                    </div>
                 </div>
                 <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
                 <div class="chat-input" id="chatInput">
@@ -1536,7 +1561,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.22.0';
+        const APP_VERSION = '0.23.0';
         const CONFIG_VERSION = 9;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
@@ -1683,6 +1708,8 @@
                 usernamePlaceholder: 'Set username...',
                 chatMessage: 'Chat message',
                 messagePlaceholder: 'Message...',
+                exportChatJson: 'JSON',
+                exportChatTxt: 'TXT',
                 reactions: 'Reactions',
                 sendCheerReaction: 'Send cheer reaction',
                 sendHeartReaction: 'Send heart reaction',
@@ -1840,6 +1867,8 @@
                 moderationApplied: '{action} applied to {username}.',
                 moderationBlocked: 'Chat is disabled because this browser was removed by the host.',
                 reactionBlocked: 'Reactions are disabled because this browser was removed by the host.',
+                chatExported: 'Chat history exported as {format}.',
+                chatExportBlocked: 'Chat export is disabled because this browser was removed by the host.',
                 userJoined: '{username} joined'
             }
         };
@@ -3357,8 +3386,17 @@
 
         function exportConfig() {
             const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, volume: validateVolume(s.volume) ?? (s.muted ? 0 : 100), label: s.label, latencyOffsetMs: getLatencyOffsetMs(s.id) })), settings };
-            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${roomId}.json`; a.click();
+            downloadBlob(`${roomId}.json`, 'application/json', JSON.stringify(config, null, 2));
+        }
+
+        function downloadBlob(filename, type, content) {
+            const blob = new Blob([content], { type });
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = filename;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
         function importConfig() {
@@ -3802,6 +3840,47 @@
             burst.innerHTML = `${type.glyph}<span class="reaction-name">${esc(reaction.username || t(type.labelKey))}</span>`;
             layer.appendChild(burst);
             setTimeout(() => burst.remove(), 3000);
+        }
+
+        function exportChatHistory(format) {
+            if (isModerationBlocked()) return notify(t('chatExportBlocked'), 'error');
+            const normalizedFormat = format === 'txt' ? 'txt' : 'json';
+            const messages = getChatHistory();
+            const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+            const filename = `${roomId || 'room'}-chat-${stamp}.${normalizedFormat}`;
+            if (normalizedFormat === 'txt') {
+                downloadBlob(filename, 'text/plain', formatChatHistoryText(messages));
+            } else {
+                downloadBlob(filename, 'application/json', JSON.stringify({
+                    version: APP_VERSION,
+                    room: roomId,
+                    exportedAt: new Date().toISOString(),
+                    messages
+                }, null, 2));
+            }
+            notify(t('chatExported', { format: normalizedFormat.toUpperCase() }));
+        }
+
+        function getChatHistory() {
+            return Array.from(chatMessages.values())
+                .filter(msg => msg?.timestamp)
+                .sort((a, b) => a.timestamp - b.timestamp)
+                .map(msg => ({
+                    id: String(msg.id || ''),
+                    timestamp: Number(msg.timestamp),
+                    time: new Date(msg.timestamp).toISOString(),
+                    username: msg.system ? '' : String(msg.username || ''),
+                    text: String(msg.text || ''),
+                    system: Boolean(msg.system),
+                    isHost: Boolean(msg.isHost)
+                }));
+        }
+
+        function formatChatHistoryText(messages) {
+            return messages.map(msg => {
+                const speaker = msg.system ? 'SYSTEM' : (msg.isHost ? `${msg.username} [HOST]` : msg.username || 'viewer');
+                return `[${msg.time}] ${speaker}: ${msg.text}`;
+            }).join('\n') + (messages.length ? '\n' : '');
         }
 
         // ========== CHAT ==========

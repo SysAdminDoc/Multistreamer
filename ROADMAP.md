@@ -5,7 +5,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 ## Planned Features
 
 ### Chat & Moderation
-- Chat history export (JSON/TXT)
 - Slow-mode and per-user rate limits
 - YouTube LiveChat mirror into the built-in chat (merge feeds)
 

@@ -156,6 +156,21 @@ test('keeps ephemeral reactions wired', () => {
     assert.match(html, /reactionBlocked: 'Reactions are disabled because this browser was removed by the host\.'/);
 });
 
+test('keeps chat history export wired without moderation tokens', () => {
+    assert.match(html, /id="chatActions"/);
+    assert.match(html, /onclick="exportChatHistory\('json'\)"/);
+    assert.match(html, /onclick="exportChatHistory\('txt'\)"/);
+    assert.match(html, /function exportChatHistory\(format\)/);
+    assert.match(html, /function getChatHistory\(\)/);
+    assert.match(html, /function formatChatHistoryText\(messages\)/);
+    assert.match(html, /function downloadBlob\(filename, type, content\)/);
+    assert.match(html, /const filename = `\$\{roomId \|\| 'room'\}-chat-\$\{stamp\}\.\$\{normalizedFormat\}`/);
+    assert.match(html, /username: msg\.system \? '' : String\(msg\.username \|\| ''\)/);
+    assert.doesNotMatch(html, /sessionId: String\(msg\.sessionId/);
+    assert.doesNotMatch(html, /moderationToken: String\(msg\.moderationToken/);
+    assert.match(html, /chatExported: 'Chat history exported as \{format\}\.'/);
+});
+
 test('keeps manual grid layouts wired', () => {
     assert.match(html, /const GRID_PRESETS = new Set\(\['auto', '1\+2', '2\+3', '3\+1', 'custom'\]\)/);
     assert.match(html, /id="gridPresetSelect"/);
