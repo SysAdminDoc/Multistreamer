@@ -36,11 +36,18 @@ test('keeps native playback sync calibration wired', () => {
     assert.match(html, /function writePlaybackSyncPulse\(\)/);
     assert.match(html, /function handleHostClockSync\(data\)/);
     assert.match(html, /function applyPlaybackSyncTarget\(target, defaultTargetDelayMs, pulseSentAt\)/);
+    assert.match(html, /roomRef\.get\('sync'\)\.get\('scrub'\)\.on\(handleHostScrubSync\)/);
+    assert.match(html, /function publishScrubSync\(instance\)/);
+    assert.match(html, /function handleHostScrubSync\(data\)/);
+    assert.match(html, /function applyScrubSyncTarget\(target, options = \{\}\)/);
+    assert.match(html, /video\.addEventListener\('seeked', instance\.onSeeked\)/);
+    assert.match(html, /function canSeekToTime\(video, time\)/);
     assert.match(html, /function isNativeSyncProvider\(instance\)/);
     assert.match(html, /instance\.type === 'hls' \|\| instance\.type === 'dash'/);
     assert.match(html, /function estimateNativeLiveLatencyMs\(instance\)/);
     assert.match(html, /getCurrentLiveLatency/);
     assert.match(html, /function buildPlaybackSyncDiagnostics\(\)/);
+    assert.match(html, /scrubEvents: playbackSync\.scrubEvents\.slice\(-10\)/);
     assert.match(html, /iframeProviders: 'diagnostics-only'/);
 });
 

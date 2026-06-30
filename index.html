@@ -1296,7 +1296,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.14.0';
+        const APP_VERSION = '0.15.0';
         const CONFIG_VERSION = 6;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
@@ -1307,6 +1307,9 @@
         const SYNC_TARGET_LIVE_DELAY_MS = 8000;
         const SYNC_SEEK_TOLERANCE_SECONDS = 2.5;
         const SYNC_RATE_TOLERANCE_SECONDS = 0.75;
+        const SCRUB_EVENT_TTL_MS = 30000;
+        const SCRUB_SEEK_TOLERANCE_SECONDS = 0.5;
+        const SCRUB_EVENT_LIMIT = 20;
 
         // ========== GLOBAL STATE ==========
         let gun = null;
@@ -1343,6 +1346,9 @@
             hostClockSamples: [],
             streamLatencyMs: new Map(),
             streamLatencySamples: new Map(),
+            pendingScrubs: new Map(),
+            scrubEventIds: [],
+            scrubEvents: [],
             lastHostPulseAt: 0,
             appliedCorrections: []
         };
@@ -1693,6 +1699,7 @@
             roomRef.get('settings').get('display').get('theme').on(v => { if (v) applyDisplay({ theme: v }); });
             roomRef.get('settings').get('display').get('accent').on(v => { if (v) applyDisplay({ accent: v }); });
             roomRef.get('sync').get('clock').on(handleHostClockSync);
+            roomRef.get('sync').get('scrub').on(handleHostScrubSync);
 
             writePresence();
             setInterval(writePresence, PRESENCE_HEARTBEAT_MS);
@@ -1879,6 +1886,72 @@
             });
         }
 
+        function publishScrubSync(instance) {
+            if (!roomRef || !isHost || !isNativeSyncProvider(instance)) return;
+            const currentTime = instance.video?.currentTime;
+            if (!Number.isFinite(currentTime)) return;
+            const event = {
+                eventId: `${sessionId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                streamId: instance.streamId,
+                type: instance.type,
+                currentTime: roundSeconds(currentTime),
+                sentAt: Date.now()
+            };
+            roomRef.get('sync').get('scrub').put(event);
+            recordScrubEvent({ action: 'publish', streamId: event.streamId, currentTime: event.currentTime, time: new Date().toISOString() });
+        }
+
+        function handleHostScrubSync(data) {
+            if (!data || isHost || !data.eventId || !data.streamId || typeof data.currentTime !== 'number') return;
+            if (!markScrubEventSeen(data.eventId)) return;
+            if (isScrubEventStale(data)) return;
+            applyScrubSyncTarget(data);
+        }
+
+        function applyScrubSyncTarget(target, options = {}) {
+            const entry = mountedProviders.get(target.streamId);
+            if (!entry || !isNativeSyncProvider(entry.instance) || !entry.instance.video || entry.instance.video.readyState < 1) {
+                if (!options.noQueue) queueScrubSync(target);
+                return false;
+            }
+
+            const video = entry.instance.video;
+            const targetTime = Number(target.currentTime);
+            if (!Number.isFinite(targetTime)) return false;
+            if (Math.abs(video.currentTime - targetTime) <= SCRUB_SEEK_TOLERANCE_SECONDS) return true;
+            if (!canSeekToTime(video, targetTime)) {
+                recordScrubEvent({ action: 'skipped-unseekable', streamId: target.streamId, currentTime: roundSeconds(targetTime), time: new Date().toISOString() });
+                return false;
+            }
+
+            try {
+                video.currentTime = targetTime;
+                video.playbackRate = 1;
+                recordScrubEvent({ action: 'seek', streamId: target.streamId, currentTime: roundSeconds(targetTime), time: new Date().toISOString() });
+                return true;
+            } catch (error) {
+                recordRuntimeError('scrub-sync', error.message || 'Scrub sync seek failed', { streamId: target.streamId });
+                return false;
+            }
+        }
+
+        function queueScrubSync(target) {
+            playbackSync.pendingScrubs.set(target.streamId, { ...target, queuedAt: Date.now() });
+        }
+
+        function applyPendingScrubSync(streamId) {
+            const target = playbackSync.pendingScrubs.get(streamId);
+            if (!target) return;
+            playbackSync.pendingScrubs.delete(streamId);
+            if (isScrubEventStale(target)) return;
+            applyScrubSyncTarget(target, { noQueue: true });
+        }
+
+        function isScrubEventStale(target) {
+            if (!Number.isFinite(target?.sentAt)) return false;
+            return Date.now() + playbackSync.hostClockOffsetMs - target.sentAt > SCRUB_EVENT_TTL_MS;
+        }
+
         function applyPlaybackSyncTarget(target, defaultTargetDelayMs, pulseSentAt) {
             if (!target?.id) return;
             const entry = mountedProviders.get(target.id);
@@ -1991,6 +2064,16 @@
             return null;
         }
 
+        function canSeekToTime(video, time) {
+            if (!Number.isFinite(time)) return false;
+            const ranges = video.seekable?.length ? video.seekable : video.buffered;
+            if (!ranges?.length) return true;
+            for (let i = 0; i < ranges.length; i++) {
+                if (time >= ranges.start(i) - SCRUB_SEEK_TOLERANCE_SECONDS && time <= ranges.end(i) + SCRUB_SEEK_TOLERANCE_SECONDS) return true;
+            }
+            return false;
+        }
+
         function recordHostClockSample(offsetMs) {
             if (!Number.isFinite(offsetMs)) return playbackSync.hostClockOffsetMs;
             playbackSync.hostClockSamples.push(offsetMs);
@@ -2015,17 +2098,32 @@
             playbackSync.appliedCorrections = playbackSync.appliedCorrections.slice(-10);
         }
 
+        function markScrubEventSeen(eventId) {
+            if (playbackSync.scrubEventIds.includes(eventId)) return false;
+            playbackSync.scrubEventIds.push(eventId);
+            playbackSync.scrubEventIds = playbackSync.scrubEventIds.slice(-SCRUB_EVENT_LIMIT);
+            return true;
+        }
+
+        function recordScrubEvent(event) {
+            playbackSync.scrubEvents.push(event);
+            playbackSync.scrubEvents = playbackSync.scrubEvents.slice(-10);
+        }
+
         function buildPlaybackSyncDiagnostics() {
             return {
                 heartbeatMs: SYNC_HEARTBEAT_MS,
                 targetLiveDelayMs: SYNC_TARGET_LIVE_DELAY_MS,
+                scrubEventTtlMs: SCRUB_EVENT_TTL_MS,
                 nativeProviders: ['hls', 'dash'],
                 iframeProviders: 'diagnostics-only',
                 hostClockOffsetMs: roundMs(playbackSync.hostClockOffsetMs),
                 clockSamplesMs: playbackSync.hostClockSamples.map(roundMs),
                 lastHostPulseAt: playbackSync.lastHostPulseAt ? new Date(playbackSync.lastHostPulseAt).toISOString() : null,
                 streamLatencyMs: Array.from(playbackSync.streamLatencyMs.entries()).map(([id, latencyMs]) => ({ id, latencyMs: roundMs(latencyMs) })),
-                corrections: playbackSync.appliedCorrections.slice(-10)
+                pendingScrubs: Array.from(playbackSync.pendingScrubs.entries()).map(([id, target]) => ({ id, currentTime: target.currentTime, queuedAt: new Date(target.queuedAt).toISOString() })),
+                corrections: playbackSync.appliedCorrections.slice(-10),
+                scrubEvents: playbackSync.scrubEvents.slice(-10)
             };
         }
 
@@ -2277,14 +2375,17 @@
                     instance.onReady = () => {
                         instance.state = 'ready';
                         setStreamHealth(stream.id, 'ready', '');
+                        applyPendingScrubSync(stream.id);
                     };
                     instance.onError = () => {
                         instance.state = 'error';
                         setStreamHealth(stream.id, 'error', t('hlsMediaError'));
                         recordRuntimeError('hls', 'Media element error', { url: instance.source });
                     };
+                    instance.onSeeked = () => publishScrubSync(instance);
                     video.addEventListener('loadeddata', instance.onReady);
                     video.addEventListener('error', instance.onError);
+                    video.addEventListener('seeked', instance.onSeeked);
 
                     if (video.canPlayType('application/vnd.apple.mpegurl')) {
                         video.src = instance.source;
@@ -2308,6 +2409,7 @@
                     if (instance.video) {
                         instance.video.removeEventListener('loadeddata', instance.onReady);
                         instance.video.removeEventListener('error', instance.onError);
+                        instance.video.removeEventListener('seeked', instance.onSeeked);
                         instance.video.src = '';
                     }
                     instance.video = null;
@@ -2346,14 +2448,17 @@
                     instance.onReady = () => {
                         instance.state = 'ready';
                         setStreamHealth(stream.id, 'ready', '');
+                        applyPendingScrubSync(stream.id);
                     };
                     instance.onMediaError = () => {
                         instance.state = 'error';
                         setStreamHealth(stream.id, 'error', t('dashMediaError'));
                         recordRuntimeError('dash', 'Media element error', { url: instance.source });
                     };
+                    instance.onSeeked = () => publishScrubSync(instance);
                     video.addEventListener('loadeddata', instance.onReady);
                     video.addEventListener('error', instance.onMediaError);
+                    video.addEventListener('seeked', instance.onSeeked);
 
                     const dashApi = window.dashjs;
                     const supportsDash = dashApi?.supportsMediaSource?.() ?? Boolean(window.MediaSource || window.ManagedMediaSource || window.WebKitMediaSource);
@@ -2395,6 +2500,7 @@
                     if (instance.video) {
                         instance.video.removeEventListener('loadeddata', instance.onReady);
                         instance.video.removeEventListener('error', instance.onMediaError);
+                        instance.video.removeEventListener('seeked', instance.onSeeked);
                         instance.video.removeAttribute('src');
                         instance.video.load?.();
                     }

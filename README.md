@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.14.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.15.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -17,7 +17,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
-- **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay
+- **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay and mirrors host scrubs
 - **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, iframe reloads, and per-stream controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
 - **Localization-Ready UI** - Visible app copy and chat timestamps flow through a message catalog and locale-aware formatter
@@ -146,6 +146,7 @@ All these sync in real-time to viewers:
 
 - Hosts publish a lightweight sync heartbeat every 5 seconds with a rolling clock sample and native HLS/DASH playback-buffer measurements.
 - Viewers use the rolling host-clock offset plus their own HLS/DASH latency samples to seek or gently adjust playback rate toward an 8-second live-buffer target.
+- Host HLS/DASH scrubs publish a separate sync event so viewers seek to the same media timestamp when that timestamp is still seekable.
 - HLS uses hls.js live-latency data when available and falls back to the media element buffer range.
 - DASH uses dash.js live-latency data when available and falls back to the media element buffer range.
 - YouTube, Twitch, Rumble, and generic iframe embeds stay on the shared room-state sync path; browser iframe isolation does not expose their media timelines for direct seek/rate correction.
