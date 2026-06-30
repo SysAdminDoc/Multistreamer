@@ -4,9 +4,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Planned Features
 
-### Sync & Latency
-- Leader-election for when host drops out (viewer quorum chooses new host)
-
 ### Layout & Controls
 - Manual grid layouts (1+2, 2+3, 3+1, custom CSS grid template)
 - Per-stream audio mix slider instead of binary mute

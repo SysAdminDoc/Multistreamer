@@ -1322,12 +1322,14 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.16.0';
+        const APP_VERSION = '0.17.0';
         const CONFIG_VERSION = 7;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
         const RELAY_OFFLINE_AFTER_MS = 45000;
+        const LEADER_ELECTION_CHECK_MS = 15000;
+        const LEADER_TTL_MS = 45000;
         const SYNC_HEARTBEAT_MS = 5000;
         const SYNC_MAX_SAMPLES = 8;
         const SYNC_TARGET_LIVE_DELAY_MS = 8000;
@@ -1342,6 +1344,7 @@
         let roomRef = null;
         let chatRef = null;
         let isHost = false;
+        let electedHost = false;
         let streams = [];
         let settings = { layout: 'grid', featuredId: null, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' } };
         let chatExpanded = true;
@@ -1365,6 +1368,11 @@
             lastHeartbeatAt: 0,
             lastRetryAt: 0,
             retryCount: 0,
+            events: []
+        };
+        const leaderElection = {
+            current: null,
+            lastCheckedAt: 0,
             events: []
         };
         const playbackSync = {
@@ -1393,6 +1401,7 @@
                 statusSynced: 'Synced',
                 statusReconnecting: 'Reconnecting',
                 statusOffline: 'Offline',
+                electedHostNotice: 'Host disconnected. You are now the temporary host.',
                 setupSubtitle: 'Create watch parties with synced video grids',
                 createNewRoom: 'Create New Room',
                 roomName: 'Room name',
@@ -1669,11 +1678,10 @@
                     document.body.classList.remove('viewer-mode');
                     saveRecentRoom(roomId, hostKey, '');
                 } else {
-                    document.body.classList.add('viewer-mode');
                     document.getElementById('emptyTitle').textContent = t('waitingForHostTitle');
                     document.getElementById('emptyText').textContent = t('waitingForHostText');
                 }
-                if (isHost) startHostPlaybackSync();
+                if (hasHostControls()) startHostPlaybackSync();
                 else stopHostPlaybackSync();
                 updateHostUI();
             });
@@ -1735,11 +1743,14 @@
             roomRef.get('settings').get('display').get('accent').on(v => { if (v) applyDisplay({ accent: v }); });
             roomRef.get('sync').get('clock').on(handleHostClockSync);
             roomRef.get('sync').get('scrub').on(handleHostScrubSync);
+            roomRef.get('sync').get('leader').on(handleLeaderState);
 
             writePresence();
             setInterval(writePresence, PRESENCE_HEARTBEAT_MS);
             countViewers();
             setInterval(countViewers, 15000);
+            checkLeaderElection();
+            setInterval(checkLeaderElection, LEADER_ELECTION_CHECK_MS);
 
             chatRef.get('messages').map().on((msg, id) => {
                 if (msg?.timestamp && msg.timestamp > Date.now() - 2*60*60*1000) renderMsg({ ...msg, id });
@@ -1750,7 +1761,13 @@
         }
 
         function updateHostUI() {
-            document.querySelectorAll('.host-only-inline').forEach(el => el.style.display = isHost ? '' : 'none');
+            const controls = hasHostControls();
+            document.body.classList.toggle('viewer-mode', !controls);
+            document.querySelectorAll('.host-only-inline').forEach(el => el.style.display = controls ? '' : 'none');
+        }
+
+        function hasHostControls() {
+            return isHost || electedHost;
         }
 
         function setupRelayHealth() {
@@ -1852,7 +1869,7 @@
             if (!roomRef) return;
             const now = Date.now();
             relayHealth.lastHeartbeatAt = now;
-            roomRef.get('presence').get(sessionId).put({ online: true, time: now, role: isHost ? 'host' : 'viewer' });
+            roomRef.get('presence').get(sessionId).put({ online: true, time: now, role: isHost ? 'host' : electedHost ? 'elected-host' : 'viewer' });
         }
 
         function countViewers() {
@@ -1862,6 +1879,90 @@
                 if (p?.time > cutoff) count++;
             });
             setTimeout(() => document.getElementById('viewerCount').textContent = count, 500);
+        }
+
+        function handleLeaderState(data) {
+            if (!data || typeof data !== 'object') return;
+            leaderElection.current = {
+                sessionId: String(data.sessionId || ''),
+                role: data.role || 'viewer',
+                heartbeatAt: Number(data.heartbeatAt || 0),
+                claimedAt: Number(data.claimedAt || 0),
+                quorumSize: Number(data.quorumSize || 0)
+            };
+            const active = !isHost && leaderElection.current.role === 'elected-host' && leaderElection.current.sessionId === sessionId && !isLeaderStateStale(leaderElection.current);
+            setElectedHost(active);
+        }
+
+        function checkLeaderElection() {
+            if (!roomRef) return;
+            leaderElection.lastCheckedAt = Date.now();
+            writePresence();
+            if (isHost) {
+                publishLeaderState('host', 1);
+                setElectedHost(false);
+                return;
+            }
+
+            const activeSessions = [];
+            const cutoff = Date.now() - PRESENCE_TTL_MS;
+            roomRef.get('presence').map().once((presence, id) => {
+                if (id === '_' || !presence || presence.time <= cutoff) return;
+                activeSessions.push({ id: String(id), role: presence.role || 'viewer', time: presence.time });
+            });
+            setTimeout(() => resolveLeaderElection(activeSessions), 600);
+        }
+
+        function resolveLeaderElection(activeSessions) {
+            if (isHost) return;
+            const activeHost = activeSessions.some(session => session.role === 'host');
+            if (activeHost) {
+                setElectedHost(false);
+                return;
+            }
+
+            const current = leaderElection.current;
+            const currentActive = current?.sessionId && activeSessions.some(session => session.id === current.sessionId);
+            if (current?.role === 'elected-host' && currentActive && !isLeaderStateStale(current)) {
+                if (current.sessionId === sessionId) publishLeaderState('elected-host', activeSessions.length, current.claimedAt || Date.now());
+                setElectedHost(current.sessionId === sessionId);
+                return;
+            }
+
+            const candidates = activeSessions.map(session => session.id).filter(Boolean).sort();
+            if (!candidates.includes(sessionId)) candidates.push(sessionId);
+            candidates.sort();
+            const winner = candidates[0];
+            if (winner === sessionId) publishLeaderState('elected-host', candidates.length);
+            setElectedHost(winner === sessionId);
+        }
+
+        function publishLeaderState(role, quorumSize, claimedAt = Date.now()) {
+            const heartbeatAt = Date.now();
+            roomRef.get('sync').get('leader').put({ sessionId, role, heartbeatAt, claimedAt, quorumSize });
+            recordLeaderEvent(role, `${sessionId} quorum=${quorumSize}`);
+        }
+
+        function setElectedHost(active) {
+            const next = Boolean(active && !isHost);
+            if (electedHost === next) return;
+            electedHost = next;
+            recordLeaderEvent(next ? 'elected' : 'demoted', sessionId);
+            if (next) notify(t('electedHostNotice'));
+            updateHostUI();
+            writePresence();
+            if (hasHostControls()) startHostPlaybackSync();
+            else stopHostPlaybackSync();
+            render();
+        }
+
+        function isLeaderStateStale(state) {
+            return !state?.heartbeatAt || Date.now() - state.heartbeatAt > LEADER_TTL_MS;
+        }
+
+        function recordLeaderEvent(type, detail) {
+            leaderElection.events.push({ type, detail, time: new Date().toISOString() });
+            leaderElection.events = leaderElection.events.slice(-10);
         }
 
         function startHostPlaybackSync() {
@@ -1877,7 +1978,7 @@
         }
 
         function writePlaybackSyncPulse() {
-            if (!roomRef || !isHost) return;
+            if (!roomRef || !hasHostControls()) return;
             const sentAt = Date.now();
             const nativeStreams = collectNativePlaybackState();
             roomRef.get('sync').get('clock').put({
@@ -1919,7 +2020,7 @@
             playbackSync.lastHostPulseAt = receivedAt;
             recordHostClockSample(data.sentAt - receivedAt);
 
-            if (isHost || !data.streams || typeof data.streams !== 'object') return;
+            if (hasHostControls() || !data.streams || typeof data.streams !== 'object') return;
             Object.entries(data.streams).forEach(([id, target]) => {
                 if (id === '_' || !target || typeof target !== 'object') return;
                 applyPlaybackSyncTarget(target, data.targetDelayMs, data.sentAt);
@@ -1927,7 +2028,7 @@
         }
 
         function publishScrubSync(instance) {
-            if (!roomRef || !isHost || !isNativeSyncProvider(instance)) return;
+            if (!roomRef || !hasHostControls() || !isNativeSyncProvider(instance)) return;
             if (instance.suppressNextScrubPublish) {
                 instance.suppressNextScrubPublish = false;
                 return;
@@ -1946,7 +2047,7 @@
         }
 
         function handleHostScrubSync(data) {
-            if (!data || isHost || !data.eventId || !data.streamId || typeof data.currentTime !== 'number') return;
+            if (!data || hasHostControls() || !data.eventId || !data.streamId || typeof data.currentTime !== 'number') return;
             if (!markScrubEventSeen(data.eventId)) return;
             if (isScrubEventStale(data)) return;
             applyScrubSyncTarget(data);
@@ -2240,7 +2341,7 @@
 
         // ========== STREAM FUNCTIONS ==========
         function addStream() {
-            if (!isHost) return;
+            if (!hasHostControls()) return;
             const source = Sources.parseStreamUrl(document.getElementById('videoUrl').value.trim());
             if (!source) return notify(t('validStreamPrompt'), 'error');
             if (seenStreams.has(source.id)) return notify(t('duplicateStream'), 'error');
@@ -2249,34 +2350,34 @@
             notify(t('streamAdded', { name: source.displayName }));
         }
 
-        function removeStream(id) { if (isHost) roomRef.get('streams').get(id).put(null); }
-        function setFeatured(id) { if (isHost) roomRef.get('settings').get('featuredId').put(settings.featuredId === id ? '' : id); }
+        function removeStream(id) { if (hasHostControls()) roomRef.get('streams').get(id).put(null); }
+        function setFeatured(id) { if (hasHostControls()) roomRef.get('settings').get('featuredId').put(settings.featuredId === id ? '' : id); }
         function toggleMute(id) {
             const s = streams.find(x => x.id === id);
             if (s) {
                 s.muted = !s.muted;
                 const mounted = mountedProviders.get(id);
                 mounted?.adapter.mute(mounted.instance, s.muted);
-                if (isHost) roomRef.get('streams').get(id).get('muted').put(s.muted);
+                if (hasHostControls()) roomRef.get('streams').get(id).get('muted').put(s.muted);
                 render();
             }
         }
-        function muteAll() { streams.forEach(s => { s.muted = true; if (isHost) roomRef.get('streams').get(s.id).get('muted').put(true); }); render(); }
-        function unmuteAll() { streams.forEach(s => { s.muted = false; if (isHost) roomRef.get('streams').get(s.id).get('muted').put(false); }); render(); }
-        function setLayout(l) { if (isHost) roomRef.get('settings').get('layout').put(l); }
-        function toggleWeather() { if (isHost) { const w = settings.weather; roomRef.get('settings').get('weather').put({ enabled: !w.enabled, lat: w.lat, lon: w.lon }); } }
+        function muteAll() { streams.forEach(s => { s.muted = true; if (hasHostControls()) roomRef.get('streams').get(s.id).get('muted').put(true); }); render(); }
+        function unmuteAll() { streams.forEach(s => { s.muted = false; if (hasHostControls()) roomRef.get('streams').get(s.id).get('muted').put(false); }); render(); }
+        function setLayout(l) { if (hasHostControls()) roomRef.get('settings').get('layout').put(l); }
+        function toggleWeather() { if (hasHostControls()) { const w = settings.weather; roomRef.get('settings').get('weather').put({ enabled: !w.enabled, lat: w.lat, lon: w.lon }); } }
         function applyWeather() {
-            if (!isHost) return;
+            if (!hasHostControls()) return;
             const lat = parseFloat(document.getElementById('weatherLat').value) || 40.7128;
             const lon = parseFloat(document.getElementById('weatherLon').value) || -74.006;
             roomRef.get('settings').get('weather').put({ enabled: true, lat, lon });
         }
         function clearAll() {
-            if (!isHost) return;
+            if (!hasHostControls()) return;
             streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
             notify(t('allStreamsCleared'));
         }
-        function setSetting(key, val) { if (isHost) roomRef.get('settings').get('display').get(key).put(key === 'gridGap' ? parseInt(val) : val); }
+        function setSetting(key, val) { if (hasHostControls()) roomRef.get('settings').get('display').get(key).put(key === 'gridGap' ? parseInt(val) : val); }
 
         function editLabel(id) {
             const s = streams.find(x => x.id === id);
@@ -2288,7 +2389,7 @@
         function saveLabel() {
             const id = document.getElementById('labelStreamId').value;
             const label = document.getElementById('labelInput').value.trim();
-            if (isHost && id) roomRef.get('streams').get(id).get('label').put(label);
+            if (hasHostControls() && id) roomRef.get('streams').get(id).get('label').put(label);
             closeModal('labelModal');
         }
 
@@ -2307,7 +2408,7 @@
                 return;
             }
             const offsetMs = Math.round(seconds * 1000);
-            if (isHost && id) {
+            if (hasHostControls() && id) {
                 roomRef.get('streams').get(id).get('latencyOffsetMs').put(offsetMs);
                 notify(t('latencyOffsetSaved'));
             }
@@ -2323,7 +2424,7 @@
 
             if (!items.length) {
                 container.className = 'grid-container';
-                container.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/></svg><h2>${isHost ? t('noStreamsTitle') : t('waitingForHostTitle')}</h2><p>${isHost ? t('noStreamsText') : t('waitingForHostText')}</p></div>`;
+                container.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/></svg><h2>${hasHostControls() ? t('noStreamsTitle') : t('waitingForHostTitle')}</h2><p>${hasHostControls() ? t('noStreamsText') : t('waitingForHostText')}</p></div>`;
                 return;
             }
 
@@ -2364,7 +2465,7 @@
                     loading: 'lazy',
                     allow: 'fullscreen'
                 });
-                return `<div class="grid-item"><iframe src="${src}" ${attrs}></iframe><div class="overlay"><div class="controls">${isHost ? `<button class="host-only" onclick="toggleWeather()" aria-label="${t('removeWeatherRadar')}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${t('weatherRadar')}</div></div>`;
+                return `<div class="grid-item"><iframe src="${src}" ${attrs}></iframe><div class="overlay"><div class="controls">${hasHostControls() ? `<button class="host-only" onclick="toggleWeather()" aria-label="${t('removeWeatherRadar')}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${t('weatherRadar')}</div></div>`;
             }
 
             const { id, muted, label } = item;
@@ -2386,7 +2487,7 @@
             }
             const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="${escAttr(t('reloadStream', { label: label || embed.label || id }))}">${t('reload')}</button></div>`;
 
-            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? t('unmute') : t('mute')} ${controlLabel}">${muted ? t('unmute') : t('mute')}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? t('unmute') : t('mute')} ${controlLabel}">${muted ? t('unmute') : t('mute')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
 
         function destroyProviderAdapters() {
@@ -2697,7 +2798,7 @@
                 input.onblur = input.onkeypress = (e) => {
                     if (e.type === 'blur' || e.key === 'Enter') {
                         const val = input.value.trim();
-                        if (val && isHost) roomRef.get('meta').get('title').put(val);
+                        if (val && hasHostControls()) roomRef.get('meta').get('title').put(val);
                         input.style.display = 'none';
                         span.style.display = '';
                     }
@@ -2711,7 +2812,7 @@
         }
 
         function saveAnnouncement() {
-            if (isHost) roomRef.get('meta').get('announcement').put(document.getElementById('announcementInput').value.trim());
+            if (hasHostControls()) roomRef.get('meta').get('announcement').put(document.getElementById('announcementInput').value.trim());
             closeModal('announcementModal');
         }
 
@@ -2804,7 +2905,7 @@
         }
 
         function importConfig() {
-            if (!isHost) return notify(t('hostAccessRequired'), 'error');
+            if (!hasHostControls()) return notify(t('hostAccessRequired'), 'error');
             try {
                 const data = JSON.parse(document.getElementById('importData').value);
                 const result = validateImportConfig(data);
@@ -2932,7 +3033,7 @@
                 app: 'Multistreamer',
                 appVersion: APP_VERSION,
                 room: roomId || '',
-                mode: isHost ? 'host' : 'viewer',
+                mode: isHost ? 'host' : electedHost ? 'elected-host' : 'viewer',
                 url: redactSensitiveUrl(location.href),
                 generatedAt: new Date(now).toISOString(),
                 browser: {
@@ -2961,6 +3062,15 @@
                     displayedViewers: Number(document.getElementById('viewerCount')?.textContent || 0),
                     ttlMs: PRESENCE_TTL_MS,
                     heartbeatMs: PRESENCE_HEARTBEAT_MS
+                },
+                leaderElection: {
+                    enabled: true,
+                    electedHost,
+                    checkMs: LEADER_ELECTION_CHECK_MS,
+                    leaderTtlMs: LEADER_TTL_MS,
+                    current: leaderElection.current,
+                    lastCheckedAt: leaderElection.lastCheckedAt ? new Date(leaderElection.lastCheckedAt).toISOString() : null,
+                    events: leaderElection.events.slice(-10)
                 },
                 playbackSync: buildPlaybackSyncDiagnostics(),
                 streams: {
@@ -3085,7 +3195,7 @@
         function sendMessage() {
             const text = document.getElementById('messageInput').value.trim();
             if (!text || !username) return;
-            chatRef.get('messages').get(sessionId + '-' + Date.now()).put({ id: sessionId + '-' + Date.now(), username, text, timestamp: Date.now(), sessionId, isHost });
+            chatRef.get('messages').get(sessionId + '-' + Date.now()).put({ id: sessionId + '-' + Date.now(), username, text, timestamp: Date.now(), sessionId, isHost: hasHostControls() });
             document.getElementById('messageInput').value = '';
         }
 

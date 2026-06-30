@@ -19,6 +19,7 @@ test('exposes sync health and redacted diagnostics fields', () => {
     assert.match(html, /function buildDiagnostics\(\)/);
     assert.match(html, /url: redactSensitiveUrl\(location\.href\)/);
     assert.match(html, /retryCount: relayHealth\.retryCount/);
+    assert.match(html, /leaderElection: \{/);
     assert.match(html, /playbackSync: buildPlaybackSyncDiagnostics\(\)/);
     assert.match(html, /providerCounts/);
     assert.match(html, /recentErrors: recentErrors\.slice\(-10\)/);
@@ -26,6 +27,20 @@ test('exposes sync health and redacted diagnostics fields', () => {
     assert.match(html, /if \(p\?\.time > cutoff\) count\+\+/);
     assert.match(html, /function redactSensitiveUrl\(value\)/);
     assert.match(html, /url\.searchParams\.set\('host', '\[redacted\]'\)/);
+});
+
+test('keeps leader election wired', () => {
+    assert.match(html, /const LEADER_ELECTION_CHECK_MS = 15000;/);
+    assert.match(html, /const LEADER_TTL_MS = 45000;/);
+    assert.match(html, /let electedHost = false;/);
+    assert.match(html, /roomRef\.get\('sync'\)\.get\('leader'\)\.on\(handleLeaderState\)/);
+    assert.match(html, /function checkLeaderElection\(\)/);
+    assert.match(html, /function resolveLeaderElection\(activeSessions\)/);
+    assert.match(html, /function publishLeaderState\(role, quorumSize, claimedAt = Date\.now\(\)\)/);
+    assert.match(html, /function hasHostControls\(\)/);
+    assert.match(html, /role: isHost \? 'host' : electedHost \? 'elected-host' : 'viewer'/);
+    assert.match(html, /mode: isHost \? 'host' : electedHost \? 'elected-host' : 'viewer'/);
+    assert.match(html, /document\.body\.classList\.toggle\('viewer-mode', !controls\)/);
 });
 
 test('keeps native playback sync calibration wired', () => {

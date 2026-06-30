@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.16.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.17.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -17,6 +17,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
+- **Leader Election** - If the real host disappears, active viewers deterministically elect a temporary host
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
 - **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, iframe reloads, and per-stream controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
@@ -141,6 +142,7 @@ All these sync in real-time to viewers:
 - The top bar shows relay health as Connecting, Synced, Reconnecting, or Offline.
 - Presence counts ignore stale sessions after 60 seconds so disconnected viewers do not remain counted as live.
 - When the public relay disconnects, the app retries the configured relay list automatically.
+- If no real host presence is fresh, active viewers choose the same temporary host by session ID until a real host returns.
 - The Diagnostics button copies a JSON bundle with app version, room ID, redacted room URL, relay state, retry history, playback-sync samples, provider counts, provider health snapshots, browser media support, and recent runtime/HLS/DASH errors.
 
 ### Playback Sync
