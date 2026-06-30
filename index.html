@@ -1296,12 +1296,17 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.13.0';
+        const APP_VERSION = '0.14.0';
         const CONFIG_VERSION = 6;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
         const RELAY_OFFLINE_AFTER_MS = 45000;
+        const SYNC_HEARTBEAT_MS = 5000;
+        const SYNC_MAX_SAMPLES = 8;
+        const SYNC_TARGET_LIVE_DELAY_MS = 8000;
+        const SYNC_SEEK_TOLERANCE_SECONDS = 2.5;
+        const SYNC_RATE_TOLERANCE_SECONDS = 0.75;
 
         // ========== GLOBAL STATE ==========
         let gun = null;
@@ -1321,6 +1326,7 @@
         const recentErrors = [];
         let activeModalId = null;
         let modalReturnFocus = null;
+        let hostPlaybackSyncTimer = null;
         const relayHealth = {
             state: 'connecting',
             statusText: 'Connecting',
@@ -1331,6 +1337,14 @@
             lastRetryAt: 0,
             retryCount: 0,
             events: []
+        };
+        const playbackSync = {
+            hostClockOffsetMs: 0,
+            hostClockSamples: [],
+            streamLatencyMs: new Map(),
+            streamLatencySamples: new Map(),
+            lastHostPulseAt: 0,
+            appliedCorrections: []
         };
         const providerAdapters = {
             youtube: createIframeAdapter('youtube'),
@@ -1584,6 +1598,7 @@
         setupRuntimeDiagnostics();
         applyLocalizedCopy();
         document.addEventListener('keydown', handleModalKeydown);
+        window.addEventListener('beforeunload', stopHostPlaybackSync);
 
         if (roomId) {
             document.getElementById('setupPage').style.display = 'none';
@@ -1618,6 +1633,8 @@
                     document.getElementById('emptyTitle').textContent = t('waitingForHostTitle');
                     document.getElementById('emptyText').textContent = t('waitingForHostText');
                 }
+                if (isHost) startHostPlaybackSync();
+                else stopHostPlaybackSync();
                 updateHostUI();
             });
 
@@ -1675,6 +1692,7 @@
             roomRef.get('settings').get('display').get('labels').on(v => { if (v) applyDisplay({ labels: v }); });
             roomRef.get('settings').get('display').get('theme').on(v => { if (v) applyDisplay({ theme: v }); });
             roomRef.get('settings').get('display').get('accent').on(v => { if (v) applyDisplay({ accent: v }); });
+            roomRef.get('sync').get('clock').on(handleHostClockSync);
 
             writePresence();
             setInterval(writePresence, PRESENCE_HEARTBEAT_MS);
@@ -1802,6 +1820,231 @@
                 if (p?.time > cutoff) count++;
             });
             setTimeout(() => document.getElementById('viewerCount').textContent = count, 500);
+        }
+
+        function startHostPlaybackSync() {
+            if (hostPlaybackSyncTimer) return;
+            writePlaybackSyncPulse();
+            hostPlaybackSyncTimer = setInterval(writePlaybackSyncPulse, SYNC_HEARTBEAT_MS);
+        }
+
+        function stopHostPlaybackSync() {
+            if (!hostPlaybackSyncTimer) return;
+            clearInterval(hostPlaybackSyncTimer);
+            hostPlaybackSyncTimer = null;
+        }
+
+        function writePlaybackSyncPulse() {
+            if (!roomRef || !isHost) return;
+            roomRef.get('sync').get('clock').put({
+                sentAt: Date.now(),
+                targetDelayMs: SYNC_TARGET_LIVE_DELAY_MS,
+                streams: collectNativePlaybackState()
+            });
+        }
+
+        function collectNativePlaybackState() {
+            const nativeStreams = {};
+            mountedProviders.forEach(({ instance }, id) => {
+                if (!isNativeSyncProvider(instance)) return;
+                const metrics = measureNativePlayback(instance);
+                if (!metrics) return;
+                const latencyMs = recordStreamLatencySample(id, metrics.latencyMs);
+                nativeStreams[id] = {
+                    id,
+                    type: instance.type,
+                    currentTime: roundSeconds(metrics.currentTime),
+                    bufferEnd: metrics.bufferEnd === null ? null : roundSeconds(metrics.bufferEnd),
+                    bufferLeadMs: roundMs(metrics.bufferLeadMs),
+                    latencyMs: roundMs(latencyMs),
+                    playbackRate: Number(instance.video.playbackRate.toFixed(3)),
+                    paused: instance.video.paused,
+                    readyState: instance.video.readyState,
+                    sampledAt: Date.now()
+                };
+            });
+            return nativeStreams;
+        }
+
+        function handleHostClockSync(data) {
+            if (!data || typeof data.sentAt !== 'number') return;
+            const receivedAt = Date.now();
+            playbackSync.lastHostPulseAt = receivedAt;
+            recordHostClockSample(data.sentAt - receivedAt);
+
+            if (isHost || !data.streams || typeof data.streams !== 'object') return;
+            Object.entries(data.streams).forEach(([id, target]) => {
+                if (id === '_' || !target || typeof target !== 'object') return;
+                applyPlaybackSyncTarget(target, data.targetDelayMs, data.sentAt);
+            });
+        }
+
+        function applyPlaybackSyncTarget(target, defaultTargetDelayMs, pulseSentAt) {
+            if (!target?.id) return;
+            const entry = mountedProviders.get(target.id);
+            if (!entry || !isNativeSyncProvider(entry.instance)) return;
+            const metrics = measureNativePlayback(entry.instance);
+            if (!metrics) return;
+
+            const estimatedHostNow = Date.now() + playbackSync.hostClockOffsetMs;
+            const sampledAt = typeof target.sampledAt === 'number' ? target.sampledAt : pulseSentAt;
+            if (sampledAt && estimatedHostNow - sampledAt > RELAY_OFFLINE_AFTER_MS) return;
+
+            const localLatencyMs = recordStreamLatencySample(target.id, metrics.latencyMs);
+            const hostLatencyMs = Number(target.latencyMs);
+            const targetDelayMs = clampMs(
+                Math.max(defaultTargetDelayMs || SYNC_TARGET_LIVE_DELAY_MS, Number.isFinite(hostLatencyMs) ? hostLatencyMs : 0),
+                1000,
+                30000
+            );
+            const driftSeconds = (localLatencyMs - targetDelayMs) / 1000;
+            if (!Number.isFinite(driftSeconds)) return;
+
+            const video = entry.instance.video;
+            let action = 'hold';
+            try {
+                if (Math.abs(driftSeconds) >= SYNC_SEEK_TOLERANCE_SECONDS) {
+                    const seekTarget = bufferedTimeForLag(video, targetDelayMs);
+                    if (seekTarget !== null) {
+                        video.currentTime = seekTarget;
+                        video.playbackRate = 1;
+                        action = 'seek';
+                    }
+                } else if (Math.abs(driftSeconds) >= SYNC_RATE_TOLERANCE_SECONDS) {
+                    video.playbackRate = driftSeconds > 0 ? 1.03 : 0.97;
+                    action = driftSeconds > 0 ? 'speed-up' : 'slow-down';
+                } else if (video.playbackRate !== 1) {
+                    video.playbackRate = 1;
+                    action = 'reset-rate';
+                }
+            } catch (error) {
+                recordRuntimeError('playback-sync', error.message || 'Playback sync correction failed', { streamId: target.id });
+                return;
+            }
+
+            if (action !== 'hold') {
+                recordPlaybackCorrection({
+                    streamId: target.id,
+                    action,
+                    driftMs: roundMs(driftSeconds * 1000),
+                    localLatencyMs: roundMs(localLatencyMs),
+                    targetDelayMs: roundMs(targetDelayMs),
+                    time: new Date().toISOString()
+                });
+            }
+        }
+
+        function isNativeSyncProvider(instance) {
+            return Boolean(instance?.video && (instance.type === 'hls' || instance.type === 'dash'));
+        }
+
+        function measureNativePlayback(instance) {
+            const video = instance?.video;
+            if (!video || video.readyState < 1 || !Number.isFinite(video.currentTime)) return null;
+            const bufferEnd = getVideoBufferEnd(video);
+            const bufferLeadMs = bufferEnd === null ? null : Math.max(0, (bufferEnd - video.currentTime) * 1000);
+            const liveLatencyMs = estimateNativeLiveLatencyMs(instance);
+            const latencyMs = liveLatencyMs ?? bufferLeadMs;
+            if (!Number.isFinite(latencyMs)) return null;
+            return {
+                currentTime: video.currentTime,
+                bufferEnd,
+                bufferLeadMs,
+                latencyMs
+            };
+        }
+
+        function estimateNativeLiveLatencyMs(instance) {
+            if (instance.type === 'hls' && Number.isFinite(instance.player?.latency)) {
+                return Math.max(0, instance.player.latency * 1000);
+            }
+            if (instance.type === 'dash' && typeof instance.player?.getCurrentLiveLatency === 'function') {
+                const latency = instance.player.getCurrentLiveLatency();
+                if (Number.isFinite(latency)) return Math.max(0, latency * 1000);
+            }
+            return null;
+        }
+
+        function getVideoBufferEnd(video) {
+            const ranges = video?.buffered;
+            if (!ranges?.length) return null;
+            const current = video.currentTime || 0;
+            let nearestFutureEnd = null;
+            for (let i = 0; i < ranges.length; i++) {
+                const start = ranges.start(i);
+                const end = ranges.end(i);
+                if (current >= start && current <= end) return end;
+                if (end > current && (nearestFutureEnd === null || end < nearestFutureEnd)) nearestFutureEnd = end;
+            }
+            return nearestFutureEnd ?? ranges.end(ranges.length - 1);
+        }
+
+        function bufferedTimeForLag(video, lagMs) {
+            const bufferEnd = getVideoBufferEnd(video);
+            if (bufferEnd === null) return null;
+            const targetTime = bufferEnd - (lagMs / 1000);
+            if (!Number.isFinite(targetTime)) return null;
+            const ranges = video.buffered;
+            for (let i = 0; i < ranges.length; i++) {
+                if (targetTime >= ranges.start(i) && targetTime <= ranges.end(i)) return targetTime;
+            }
+            return null;
+        }
+
+        function recordHostClockSample(offsetMs) {
+            if (!Number.isFinite(offsetMs)) return playbackSync.hostClockOffsetMs;
+            playbackSync.hostClockSamples.push(offsetMs);
+            playbackSync.hostClockSamples = playbackSync.hostClockSamples.slice(-SYNC_MAX_SAMPLES);
+            playbackSync.hostClockOffsetMs = average(playbackSync.hostClockSamples);
+            return playbackSync.hostClockOffsetMs;
+        }
+
+        function recordStreamLatencySample(id, latencyMs) {
+            if (!Number.isFinite(latencyMs)) return playbackSync.streamLatencyMs.get(id) || 0;
+            const samples = playbackSync.streamLatencySamples.get(id) || [];
+            samples.push(latencyMs);
+            const recent = samples.slice(-SYNC_MAX_SAMPLES);
+            playbackSync.streamLatencySamples.set(id, recent);
+            const averageLatencyMs = average(recent);
+            playbackSync.streamLatencyMs.set(id, averageLatencyMs);
+            return averageLatencyMs;
+        }
+
+        function recordPlaybackCorrection(correction) {
+            playbackSync.appliedCorrections.push(correction);
+            playbackSync.appliedCorrections = playbackSync.appliedCorrections.slice(-10);
+        }
+
+        function buildPlaybackSyncDiagnostics() {
+            return {
+                heartbeatMs: SYNC_HEARTBEAT_MS,
+                targetLiveDelayMs: SYNC_TARGET_LIVE_DELAY_MS,
+                nativeProviders: ['hls', 'dash'],
+                iframeProviders: 'diagnostics-only',
+                hostClockOffsetMs: roundMs(playbackSync.hostClockOffsetMs),
+                clockSamplesMs: playbackSync.hostClockSamples.map(roundMs),
+                lastHostPulseAt: playbackSync.lastHostPulseAt ? new Date(playbackSync.lastHostPulseAt).toISOString() : null,
+                streamLatencyMs: Array.from(playbackSync.streamLatencyMs.entries()).map(([id, latencyMs]) => ({ id, latencyMs: roundMs(latencyMs) })),
+                corrections: playbackSync.appliedCorrections.slice(-10)
+            };
+        }
+
+        function average(values) {
+            if (!values.length) return 0;
+            return values.reduce((total, value) => total + value, 0) / values.length;
+        }
+
+        function clampMs(value, min, max) {
+            if (!Number.isFinite(value)) return min;
+            return Math.min(max, Math.max(min, value));
+        }
+
+        function roundMs(value) {
+            return Number.isFinite(value) ? Math.round(value) : null;
+        }
+
+        function roundSeconds(value) {
+            return Number.isFinite(value) ? Number(value.toFixed(3)) : null;
         }
 
         function applyDisplay(d) {
@@ -2520,6 +2763,7 @@
                     ttlMs: PRESENCE_TTL_MS,
                     heartbeatMs: PRESENCE_HEARTBEAT_MS
                 },
+                playbackSync: buildPlaybackSyncDiagnostics(),
                 streams: {
                     total: streams.length,
                     providerCounts,

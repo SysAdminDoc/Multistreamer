@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.13.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.14.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -17,6 +17,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
+- **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay
 - **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, iframe reloads, and per-stream controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
 - **Localization-Ready UI** - Visible app copy and chat timestamps flow through a message catalog and locale-aware formatter
@@ -139,14 +140,22 @@ All these sync in real-time to viewers:
 - The top bar shows relay health as Connecting, Synced, Reconnecting, or Offline.
 - Presence counts ignore stale sessions after 60 seconds so disconnected viewers do not remain counted as live.
 - When the public relay disconnects, the app retries the configured relay list automatically.
-- The Diagnostics button copies a JSON bundle with app version, room ID, redacted room URL, relay state, retry history, provider counts, provider health snapshots, browser media support, and recent runtime/HLS/DASH errors.
+- The Diagnostics button copies a JSON bundle with app version, room ID, redacted room URL, relay state, retry history, playback-sync samples, provider counts, provider health snapshots, browser media support, and recent runtime/HLS/DASH errors.
+
+### Playback Sync
+
+- Hosts publish a lightweight sync heartbeat every 5 seconds with a rolling clock sample and native HLS/DASH playback-buffer measurements.
+- Viewers use the rolling host-clock offset plus their own HLS/DASH latency samples to seek or gently adjust playback rate toward an 8-second live-buffer target.
+- HLS uses hls.js live-latency data when available and falls back to the media element buffer range.
+- DASH uses dash.js live-latency data when available and falls back to the media element buffer range.
+- YouTube, Twitch, Rumble, and generic iframe embeds stay on the shared room-state sync path; browser iframe isolation does not expose their media timelines for direct seek/rate correction.
 
 ### Provider Health and Recovery
 
 - YouTube, Twitch, Rumble, HLS, DASH, and allowlisted iframe embeds mount through small provider adapters with `mount`, `destroy`, `mute`, `health`, and `reload` hooks.
 - HLS fatal network and media errors show an in-tile recovery strip and attempt hls.js recovery before falling back to a manual reload control.
 - DASH manifests use vendored dash.js with low-latency live settings, health snapshots, and manual reload recovery.
-- Iframe providers expose the same adapter surface so playback-sync and provider-specific health work can build on one contract.
+- Iframe providers expose the same adapter surface for health, reload, and diagnostics; HLS/DASH additionally support direct playback sync correction.
 
 ### Accessibility and Mobile
 

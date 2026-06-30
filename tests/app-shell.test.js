@@ -19,12 +19,29 @@ test('exposes sync health and redacted diagnostics fields', () => {
     assert.match(html, /function buildDiagnostics\(\)/);
     assert.match(html, /url: redactSensitiveUrl\(location\.href\)/);
     assert.match(html, /retryCount: relayHealth\.retryCount/);
+    assert.match(html, /playbackSync: buildPlaybackSyncDiagnostics\(\)/);
     assert.match(html, /providerCounts/);
     assert.match(html, /recentErrors: recentErrors\.slice\(-10\)/);
     assert.match(html, /const cutoff = Date\.now\(\) - PRESENCE_TTL_MS/);
     assert.match(html, /if \(p\?\.time > cutoff\) count\+\+/);
     assert.match(html, /function redactSensitiveUrl\(value\)/);
     assert.match(html, /url\.searchParams\.set\('host', '\[redacted\]'\)/);
+});
+
+test('keeps native playback sync calibration wired', () => {
+    assert.match(html, /const SYNC_HEARTBEAT_MS = 5000;/);
+    assert.match(html, /const SYNC_TARGET_LIVE_DELAY_MS = 8000;/);
+    assert.match(html, /roomRef\.get\('sync'\)\.get\('clock'\)\.on\(handleHostClockSync\)/);
+    assert.match(html, /function startHostPlaybackSync\(\)/);
+    assert.match(html, /function writePlaybackSyncPulse\(\)/);
+    assert.match(html, /function handleHostClockSync\(data\)/);
+    assert.match(html, /function applyPlaybackSyncTarget\(target, defaultTargetDelayMs, pulseSentAt\)/);
+    assert.match(html, /function isNativeSyncProvider\(instance\)/);
+    assert.match(html, /instance\.type === 'hls' \|\| instance\.type === 'dash'/);
+    assert.match(html, /function estimateNativeLiveLatencyMs\(instance\)/);
+    assert.match(html, /getCurrentLiveLatency/);
+    assert.match(html, /function buildPlaybackSyncDiagnostics\(\)/);
+    assert.match(html, /iframeProviders: 'diagnostics-only'/);
 });
 
 test('keeps primary form controls labelled', () => {
