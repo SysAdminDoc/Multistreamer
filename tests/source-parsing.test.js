@@ -30,6 +30,7 @@ test('parses Twitch channel URLs into stable room records', () => {
         sourceKind: 'channel',
         addedAt: 1234,
         muted: true,
+        volume: 0,
         label: '',
         latencyOffsetMs: 0
     });
@@ -85,9 +86,12 @@ test('normalizes legacy YouTube records without type fields', () => {
     assert.equal(stream.type, 'youtube');
     assert.equal(stream.sourceId, 'dQw4w9WgXcQ');
     assert.equal(stream.muted, false);
+    assert.equal(stream.volume, 100);
     assert.equal(stream.label, 'Main');
     assert.equal(stream.latencyOffsetMs, 0);
     assert.equal(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', latencyOffsetMs: 45000 }, 'dQw4w9WgXcQ').latencyOffsetMs, 30000);
+    assert.equal(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', volume: 55 }, 'dQw4w9WgXcQ').volume, 55);
+    assert.equal(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', volume: 150 }, 'dQw4w9WgXcQ').volume, 100);
 });
 
 test('builds Twitch embed and chat URLs with a parent domain', () => {

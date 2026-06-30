@@ -11,6 +11,7 @@
     const RUMBLE_EMBED_RE = /^v[A-Za-z0-9_-]+$/;
     const IFRAME_PREFIX_RE = /^(?:iframe|embed):(.+)$/i;
     const MAX_LATENCY_OFFSET_MS = 30000;
+    const MAX_VOLUME = 100;
     const TWITCH_RESERVED_PATHS = new Set([
         'about',
         'activate',
@@ -324,6 +325,8 @@
                             ? stableId('iframe', normalizedSourceId)
                             : type + '-' + normalizedSourceId);
 
+        const volume = normalizeVolume(record.volume, record.muted);
+
         return {
             id,
             gunKey: String(fallbackId || id),
@@ -331,7 +334,8 @@
             sourceId: normalizedSourceId,
             sourceKind,
             addedAt: record.addedAt || Date.now(),
-            muted: record.muted !== false,
+            muted: volume <= 0,
+            volume,
             label: record.label || '',
             latencyOffsetMs: normalizeLatencyOffsetMs(record.latencyOffsetMs)
         };
@@ -343,6 +347,13 @@
         return Math.max(-MAX_LATENCY_OFFSET_MS, Math.min(MAX_LATENCY_OFFSET_MS, Math.round(numeric)));
     }
 
+    function normalizeVolume(value, muted) {
+        if (value === undefined || value === null || value === '') return muted === false ? MAX_VOLUME : 0;
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return muted === false ? MAX_VOLUME : 0;
+        return Math.max(0, Math.min(MAX_VOLUME, Math.round(numeric)));
+    }
+
     function streamToGunRecord(source, now) {
         return {
             id: source.id,
@@ -351,6 +362,7 @@
             sourceKind: source.sourceKind,
             addedAt: now || Date.now(),
             muted: true,
+            volume: 0,
             label: '',
             latencyOffsetMs: 0
         };
@@ -403,7 +415,7 @@
                 type: 'youtube',
                 title: 'YouTube video ' + stream.sourceId,
                 label: stream.label || stream.sourceId,
-                videoUrl: 'https://www.youtube.com/embed/' + encodeURIComponent(stream.sourceId) + '?autoplay=1&mute=' + (stream.muted ? '1' : '0'),
+                videoUrl: 'https://www.youtube.com/embed/' + encodeURIComponent(stream.sourceId) + '?autoplay=1&mute=' + (stream.volume <= 0 ? '1' : '0'),
                 chatUrl: '',
                 allow: 'accelerometer;autoplay;clipboard-write;encrypted-media;fullscreen;gyroscope;picture-in-picture'
             };
@@ -461,7 +473,7 @@
         }
 
         const parent = getTwitchParent(options && options.parent);
-        const muted = stream.muted ? 'true' : 'false';
+        const muted = stream.volume <= 0 ? 'true' : 'false';
         const params = new URLSearchParams({
             parent,
             autoplay: 'true',

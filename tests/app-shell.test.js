@@ -148,18 +148,24 @@ test('keeps provider adapters and health recovery wired', () => {
     assert.match(html, /function createDashAdapter\(\)/);
     assert.match(html, /function configureDashLowLatency\(player\)/);
     assert.match(html, /function reloadStream\(id\)/);
+    assert.match(html, /function setStreamVolume\(id, value\)/);
+    assert.match(html, /function applyVideoVolume\(instance, value\)/);
+    assert.match(html, /class="volume-slider"/);
+    assert.match(html, /volume\(instance, volume\)/);
     assert.match(html, /class="stream-health"/);
     assert.match(html, /providerHealth: Array\.from\(mountedProviders\.entries\(\)\)/);
     assert.match(html, /dashJs: Boolean\(window\.dashjs\?\.MediaPlayer\)/);
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 8;/);
+    assert.match(html, /const CONFIG_VERSION = 9;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /function validateLatencyOffsetMs\(value\)/);
+    assert.match(html, /function validateImportVolume\(value, muted\)/);
     assert.match(html, /function validateGridSettings\(grid\)/);
     assert.match(html, /if \(rawSettings\.grid !== undefined\) next\.grid = validateGridSettings\(rawSettings\.grid\)/);
+    assert.match(html, /volume: validateImportVolume\(raw\.volume, raw\.muted\)/);
     assert.match(html, /latencyOffsetMs: validateLatencyOffsetMs\(raw\.latencyOffsetMs\)/);
     assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);
     assert.match(html, /throw new Error\(t\('configVersionFuture', \{ version, supported: CONFIG_VERSION \}\)\)/);

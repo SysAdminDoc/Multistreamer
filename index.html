@@ -629,6 +629,11 @@
         .grid-item .controls button:hover { background: rgba(255,255,255,0.2); }
         .grid-item .controls button.active { background: var(--accent); color: #000; }
 
+        .grid-item .volume-slider {
+            width: 92px;
+            accent-color: var(--accent);
+        }
+
         body.viewer-mode .grid-item .host-only { display: none; }
 
         .stream-health {
@@ -1336,8 +1341,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.18.0';
-        const CONFIG_VERSION = 8;
+        const APP_VERSION = '0.19.0';
+        const CONFIG_VERSION = 9;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
@@ -1549,6 +1554,8 @@
                 main: 'Main',
                 label: 'Label',
                 offset: 'Offset',
+                volume: 'Volume',
+                volumeFor: 'Volume for {label}',
                 remove: 'Remove',
                 unsetMainFor: 'Unset main stream for {label}',
                 setMainFor: 'Set main stream for {label}',
@@ -1558,6 +1565,7 @@
                 reloadStream: 'Reload {label}',
                 latencyOffsetSaved: 'Latency offset saved.',
                 latencyOffsetInvalid: 'Latency offset must be between -30 and 30 seconds.',
+                volumeInvalid: 'Volume must be between 0 and 100.',
                 hostAccessRequired: 'Host access is required to import a config.',
                 configImported: 'Config imported.',
                 configImportedSkipped: 'Config imported. Skipped {count} invalid {streamWord}.',
@@ -1751,6 +1759,7 @@
                                 if (s[key] !== stream[key]) { s[key] = stream[key]; changed = true; }
                             });
                             if (s.muted !== stream.muted) { s.muted = stream.muted; changed = true; }
+                            if (s.volume !== stream.volume) { s.volume = stream.volume; changed = true; }
                             if (s.label !== stream.label) { s.label = stream.label; changed = true; }
                             if (s.latencyOffsetMs !== stream.latencyOffsetMs) { s.latencyOffsetMs = stream.latencyOffsetMs; changed = true; }
                             if (changed) render();
@@ -2396,18 +2405,28 @@
 
         function removeStream(id) { if (hasHostControls()) roomRef.get('streams').get(id).put(null); }
         function setFeatured(id) { if (hasHostControls()) roomRef.get('settings').get('featuredId').put(settings.featuredId === id ? '' : id); }
-        function toggleMute(id) {
+        function setStreamVolume(id, value) {
             const s = streams.find(x => x.id === id);
-            if (s) {
-                s.muted = !s.muted;
-                const mounted = mountedProviders.get(id);
-                mounted?.adapter.mute(mounted.instance, s.muted);
-                if (hasHostControls()) roomRef.get('streams').get(id).get('muted').put(s.muted);
-                render();
+            if (!s) return;
+            const volume = validateVolume(value);
+            if (volume === null) return notify(t('volumeInvalid'), 'error');
+            s.volume = volume;
+            s.muted = volume <= 0;
+            const mounted = mountedProviders.get(id);
+            mounted?.adapter.volume?.(mounted.instance, volume);
+            mounted?.adapter.mute?.(mounted.instance, s.muted);
+            if (hasHostControls()) {
+                roomRef.get('streams').get(id).get('volume').put(volume);
+                roomRef.get('streams').get(id).get('muted').put(s.muted);
             }
         }
-        function muteAll() { streams.forEach(s => { s.muted = true; if (hasHostControls()) roomRef.get('streams').get(s.id).get('muted').put(true); }); render(); }
-        function unmuteAll() { streams.forEach(s => { s.muted = false; if (hasHostControls()) roomRef.get('streams').get(s.id).get('muted').put(false); }); render(); }
+        function muteAll() { streams.forEach(s => setStreamVolume(s.id, 0)); render(); }
+        function unmuteAll() { streams.forEach(s => setStreamVolume(s.id, 100)); render(); }
+        function validateVolume(value) {
+            const volume = Number(value);
+            if (!Number.isFinite(volume) || volume < 0 || volume > 100) return null;
+            return Math.round(volume);
+        }
         function setLayout(l) { if (hasHostControls()) roomRef.get('settings').get('layout').put(l); }
         function setGridSetting(key, value) {
             if (!hasHostControls()) return;
@@ -2565,7 +2584,9 @@
                 return `<div class="grid-item"${itemStyle}><iframe src="${src}" ${attrs}></iframe><div class="overlay"><div class="controls">${hasHostControls() ? `<button class="host-only" onclick="toggleWeather()" aria-label="${t('removeWeatherRadar')}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${t('weatherRadar')}</div></div>`;
             }
 
-            const { id, muted, label } = item;
+            const { id, label } = item;
+            const volume = validateVolume(item.volume) ?? (item.muted ? 0 : 100);
+            const muted = volume <= 0;
             const isFeatured = id === settings.featuredId;
             const latencyOffsetMs = getLatencyOffsetMs(id);
             const embed = Sources.buildEmbed(item, { parent: location.hostname });
@@ -2578,13 +2599,14 @@
             const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}" ${frameAttrs({ title: embed.chatTitle, sandbox: embed.chatSandbox, referrerPolicy: embed.chatReferrerPolicy, loading: embed.chatLoading })}></iframe>` : '';
             let mediaFrame = `<iframe class="video-frame" data-provider="${escAttr(embed.type)}" data-stream-id="${escAttr(id)}" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
             if (embed.type === 'hls') {
-                mediaFrame = `<video class="video-frame hls-video" data-provider="hls" data-stream-id="${escAttr(id)}" data-hls-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`;
+                mediaFrame = `<video class="video-frame hls-video" data-provider="hls" data-stream-id="${escAttr(id)}" data-hls-src="${escAttr(embed.mediaUrl)}" data-volume="${volume}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`;
             } else if (embed.type === 'dash') {
-                mediaFrame = `<video class="video-frame dash-video" data-provider="dash" data-stream-id="${escAttr(id)}" data-dash-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`;
+                mediaFrame = `<video class="video-frame dash-video" data-provider="dash" data-stream-id="${escAttr(id)}" data-dash-src="${escAttr(embed.mediaUrl)}" data-volume="${volume}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`;
             }
             const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="${escAttr(t('reloadStream', { label: label || embed.label || id }))}">${t('reload')}</button></div>`;
+            const volumeControl = `<label class="sr-only" for="volume-${escAttr(id)}">${esc(t('volumeFor', { label: label || embed.label || id }))}</label><input type="range" class="volume-slider" id="volume-${escAttr(id)}" min="0" max="100" step="5" value="${volume}" oninput="setStreamVolume('${id}',this.value)" aria-label="${escAttr(t('volumeFor', { label: label || embed.label || id }))}" title="${escAttr(t('volumeFor', { label: label || embed.label || id }))}">`;
 
-            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? t('unmute') : t('mute')} ${controlLabel}">${muted ? t('unmute') : t('mute')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls">${volumeControl}${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
 
         function destroyProviderAdapters() {
@@ -2629,8 +2651,12 @@
                 mute(instance, muted) {
                     instance.muted = muted;
                 },
+                volume(instance, volume) {
+                    instance.volume = volume;
+                    instance.muted = volume <= 0;
+                },
                 health(instance) {
-                    return { provider: instance.type, state: instance.state };
+                    return { provider: instance.type, state: instance.state, volume: instance.volume ?? null };
                 },
                 reload(instance) {
                     if (!instance.iframe) return;
@@ -2653,6 +2679,7 @@
                         setStreamHealth(stream.id, 'error', t('hlsSourceMissing'));
                         return instance;
                     }
+                    applyVideoVolume(instance, validateVolume(stream.volume) ?? (stream.muted ? 0 : 100));
 
                     setStreamHealth(stream.id, 'loading', t('hlsLoading'));
                     instance.onReady = () => {
@@ -2700,8 +2727,11 @@
                 mute(instance, muted) {
                     if (instance.video) instance.video.muted = muted;
                 },
+                volume(instance, volume) {
+                    applyVideoVolume(instance, volume);
+                },
                 health(instance) {
-                    return { provider: 'hls', state: instance.state, source: instance.source };
+                    return { provider: 'hls', state: instance.state, source: instance.source, volume: instance.video ? Math.round(instance.video.volume * 100) : null };
                 },
                 reload(instance) {
                     setStreamHealth(instance.streamId, 'loading', t('hlsReloading'));
@@ -2726,6 +2756,7 @@
                         setStreamHealth(stream.id, 'error', t('dashSourceMissing'));
                         return instance;
                     }
+                    applyVideoVolume(instance, validateVolume(stream.volume) ?? (stream.muted ? 0 : 100));
 
                     setStreamHealth(stream.id, 'loading', t('dashLoading'));
                     instance.onReady = () => {
@@ -2792,8 +2823,11 @@
                 mute(instance, muted) {
                     if (instance.video) instance.video.muted = muted;
                 },
+                volume(instance, volume) {
+                    applyVideoVolume(instance, volume);
+                },
                 health(instance) {
-                    return { provider: 'dash', state: instance.state, source: instance.source };
+                    return { provider: 'dash', state: instance.state, source: instance.source, volume: instance.video ? Math.round(instance.video.volume * 100) : null };
                 },
                 reload(instance) {
                     setStreamHealth(instance.streamId, 'loading', t('dashReloading'));
@@ -2828,6 +2862,13 @@
             } catch (error) {
                 recordRuntimeError('dash', error.message || 'DASH low-latency settings error', {});
             }
+        }
+
+        function applyVideoVolume(instance, value) {
+            const volume = validateVolume(value);
+            if (!instance?.video || volume === null) return;
+            instance.video.volume = volume / 100;
+            instance.video.muted = volume <= 0;
         }
 
         function handleHlsError(instance, event, data = {}) {
@@ -2996,7 +3037,7 @@
         }
 
         function exportConfig() {
-            const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, label: s.label, latencyOffsetMs: getLatencyOffsetMs(s.id) })), settings };
+            const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, volume: validateVolume(s.volume) ?? (s.muted ? 0 : 100), label: s.label, latencyOffsetMs: getLatencyOffsetMs(s.id) })), settings };
             const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${roomId}.json`; a.click();
         }
@@ -3008,7 +3049,7 @@
                 const result = validateImportConfig(data);
                 streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
                 result.streams.forEach((stream, index) => {
-                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, label: stream.label, latencyOffsetMs: stream.latencyOffsetMs });
+                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, volume: stream.volume, label: stream.label, latencyOffsetMs: stream.latencyOffsetMs });
                 });
                 applyImportedSettings(result.settings);
                 closeModal('importModal');
@@ -3040,7 +3081,8 @@
                     type: stream.type,
                     sourceId: stream.sourceId,
                     sourceKind: stream.sourceKind,
-                    muted: raw.muted !== false,
+                    muted: stream.muted,
+                    volume: validateImportVolume(raw.volume, raw.muted),
                     label: typeof raw.label === 'string' ? raw.label.slice(0, 80) : '',
                     latencyOffsetMs: validateLatencyOffsetMs(raw.latencyOffsetMs)
                 });
@@ -3059,6 +3101,13 @@
             const offset = Number(value);
             if (!Number.isFinite(offset) || offset < -30000 || offset > 30000) throw new Error(t('latencyOffsetInvalid'));
             return Math.round(offset);
+        }
+
+        function validateImportVolume(value, muted) {
+            if (value === undefined || value === null || value === '') return muted === false ? 100 : 0;
+            const volume = validateVolume(value);
+            if (volume === null) throw new Error(t('volumeInvalid'));
+            return volume;
         }
 
         function validateImportSettings(rawSettings, importedStreams) {

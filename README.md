@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.18.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.19.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -16,6 +16,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Twitch Chat Sidecar** - Twitch channels render with embedded live chat beside the player
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Manual Grid Presets** - Sync auto, 1+2, 2+3, 3+1, or custom CSS grid column layouts
+- **Audio Mix Sliders** - Adjust each stream from 0-100 instead of only toggling mute
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
 - **Leader Election** - If the real host disappears, active viewers deterministically elect a temporary host
@@ -70,7 +71,8 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 | Set Main | Make a video the featured/large video |
 | Label | Give streams custom names |
 | Offset | Add a per-stream latency offset for native HLS/DASH sync correction |
-| Mute/Unmute All | Control audio for all streams |
+| Volume Slider | Mix each stream from 0-100; host changes sync to viewers |
+| Mute/Unmute All | Set all stream volumes to 0 or 100 |
 | Weather | Add a Windy.com radar panel |
 | Settings | Customize theme, colors, layout |
 | Share | Get viewer/host links |
@@ -133,6 +135,7 @@ All these sync in real-time to viewers:
 - Room title & announcement
 - Streams (add/remove/order)
 - Mute states
+- Stream volume levels
 - Layout mode & featured video
 - Grid preset and custom grid columns
 - Custom stream labels
@@ -207,10 +210,10 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 8,
+  "version": 9,
   "room": "my-room",
   "streams": [
-    { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "label": "Main Camera", "latencyOffsetMs": 0 },
+    { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "volume": 0, "label": "Main Camera", "latencyOffsetMs": 0 },
     { "id": "twitch-stormwatch", "type": "twitch", "sourceId": "stormwatch", "sourceKind": "channel", "muted": true, "label": "Storm Watch" },
     { "id": "rumble-v1io41", "type": "rumble", "sourceId": "v1io41", "sourceKind": "embed", "muted": true, "label": "Rumble Clip" },
     { "id": "hls-mwizu8", "type": "hls", "sourceId": "https://example.com/live/camera.m3u8", "sourceKind": "playlist", "muted": true, "label": "HLS Camera" },
@@ -233,6 +236,7 @@ Imported configs are validated before they change the room:
 - Future config versions are rejected with an update message.
 - Stream records are normalized through the same source parser used by the Add Stream control.
 - Invalid stream records are skipped and reported after import.
+- Stream volumes are range-checked from 0 to 100.
 - Per-stream latency offsets are range-checked to +/-30 seconds.
 - Grid presets and custom CSS grid columns are validated before sync.
 - Layout, featured stream, weather coordinates, display labels, theme, grid gap, and accent colors are range-checked before sync.
