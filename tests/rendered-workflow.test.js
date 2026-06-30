@@ -25,7 +25,7 @@ test.after(async () => {
     await new Promise(resolve => server?.close(resolve));
 });
 
-test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 60000 }, async () => {
+test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 120000 }, async () => {
     const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, acceptDownloads: true });
     await context.route('https://www.youtube.com/**', route => route.fulfill({
         status: 200,
@@ -60,6 +60,11 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     await host.click('.control-bar button:has-text("Add")');
     await host.waitForSelector('.grid-item[data-provider="youtube"]');
     assert.equal(await host.locator('.grid-item[data-provider="youtube"]').count(), 1);
+    await host.click('.grid-item[data-provider="youtube"] button:has-text("Pop Out")');
+    await host.waitForSelector('#popoutPanel.show iframe.video-frame');
+    assert.equal(await host.getAttribute('#popoutPanel', 'aria-hidden'), 'false');
+    await host.click('#popoutPanel button[aria-label="Close pop-out"]');
+    await host.waitForFunction(() => document.getElementById('popoutPanel').getAttribute('aria-hidden') === 'true');
 
     await host.click('.grid-item[data-provider="youtube"] button:has-text("Remove")');
     await host.waitForSelector('.empty-state');

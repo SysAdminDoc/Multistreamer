@@ -676,6 +676,49 @@
             color: #fcd34d;
         }
 
+        .popout-panel {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            width: min(520px, calc(100vw - 36px));
+            aspect-ratio: 16 / 9;
+            z-index: 1400;
+            display: none;
+            flex-direction: column;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+        }
+
+        .popout-panel.show { display: flex; }
+
+        .popout-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            background: rgba(0,0,0,0.45);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .popout-content {
+            min-height: 0;
+            flex: 1;
+            background: #000;
+        }
+
+        .popout-content iframe,
+        .popout-content video {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+            background: #000;
+        }
+
         .grid-item .label {
             position: absolute;
             bottom: 0;
@@ -1040,6 +1083,11 @@
             .toast {
                 max-width: none;
             }
+            .popout-panel {
+                right: 10px;
+                bottom: 10px;
+                width: calc(100vw - 20px);
+            }
         }
     </style>
 </head>
@@ -1182,6 +1230,14 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="popout-panel" id="popoutPanel" role="dialog" aria-label="Pop-out stream" data-i18n-aria-label="popoutStream" aria-hidden="true">
+        <div class="popout-header">
+            <span id="popoutTitle" data-i18n="popoutStream">Pop-out stream</span>
+            <button class="btn-secondary" onclick="closePopout()" aria-label="Close pop-out" title="Close pop-out" data-i18n-aria-label="closePopout" data-i18n-title="closePopout">&times;</button>
+        </div>
+        <div class="popout-content" id="popoutContent"></div>
     </div>
 
     <!-- Settings Panel -->
@@ -1341,7 +1397,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.19.0';
+        const APP_VERSION = '0.20.0';
         const CONFIG_VERSION = 9;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
@@ -1379,6 +1435,7 @@
         let activeModalId = null;
         let modalReturnFocus = null;
         let hostPlaybackSyncTimer = null;
+        let popoutProvider = null;
         const relayHealth = {
             state: 'connecting',
             statusText: 'Connecting',
@@ -1467,6 +1524,8 @@
                 chatMessage: 'Chat message',
                 messagePlaceholder: 'Message...',
                 closeSettings: 'Close settings',
+                popoutStream: 'Pop-out stream',
+                closePopout: 'Close pop-out',
                 room: 'Room',
                 announcement: 'Announcement',
                 displaySynced: 'Display (Synced)',
@@ -1554,6 +1613,7 @@
                 main: 'Main',
                 label: 'Label',
                 offset: 'Offset',
+                popout: 'Pop Out',
                 volume: 'Volume',
                 volumeFor: 'Volume for {label}',
                 remove: 'Remove',
@@ -1561,8 +1621,10 @@
                 setMainFor: 'Set main stream for {label}',
                 editLabelFor: 'Edit label for {label}',
                 editOffsetFor: 'Edit latency offset for {label}',
+                popoutFor: 'Pop out {label}',
                 removeStream: 'Remove {label}',
                 reloadStream: 'Reload {label}',
+                popoutUnavailable: 'Pop-out is unavailable for this stream.',
                 latencyOffsetSaved: 'Latency offset saved.',
                 latencyOffsetInvalid: 'Latency offset must be between -30 and 30 seconds.',
                 volumeInvalid: 'Volume must be between 0 and 100.',
@@ -1739,6 +1801,7 @@
 
             roomRef.get('streams').map().on((data, id) => {
                 if (!data) {
+                    if (popoutProvider?.streamId === id) closePopout();
                     streams = streams.filter(s => s.id !== id && s.gunKey !== id);
                     seenStreams.delete(id);
                     render();
@@ -2606,7 +2669,7 @@
             const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="${escAttr(t('reloadStream', { label: label || embed.label || id }))}">${t('reload')}</button></div>`;
             const volumeControl = `<label class="sr-only" for="volume-${escAttr(id)}">${esc(t('volumeFor', { label: label || embed.label || id }))}</label><input type="range" class="volume-slider" id="volume-${escAttr(id)}" min="0" max="100" step="5" value="${volume}" oninput="setStreamVolume('${id}',this.value)" aria-label="${escAttr(t('volumeFor', { label: label || embed.label || id }))}" title="${escAttr(t('volumeFor', { label: label || embed.label || id }))}">`;
 
-            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls">${volumeControl}${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls">${volumeControl}<button onclick="openPopout('${id}')" aria-label="${escAttr(t('popoutFor', { label: label || embed.label || id }))}">${t('popout')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
 
         function destroyProviderAdapters() {
@@ -2624,6 +2687,60 @@
                 const instance = adapter.mount(stream, tile);
                 mountedProviders.set(stream.id, { adapter, instance });
             });
+        }
+
+        function openPopout(id) {
+            const stream = streams.find(s => s.id === id);
+            if (!stream) return notify(t('popoutUnavailable'), 'error');
+            const embed = Sources.buildEmbed(stream, { parent: location.hostname });
+            if (!embed) return notify(t('popoutUnavailable'), 'error');
+
+            closePopout();
+            const panel = document.getElementById('popoutPanel');
+            const title = document.getElementById('popoutTitle');
+            const content = document.getElementById('popoutContent');
+            title.textContent = stream.label || embed.label || id;
+            content.dataset.streamId = id;
+            content.dataset.provider = embed.type;
+            content.innerHTML = buildPopoutMedia(stream, embed);
+
+            const adapter = providerAdapters[stream.type || 'youtube'];
+            if (adapter) {
+                const instance = adapter.mount(stream, content);
+                popoutProvider = { streamId: id, adapter, instance };
+            }
+            panel.classList.add('show');
+            panel.setAttribute('aria-hidden', 'false');
+        }
+
+        function closePopout() {
+            if (popoutProvider) {
+                popoutProvider.adapter.destroy(popoutProvider.instance);
+                popoutProvider = null;
+            }
+            const panel = document.getElementById('popoutPanel');
+            const content = document.getElementById('popoutContent');
+            if (content) {
+                content.innerHTML = '';
+                delete content.dataset.streamId;
+                delete content.dataset.provider;
+            }
+            if (panel) {
+                panel.classList.remove('show');
+                panel.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        function buildPopoutMedia(stream, embed) {
+            const controlLabel = escAttr(stream.label || embed.label || stream.id);
+            const volume = validateVolume(stream.volume) ?? (stream.muted ? 0 : 100);
+            if (embed.type === 'hls') {
+                return `<video class="hls-video" data-provider="hls" data-stream-id="${escAttr(stream.id)}" data-hls-src="${escAttr(embed.mediaUrl)}" data-volume="${volume}" ${volume <= 0 ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`;
+            }
+            if (embed.type === 'dash') {
+                return `<video class="dash-video" data-provider="dash" data-stream-id="${escAttr(stream.id)}" data-dash-src="${escAttr(embed.mediaUrl)}" data-volume="${volume}" ${volume <= 0 ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`;
+            }
+            return `<iframe class="video-frame" data-provider="${escAttr(embed.type)}" data-stream-id="${escAttr(stream.id)}" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
         }
 
         function createIframeAdapter(type) {

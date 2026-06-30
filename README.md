@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.19.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.20.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -16,6 +16,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Twitch Chat Sidecar** - Twitch channels render with embedded live chat beside the player
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Manual Grid Presets** - Sync auto, 1+2, 2+3, 3+1, or custom CSS grid column layouts
+- **Pop-Out Streams** - Open any stream in a floating local picture-in-picture panel while keeping the main grid visible
 - **Audio Mix Sliders** - Adjust each stream from 0-100 instead of only toggling mute
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
@@ -71,6 +72,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 | Set Main | Make a video the featured/large video |
 | Label | Give streams custom names |
 | Offset | Add a per-stream latency offset for native HLS/DASH sync correction |
+| Pop Out | Open one stream in a floating local picture-in-picture panel |
 | Volume Slider | Mix each stream from 0-100; host changes sync to viewers |
 | Mute/Unmute All | Set all stream volumes to 0 or 100 |
 | Weather | Add a Windy.com radar panel |
@@ -160,6 +162,13 @@ All these sync in real-time to viewers:
 - HLS uses hls.js live-latency data when available and falls back to the media element buffer range.
 - DASH uses dash.js live-latency data when available and falls back to the media element buffer range.
 - YouTube, Twitch, Rumble, and generic iframe embeds stay on the shared room-state sync path; browser iframe isolation does not expose their media timelines for direct seek/rate correction.
+
+### Pop-Out Streams
+
+- The Pop Out control opens the selected stream in a floating 16:9 panel over the room.
+- Pop-out playback is local to the current browser tab; it does not change the synced grid layout or force other viewers to pop the stream out.
+- HLS and DASH pop-outs use native video controls and inherit the stream volume/mute state when opened.
+- Closing the panel destroys the mounted player so it does not keep playing in the background.
 
 ### Provider Health and Recovery
 

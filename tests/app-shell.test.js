@@ -148,6 +148,11 @@ test('keeps provider adapters and health recovery wired', () => {
     assert.match(html, /function createDashAdapter\(\)/);
     assert.match(html, /function configureDashLowLatency\(player\)/);
     assert.match(html, /function reloadStream\(id\)/);
+    assert.match(html, /id="popoutPanel"/);
+    assert.match(html, /function openPopout\(id\)/);
+    assert.match(html, /function closePopout\(\)/);
+    assert.match(html, /function buildPopoutMedia\(stream, embed\)/);
+    assert.match(html, /popoutProvider\.adapter\.destroy\(popoutProvider\.instance\)/);
     assert.match(html, /function setStreamVolume\(id, value\)/);
     assert.match(html, /function applyVideoVolume\(instance, value\)/);
     assert.match(html, /class="volume-slider"/);
