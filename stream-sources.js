@@ -119,6 +119,16 @@
         };
     }
 
+    function makeDashManifest(url) {
+        return {
+            id: stableId('dash', url.href),
+            type: 'dash',
+            sourceId: url.href,
+            sourceKind: 'manifest',
+            displayName: 'DASH: ' + (url.hostname || 'manifest')
+        };
+    }
+
     function parseYouTube(input) {
         const raw = String(input || '').trim();
         if (YOUTUBE_ID_RE.test(raw)) return makeYouTube(raw);
@@ -195,8 +205,16 @@
         return makeHlsPlaylist(url);
     }
 
+    function parseDash(input) {
+        const url = parseUrl(input);
+        if (!url) return null;
+        if (!['http:', 'https:'].includes(url.protocol)) return null;
+        if (!url.pathname.toLowerCase().endsWith('.mpd')) return null;
+        return makeDashManifest(url);
+    }
+
     function parseStreamUrl(input) {
-        return parseYouTube(input) || parseTwitch(input) || parseRumble(input) || parseHls(input);
+        return parseYouTube(input) || parseTwitch(input) || parseRumble(input) || parseHls(input) || parseDash(input);
     }
 
     function normalizeStreamRecord(record, fallbackId) {
@@ -207,15 +225,17 @@
             rawId.startsWith('twitch-') ? 'twitch' :
                 rawId.startsWith('rumble-') ? 'rumble' :
                     rawId.startsWith('hls-') ? 'hls' :
-                        'youtube'
+                        rawId.startsWith('dash-') ? 'dash' :
+                            'youtube'
         )).toLowerCase();
-        const type = ['twitch', 'rumble', 'hls'].includes(detectedType) ? detectedType : 'youtube';
+        const type = ['twitch', 'rumble', 'hls', 'dash'].includes(detectedType) ? detectedType : 'youtube';
         const sourceKind = String(record.sourceKind || (
             rawId.startsWith('twitch-vod-') ? 'video' :
                 type === 'twitch' ? 'channel' :
                     type === 'rumble' ? 'embed' :
                         type === 'hls' ? 'playlist' :
-                            'video'
+                            type === 'dash' ? 'manifest' :
+                                'video'
         )).toLowerCase();
 
         let sourceId = String(record.sourceId || record.videoId || record.channel || '').trim();
@@ -227,7 +247,7 @@
                 sourceId = TWITCH_VIDEO_RE.test(video) ? 'v' + video.replace(/^v/i, '') : video;
             } else if (type === 'rumble') {
                 sourceId = rawId.replace(/^rumble-/i, '');
-            } else if (type === 'hls') {
+            } else if (type === 'hls' || type === 'dash') {
                 sourceId = record.url || record.src || '';
             } else {
                 sourceId = rawId.replace(/^twitch-/i, '');
@@ -239,6 +259,7 @@
         if (type === 'twitch' && sourceKind === 'video' && !TWITCH_VIDEO_RE.test(sourceId)) return null;
         if (type === 'rumble' && !RUMBLE_EMBED_RE.test(sourceId)) return null;
         if (type === 'hls' && !parseHls(sourceId)) return null;
+        if (type === 'dash' && !parseDash(sourceId)) return null;
 
         const normalizedSourceId = type === 'twitch' && sourceKind === 'channel'
             ? sourceId.toLowerCase()
@@ -251,7 +272,9 @@
                 ? 'twitch-vod-' + normalizedSourceId.replace(/^v/i, '')
                 : type === 'hls'
                     ? stableId('hls', normalizedSourceId)
-                    : type + '-' + normalizedSourceId);
+                    : type === 'dash'
+                        ? stableId('dash', normalizedSourceId)
+                        : type + '-' + normalizedSourceId);
 
         return {
             id,
@@ -341,6 +364,18 @@
                 type: 'hls',
                 title: 'HLS stream ' + stream.sourceId,
                 label: stream.label || 'HLS: ' + stream.sourceId.replace(/^https?:\/\//i, '').split(/[/?#]/)[0],
+                videoUrl: '',
+                mediaUrl: stream.sourceId,
+                chatUrl: '',
+                allow: ''
+            };
+        }
+
+        if (stream.type === 'dash') {
+            return {
+                type: 'dash',
+                title: 'DASH stream ' + stream.sourceId,
+                label: stream.label || 'DASH: ' + stream.sourceId.replace(/^https?:\/\//i, '').split(/[/?#]/)[0],
                 videoUrl: '',
                 mediaUrl: stream.sourceId,
                 chatUrl: '',

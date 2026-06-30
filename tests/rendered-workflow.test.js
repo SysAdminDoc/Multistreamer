@@ -32,6 +32,17 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
         contentType: 'text/html',
         body: '<!doctype html><title>YouTube stub</title>'
     }));
+    await context.route('https://example.com/**', route => {
+        const url = new URL(route.request().url());
+        if (url.pathname.endsWith('.mpd')) {
+            return route.fulfill({
+                status: 200,
+                contentType: 'application/dash+xml',
+                body: '<?xml version="1.0" encoding="UTF-8"?><MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT0S" minBufferTime="PT1S"><Period duration="PT0S"/></MPD>'
+            });
+        }
+        return route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
+    });
 
     const room = 'rendered-' + Date.now();
     const hostKey = 'host-' + Date.now();
@@ -46,6 +57,13 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     assert.equal(await host.locator('.grid-item[data-provider="youtube"]').count(), 1);
 
     await host.click('.grid-item[data-provider="youtube"] button:has-text("Remove")');
+    await host.waitForSelector('.empty-state');
+
+    await host.fill('#videoUrl', 'https://example.com/live/manifest.mpd');
+    await host.click('.control-bar button:has-text("Add")');
+    await host.waitForSelector('.grid-item[data-provider="dash"] .dash-video');
+    assert.equal(await host.locator('.grid-item[data-provider="dash"]').count(), 1);
+    await host.click('.grid-item[data-provider="dash"] button:has-text("Remove")');
     await host.waitForSelector('.empty-state');
 
     await host.click('button:has-text("Settings")');
@@ -64,7 +82,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('newer than supported')));
 
     await host.fill('#importData', JSON.stringify({
-        version: 4,
+        version: 5,
         room,
         streams: [
             { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, label: 'Workflow QA' },
@@ -88,7 +106,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 4);
+    assert.equal(exported.version, 5);
 
     await host.click('button:has-text("Share")');
     await host.waitForSelector('#shareModal.show');

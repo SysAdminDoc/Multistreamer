@@ -11,6 +11,7 @@
     <script src="vendor/gun-0.2020.1241.min.js"></script>
     <script src="stream-sources.js"></script>
     <script src="vendor/hls-1.6.16.min.js"></script>
+    <script src="vendor/dash.all-5.2.0.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -1116,7 +1117,7 @@
         <div class="control-bar">
             <div class="input-group">
                 <label class="sr-only" for="videoUrl" data-i18n="streamUrl">Stream URL</label>
-                <input type="text" id="videoUrl" placeholder="YouTube, Twitch, Rumble, or HLS URL..." data-i18n-placeholder="streamUrlPlaceholder" onkeypress="if(event.key==='Enter')addStream()" aria-label="Stream URL" data-i18n-aria-label="streamUrl">
+                <input type="text" id="videoUrl" placeholder="YouTube, Twitch, Rumble, HLS, or DASH URL..." data-i18n-placeholder="streamUrlPlaceholder" onkeypress="if(event.key==='Enter')addStream()" aria-label="Stream URL" data-i18n-aria-label="streamUrl">
                 <button class="btn-primary" onclick="addStream()" data-i18n="add">Add</button>
             </div>
             <div class="divider"></div>
@@ -1141,7 +1142,7 @@
                         <path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/>
                     </svg>
                     <h2 id="emptyTitle" data-i18n="noStreamsTitle">No Streams Yet</h2>
-                    <p id="emptyText" data-i18n="noStreamsInitialText">Add YouTube, Twitch, Rumble, or HLS URLs to start.</p>
+                    <p id="emptyText" data-i18n="noStreamsInitialText">Add YouTube, Twitch, Rumble, HLS, or DASH URLs to start.</p>
                 </div>
             </div>
 
@@ -1295,8 +1296,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.11.0';
-        const CONFIG_VERSION = 4;
+        const APP_VERSION = '0.12.0';
+        const CONFIG_VERSION = 5;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
@@ -1335,7 +1336,8 @@
             youtube: createIframeAdapter('youtube'),
             twitch: createIframeAdapter('twitch'),
             rumble: createIframeAdapter('rumble'),
-            hls: createHlsAdapter()
+            hls: createHlsAdapter(),
+            dash: createDashAdapter()
         };
         const locale = document.documentElement.lang || navigator.language || 'en';
         const messages = {
@@ -1371,7 +1373,7 @@
                 watching: 'watching',
                 host: 'HOST',
                 streamUrl: 'Stream URL',
-                streamUrlPlaceholder: 'YouTube, Twitch, Rumble, or HLS URL...',
+                streamUrlPlaceholder: 'YouTube, Twitch, Rumble, HLS, or DASH URL...',
                 add: 'Add',
                 grid: 'Grid',
                 gridLayout: 'Grid layout',
@@ -1427,11 +1429,11 @@
                 waitingForHostText: 'Streams will appear here.',
                 noStreamsTitle: 'No Streams Yet',
                 noStreamsText: 'Add URLs above.',
-                noStreamsInitialText: 'Add YouTube, Twitch, Rumble, or HLS URLs to start.',
+                noStreamsInitialText: 'Add YouTube, Twitch, Rumble, HLS, or DASH URLs to start.',
                 enterRoomName: 'Enter a room name.',
                 copied: 'Copied!',
                 copy: 'Copy',
-                validStreamPrompt: 'Paste a valid YouTube video, Twitch channel/VOD, Rumble embed, or HLS .m3u8 URL.',
+                validStreamPrompt: 'Paste a valid YouTube video, Twitch channel/VOD, Rumble embed, HLS .m3u8, or DASH .mpd URL.',
                 duplicateStream: 'That stream is already in this room.',
                 streamAdded: '{name} added.',
                 allStreamsCleared: 'All streams cleared.',
@@ -1448,6 +1450,13 @@
                 hlsMediaRecovering: 'HLS media error. Recovering...',
                 hlsPlaybackError: 'HLS playback error',
                 hlsPlaybackErrorToast: 'HLS playback error. Reload the stream or verify the source URL.',
+                dashSourceMissing: 'DASH source missing',
+                dashLoading: 'DASH stream loading',
+                dashMediaError: 'DASH media error',
+                dashUnsupported: 'DASH playback is unsupported in this browser',
+                dashReloading: 'DASH stream reloading',
+                dashPlaybackError: 'DASH playback error',
+                dashPlaybackErrorToast: 'DASH playback error. Reload the stream or verify the manifest URL.',
                 playerLoading: '{provider} player loading',
                 playerReloading: '{provider} player reloading',
                 reload: 'Reload',
@@ -1942,9 +1951,12 @@
             const labelHtml = label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label);
             const controlLabel = escAttr(label || embed.label || id);
             const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}" ${frameAttrs({ title: embed.chatTitle, sandbox: embed.chatSandbox, referrerPolicy: embed.chatReferrerPolicy, loading: embed.chatLoading })}></iframe>` : '';
-            const mediaFrame = embed.type === 'hls'
-                ? `<video class="video-frame hls-video" data-provider="hls" data-stream-id="${escAttr(id)}" data-hls-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`
-                : `<iframe class="video-frame" data-provider="${escAttr(embed.type)}" data-stream-id="${escAttr(id)}" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
+            let mediaFrame = `<iframe class="video-frame" data-provider="${escAttr(embed.type)}" data-stream-id="${escAttr(id)}" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
+            if (embed.type === 'hls') {
+                mediaFrame = `<video class="video-frame hls-video" data-provider="hls" data-stream-id="${escAttr(id)}" data-hls-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`;
+            } else if (embed.type === 'dash') {
+                mediaFrame = `<video class="video-frame dash-video" data-provider="dash" data-stream-id="${escAttr(id)}" data-dash-src="${escAttr(embed.mediaUrl)}" ${muted ? 'muted' : ''} autoplay playsinline controls aria-label="${controlLabel}"></video>`;
+            }
             const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="${escAttr(t('reloadStream', { label: label || embed.label || id }))}">${t('reload')}</button></div>`;
 
             return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? t('unmute') : t('mute')} ${controlLabel}">${muted ? t('unmute') : t('mute')}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
@@ -2075,6 +2087,116 @@
             };
         }
 
+        function createDashAdapter() {
+            return {
+                mount(stream, tile) {
+                    const video = tile.querySelector('video[data-dash-src]');
+                    const instance = { type: 'dash', streamId: stream.id, video, player: null, source: video?.dataset.dashSrc || '', state: 'loading' };
+                    if (!video || !instance.source) {
+                        instance.state = 'error';
+                        setStreamHealth(stream.id, 'error', t('dashSourceMissing'));
+                        return instance;
+                    }
+
+                    setStreamHealth(stream.id, 'loading', t('dashLoading'));
+                    instance.onReady = () => {
+                        instance.state = 'ready';
+                        setStreamHealth(stream.id, 'ready', '');
+                    };
+                    instance.onMediaError = () => {
+                        instance.state = 'error';
+                        setStreamHealth(stream.id, 'error', t('dashMediaError'));
+                        recordRuntimeError('dash', 'Media element error', { url: instance.source });
+                    };
+                    video.addEventListener('loadeddata', instance.onReady);
+                    video.addEventListener('error', instance.onMediaError);
+
+                    const dashApi = window.dashjs;
+                    const supportsDash = dashApi?.supportsMediaSource?.() ?? Boolean(window.MediaSource || window.ManagedMediaSource || window.WebKitMediaSource);
+                    if (!dashApi?.MediaPlayer || !supportsDash) {
+                        instance.state = 'error';
+                        setStreamHealth(stream.id, 'error', t('dashUnsupported'));
+                        return instance;
+                    }
+
+                    try {
+                        instance.player = dashApi.MediaPlayer().create();
+                        configureDashLowLatency(instance.player);
+                        instance.dashErrorEvent = dashApi.MediaPlayer.events?.ERROR || 'error';
+                        instance.onDashError = event => {
+                            instance.state = 'error';
+                            setStreamHealth(stream.id, 'error', t('dashPlaybackError'));
+                            recordRuntimeError('dash', event?.error?.message || event?.message || event?.type || 'DASH playback error', {
+                                url: instance.source,
+                                code: event?.error?.code || event?.code || '',
+                                data: event?.error?.data || event?.data || ''
+                            });
+                        };
+                        instance.player.on(instance.dashErrorEvent, instance.onDashError);
+                        instance.player.initialize(video, instance.source, true);
+                    } catch (error) {
+                        instance.state = 'error';
+                        setStreamHealth(stream.id, 'error', t('dashPlaybackError'));
+                        recordRuntimeError('dash', error.message || 'DASH initialization error', { url: instance.source });
+                        notify(t('dashPlaybackErrorToast'), 'error');
+                    }
+                    return instance;
+                },
+                destroy(instance) {
+                    if (instance.player && instance.dashErrorEvent && instance.onDashError) {
+                        instance.player.off?.(instance.dashErrorEvent, instance.onDashError);
+                    }
+                    instance.player?.reset?.();
+                    instance.player = null;
+                    if (instance.video) {
+                        instance.video.removeEventListener('loadeddata', instance.onReady);
+                        instance.video.removeEventListener('error', instance.onMediaError);
+                        instance.video.removeAttribute('src');
+                        instance.video.load?.();
+                    }
+                    instance.video = null;
+                },
+                mute(instance, muted) {
+                    if (instance.video) instance.video.muted = muted;
+                },
+                health(instance) {
+                    return { provider: 'dash', state: instance.state, source: instance.source };
+                },
+                reload(instance) {
+                    setStreamHealth(instance.streamId, 'loading', t('dashReloading'));
+                    instance.state = 'loading';
+                    const stream = streams.find(s => s.id === instance.streamId);
+                    const tile = document.querySelector(`.grid-item[data-stream-id="${CSS.escape(instance.streamId)}"]`);
+                    if (!stream || !tile) return;
+                    providerAdapters.dash.destroy(instance);
+                    const next = providerAdapters.dash.mount(stream, tile);
+                    mountedProviders.set(instance.streamId, { adapter: providerAdapters.dash, instance: next });
+                }
+            };
+        }
+
+        function configureDashLowLatency(player) {
+            try {
+                player.updateSettings({
+                    streaming: {
+                        delay: {
+                            liveDelayFragmentCount: 2,
+                            useSuggestedPresentationDelay: false
+                        },
+                        liveCatchup: {
+                            enabled: true,
+                            playbackRate: {
+                                min: -0.05,
+                                max: 0.05
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                recordRuntimeError('dash', error.message || 'DASH low-latency settings error', {});
+            }
+        }
+
         function handleHlsError(instance, event, data = {}) {
             recordRuntimeError('hls', data.details || data.type || event, {
                 fatal: Boolean(data.fatal),
@@ -2122,7 +2244,9 @@
         }
 
         function typeLabel(type) {
-            return type === 'hls' ? 'HLS' : type.charAt(0).toUpperCase() + type.slice(1);
+            if (type === 'hls') return 'HLS';
+            if (type === 'dash') return 'DASH';
+            return type.charAt(0).toUpperCase() + type.slice(1);
         }
 
         // ========== TITLE & ANNOUNCEMENT ==========
@@ -2372,6 +2496,8 @@
                     userAgent: navigator.userAgent,
                     hlsJs: Boolean(window.Hls),
                     hlsJsSupported: Boolean(window.Hls?.isSupported?.()),
+                    dashJs: Boolean(window.dashjs?.MediaPlayer),
+                    dashMediaSourceSupported: Boolean(window.dashjs?.supportsMediaSource?.()),
                     nativeHls: Boolean(document.createElement('video').canPlayType('application/vnd.apple.mpegurl'))
                 },
                 relay: {

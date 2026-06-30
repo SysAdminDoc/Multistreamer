@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.11.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.12.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -12,12 +12,12 @@ https://sysadmindoc.github.io/Multistreamer/
 
 ## Features
 
-- **Multi-Video Grid** - Watch multiple YouTube, Twitch, Rumble, and HLS streams in a responsive Brady Bunch-style grid
+- **Multi-Video Grid** - Watch multiple YouTube, Twitch, Rumble, HLS, and DASH streams in a responsive Brady Bunch-style grid
 - **Twitch Chat Sidecar** - Twitch channels render with embedded live chat beside the player
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
-- **Provider Health** - Player adapter health snapshots, HLS recovery, and per-stream reload controls
+- **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, and per-stream reload controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
 - **Localization-Ready UI** - Visible app copy and chat timestamps flow through a message catalog and locale-aware formatter
 - **Live Chat** - Built-in chat room synced across all viewers
@@ -63,7 +63,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 **Controls available:**
 | Control | Description |
 |---------|-------------|
-| Add Stream | Paste YouTube, Twitch, Rumble, or HLS URL and click Add |
+| Add Stream | Paste YouTube, Twitch, Rumble, HLS, or DASH URL and click Add |
 | Set Main | Make a video the featured/large video |
 | Label | Give streams custom names |
 | Mute/Unmute All | Control audio for all streams |
@@ -139,12 +139,13 @@ All these sync in real-time to viewers:
 - The top bar shows relay health as Connecting, Synced, Reconnecting, or Offline.
 - Presence counts ignore stale sessions after 60 seconds so disconnected viewers do not remain counted as live.
 - When the public relay disconnects, the app retries the configured relay list automatically.
-- The Diagnostics button copies a JSON bundle with app version, room ID, redacted room URL, relay state, retry history, provider counts, provider health snapshots, browser media support, and recent runtime/HLS errors.
+- The Diagnostics button copies a JSON bundle with app version, room ID, redacted room URL, relay state, retry history, provider counts, provider health snapshots, browser media support, and recent runtime/HLS/DASH errors.
 
 ### Provider Health and Recovery
 
-- YouTube, Twitch, Rumble, and HLS streams mount through small provider adapters with `mount`, `destroy`, `mute`, `health`, and `reload` hooks.
+- YouTube, Twitch, Rumble, HLS, and DASH streams mount through small provider adapters with `mount`, `destroy`, `mute`, `health`, and `reload` hooks.
 - HLS fatal network and media errors show an in-tile recovery strip and attempt hls.js recovery before falling back to a manual reload control.
+- DASH manifests use vendored dash.js with low-latency live settings, health snapshots, and manual reload recovery.
 - Iframe providers expose the same adapter surface so playback-sync and provider-specific health work can build on one contract.
 
 ### Accessibility and Mobile
@@ -160,6 +161,7 @@ All these sync in real-time to viewers:
 - Twitch VOD URLs (`twitch.tv/videos/...`)
 - Direct Rumble embed URLs (`rumble.com/embed/v.../`)
 - Direct HLS playlist URLs ending in `.m3u8`
+- MPEG-DASH manifests ending in `.mpd`
 
 ### Chat
 
@@ -187,13 +189,14 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 4,
+  "version": 5,
   "room": "my-room",
   "streams": [
     { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "label": "Main Camera" },
     { "id": "twitch-stormwatch", "type": "twitch", "sourceId": "stormwatch", "sourceKind": "channel", "muted": true, "label": "Storm Watch" },
     { "id": "rumble-v1io41", "type": "rumble", "sourceId": "v1io41", "sourceKind": "embed", "muted": true, "label": "Rumble Clip" },
-    { "id": "hls-mwizu8", "type": "hls", "sourceId": "https://example.com/live/camera.m3u8", "sourceKind": "playlist", "muted": true, "label": "HLS Camera" }
+    { "id": "hls-mwizu8", "type": "hls", "sourceId": "https://example.com/live/camera.m3u8", "sourceKind": "playlist", "muted": true, "label": "HLS Camera" },
+    { "id": "dash-f2s7am", "type": "dash", "sourceId": "https://example.com/live/manifest.mpd", "sourceKind": "manifest", "muted": true, "label": "DASH Feed" }
   ],
   "settings": {
     "layout": "featured",
@@ -243,6 +246,7 @@ For local Twitch testing, serve the folder from `localhost` instead of opening `
 - [Twitch Embeds](https://dev.twitch.tv/docs/embed/) - Twitch player and chat iframes
 - [Rumble](https://rumble.com/) - Direct video embed iframes
 - [hls.js](https://github.com/video-dev/hls.js/) - HLS playback in browsers without native HLS support (vendored locally)
+- [dash.js](https://github.com/Dash-Industry-Forum/dash.js/) - MPEG-DASH manifest playback with low-latency live settings (vendored locally)
 - [Windy.com](https://windy.com/) - Weather radar embeds
 
 ### Local Testing

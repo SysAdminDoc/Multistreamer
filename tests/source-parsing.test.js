@@ -57,6 +57,15 @@ test('parses HLS playlist URLs', () => {
     assert.equal(source.sourceKind, 'playlist');
 });
 
+test('parses DASH manifest URLs', () => {
+    const source = Sources.parseStreamUrl('https://example.com/live/manifest.mpd?token=abc');
+    assert.match(source.id, /^dash-[a-z0-9]+$/);
+    assert.equal(source.type, 'dash');
+    assert.equal(source.sourceId, 'https://example.com/live/manifest.mpd?token=abc');
+    assert.equal(source.sourceKind, 'manifest');
+    assert.equal(source.displayName, 'DASH: example.com');
+});
+
 test('normalizes legacy YouTube records without type fields', () => {
     const stream = Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', muted: false, label: 'Main' }, 'dQw4w9WgXcQ');
     assert.equal(stream.type, 'youtube');
@@ -107,4 +116,12 @@ test('builds HLS media records', () => {
     assert.equal(hls.type, 'hls');
     assert.equal(hls.mediaUrl, 'https://example.com/live/camera.m3u8');
     assert.equal(hls.videoUrl, '');
+});
+
+test('builds DASH media records', () => {
+    const dash = Sources.buildEmbed(Sources.streamToGunRecord(Sources.parseStreamUrl('https://example.com/live/manifest.mpd')), {});
+    assert.equal(dash.type, 'dash');
+    assert.equal(dash.title, 'DASH stream https://example.com/live/manifest.mpd');
+    assert.equal(dash.mediaUrl, 'https://example.com/live/manifest.mpd');
+    assert.equal(dash.videoUrl, '');
 });

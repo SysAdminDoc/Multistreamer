@@ -77,20 +77,25 @@ test('keeps mobile header compact and chat toggle stateful', () => {
 });
 
 test('keeps provider adapters and health recovery wired', () => {
+    assert.match(html, /<script src="vendor\/dash\.all-5\.2\.0\.min\.js"><\/script>/);
     assert.match(html, /const providerAdapters = \{/);
     assert.match(html, /youtube: createIframeAdapter\('youtube'\)/);
     assert.match(html, /twitch: createIframeAdapter\('twitch'\)/);
     assert.match(html, /hls: createHlsAdapter\(\)/);
+    assert.match(html, /dash: createDashAdapter\(\)/);
     assert.match(html, /function mountProviderAdapters\(\)/);
     assert.match(html, /function destroyProviderAdapters\(\)/);
     assert.match(html, /function handleHlsError\(instance, event, data = \{\}\)/);
+    assert.match(html, /function createDashAdapter\(\)/);
+    assert.match(html, /function configureDashLowLatency\(player\)/);
     assert.match(html, /function reloadStream\(id\)/);
     assert.match(html, /class="stream-health"/);
     assert.match(html, /providerHealth: Array\.from\(mountedProviders\.entries\(\)\)/);
+    assert.match(html, /dashJs: Boolean\(window\.dashjs\?\.MediaPlayer\)/);
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 4;/);
+    assert.match(html, /const CONFIG_VERSION = 5;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);

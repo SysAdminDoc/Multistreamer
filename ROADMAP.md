@@ -5,7 +5,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 ## Planned Features
 
 ### Source Expansion
-- DASH manifest support for lower-latency live
 - Generic `<iframe>` allowlist for user-supplied embeds
 
 ### Sync & Latency
