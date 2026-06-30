@@ -9,6 +9,7 @@
     const TWITCH_CHANNEL_RE = /^[A-Za-z0-9_]{3,25}$/;
     const TWITCH_VIDEO_RE = /^(?:v)?(\d+)$/i;
     const RUMBLE_EMBED_RE = /^v[A-Za-z0-9_-]+$/;
+    const IFRAME_PREFIX_RE = /^(?:iframe|embed):(.+)$/i;
     const TWITCH_RESERVED_PATHS = new Set([
         'about',
         'activate',
@@ -32,6 +33,15 @@
         'videos',
         'wallet'
     ]);
+    const IFRAME_EMBED_ALLOWLIST = [
+        { hosts: ['embed.windy.com', 'www.windy.com', 'windy.com'], label: 'Windy' },
+        { hosts: ['www.ventusky.com', 'ventusky.com'], label: 'Ventusky' },
+        { hosts: ['www.lightningmaps.org', 'lightningmaps.org'], label: 'LightningMaps' },
+        { hosts: ['zoom.earth', 'www.zoom.earth'], label: 'Zoom Earth' },
+        { hosts: ['player.vimeo.com'], label: 'Vimeo' },
+        { hosts: ['calendar.google.com'], label: 'Google Calendar' },
+        { hosts: ['www.google.com'], label: 'Google Maps', pathPrefix: '/maps/embed' }
+    ];
 
     function parseUrl(value) {
         const raw = String(value || '').trim();
@@ -129,6 +139,16 @@
         };
     }
 
+    function makeIframeEmbed(url, policy) {
+        return {
+            id: stableId('iframe', url.href),
+            type: 'iframe',
+            sourceId: url.href,
+            sourceKind: 'embed',
+            displayName: 'Embed: ' + policy.label
+        };
+    }
+
     function parseYouTube(input) {
         const raw = String(input || '').trim();
         if (YOUTUBE_ID_RE.test(raw)) return makeYouTube(raw);
@@ -213,8 +233,30 @@
         return makeDashManifest(url);
     }
 
+    function parseIframe(input) {
+        const raw = String(input || '').trim();
+        const prefixed = raw.match(IFRAME_PREFIX_RE);
+        if (!prefixed) return null;
+
+        const url = parseUrl(prefixed[1]);
+        if (!url) return null;
+        const policy = iframePolicyForUrl(url);
+        if (!policy) return null;
+        return makeIframeEmbed(url, policy);
+    }
+
     function parseStreamUrl(input) {
-        return parseYouTube(input) || parseTwitch(input) || parseRumble(input) || parseHls(input) || parseDash(input);
+        return parseYouTube(input) || parseTwitch(input) || parseRumble(input) || parseHls(input) || parseDash(input) || parseIframe(input);
+    }
+
+    function iframePolicyForUrl(url) {
+        if (!url || url.protocol !== 'https:') return null;
+        const host = url.hostname.toLowerCase();
+        const path = url.pathname.toLowerCase();
+        return IFRAME_EMBED_ALLOWLIST.find(policy => {
+            if (!policy.hosts.includes(host)) return false;
+            return !policy.pathPrefix || path.startsWith(policy.pathPrefix);
+        }) || null;
     }
 
     function normalizeStreamRecord(record, fallbackId) {
@@ -226,16 +268,18 @@
                 rawId.startsWith('rumble-') ? 'rumble' :
                     rawId.startsWith('hls-') ? 'hls' :
                         rawId.startsWith('dash-') ? 'dash' :
-                            'youtube'
+                            rawId.startsWith('iframe-') ? 'iframe' :
+                                'youtube'
         )).toLowerCase();
-        const type = ['twitch', 'rumble', 'hls', 'dash'].includes(detectedType) ? detectedType : 'youtube';
+        const type = ['twitch', 'rumble', 'hls', 'dash', 'iframe'].includes(detectedType) ? detectedType : 'youtube';
         const sourceKind = String(record.sourceKind || (
             rawId.startsWith('twitch-vod-') ? 'video' :
                 type === 'twitch' ? 'channel' :
                     type === 'rumble' ? 'embed' :
                         type === 'hls' ? 'playlist' :
                             type === 'dash' ? 'manifest' :
-                                'video'
+                                type === 'iframe' ? 'embed' :
+                                    'video'
         )).toLowerCase();
 
         let sourceId = String(record.sourceId || record.videoId || record.channel || '').trim();
@@ -247,7 +291,7 @@
                 sourceId = TWITCH_VIDEO_RE.test(video) ? 'v' + video.replace(/^v/i, '') : video;
             } else if (type === 'rumble') {
                 sourceId = rawId.replace(/^rumble-/i, '');
-            } else if (type === 'hls' || type === 'dash') {
+            } else if (type === 'hls' || type === 'dash' || type === 'iframe') {
                 sourceId = record.url || record.src || '';
             } else {
                 sourceId = rawId.replace(/^twitch-/i, '');
@@ -260,6 +304,7 @@
         if (type === 'rumble' && !RUMBLE_EMBED_RE.test(sourceId)) return null;
         if (type === 'hls' && !parseHls(sourceId)) return null;
         if (type === 'dash' && !parseDash(sourceId)) return null;
+        if (type === 'iframe' && !parseIframe('iframe:' + sourceId)) return null;
 
         const normalizedSourceId = type === 'twitch' && sourceKind === 'channel'
             ? sourceId.toLowerCase()
@@ -274,7 +319,9 @@
                     ? stableId('hls', normalizedSourceId)
                     : type === 'dash'
                         ? stableId('dash', normalizedSourceId)
-                        : type + '-' + normalizedSourceId);
+                        : type === 'iframe'
+                            ? stableId('iframe', normalizedSourceId)
+                            : type + '-' + normalizedSourceId);
 
         return {
             id,
@@ -323,6 +370,12 @@
             return {
                 ...base,
                 sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups'
+            };
+        }
+        if (provider === 'iframe') {
+            return {
+                ...base,
+                sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups allow-presentation'
             };
         }
         return {
@@ -380,6 +433,21 @@
                 mediaUrl: stream.sourceId,
                 chatUrl: '',
                 allow: ''
+            };
+        }
+
+        if (stream.type === 'iframe') {
+            const url = parseUrl(stream.sourceId);
+            const policy = iframePolicyForUrl(url);
+            if (!policy) return null;
+            return {
+                ...framePolicy('iframe'),
+                type: 'iframe',
+                title: policy.label + ' embed',
+                label: stream.label || policy.label + ': ' + url.hostname,
+                videoUrl: url.href,
+                chatUrl: '',
+                allow: 'fullscreen; geolocation'
             };
         }
 

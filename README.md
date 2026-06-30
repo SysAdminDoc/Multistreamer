@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.12.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.13.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -12,12 +12,12 @@ https://sysadmindoc.github.io/Multistreamer/
 
 ## Features
 
-- **Multi-Video Grid** - Watch multiple YouTube, Twitch, Rumble, HLS, and DASH streams in a responsive Brady Bunch-style grid
+- **Multi-Video Grid** - Watch multiple YouTube, Twitch, Rumble, HLS, DASH, and allowlisted iframe embeds in a responsive Brady Bunch-style grid
 - **Twitch Chat Sidecar** - Twitch channels render with embedded live chat beside the player
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
-- **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, and per-stream reload controls
+- **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, iframe reloads, and per-stream controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
 - **Localization-Ready UI** - Visible app copy and chat timestamps flow through a message catalog and locale-aware formatter
 - **Live Chat** - Built-in chat room synced across all viewers
@@ -63,7 +63,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 **Controls available:**
 | Control | Description |
 |---------|-------------|
-| Add Stream | Paste YouTube, Twitch, Rumble, HLS, or DASH URL and click Add |
+| Add Stream | Paste YouTube, Twitch, Rumble, HLS, DASH, or `iframe:` allowlisted embed URL and click Add |
 | Set Main | Make a video the featured/large video |
 | Label | Give streams custom names |
 | Mute/Unmute All | Control audio for all streams |
@@ -143,7 +143,7 @@ All these sync in real-time to viewers:
 
 ### Provider Health and Recovery
 
-- YouTube, Twitch, Rumble, HLS, and DASH streams mount through small provider adapters with `mount`, `destroy`, `mute`, `health`, and `reload` hooks.
+- YouTube, Twitch, Rumble, HLS, DASH, and allowlisted iframe embeds mount through small provider adapters with `mount`, `destroy`, `mute`, `health`, and `reload` hooks.
 - HLS fatal network and media errors show an in-tile recovery strip and attempt hls.js recovery before falling back to a manual reload control.
 - DASH manifests use vendored dash.js with low-latency live settings, health snapshots, and manual reload recovery.
 - Iframe providers expose the same adapter surface so playback-sync and provider-specific health work can build on one contract.
@@ -162,6 +162,7 @@ All these sync in real-time to viewers:
 - Direct Rumble embed URLs (`rumble.com/embed/v.../`)
 - Direct HLS playlist URLs ending in `.m3u8`
 - MPEG-DASH manifests ending in `.mpd`
+- Explicit `iframe:` or `embed:` URLs for allowlisted providers: Windy, Ventusky, LightningMaps, Zoom Earth, Vimeo, Google Calendar, and Google Maps embed URLs
 
 ### Chat
 
@@ -189,14 +190,15 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 5,
+  "version": 6,
   "room": "my-room",
   "streams": [
     { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "label": "Main Camera" },
     { "id": "twitch-stormwatch", "type": "twitch", "sourceId": "stormwatch", "sourceKind": "channel", "muted": true, "label": "Storm Watch" },
     { "id": "rumble-v1io41", "type": "rumble", "sourceId": "v1io41", "sourceKind": "embed", "muted": true, "label": "Rumble Clip" },
     { "id": "hls-mwizu8", "type": "hls", "sourceId": "https://example.com/live/camera.m3u8", "sourceKind": "playlist", "muted": true, "label": "HLS Camera" },
-    { "id": "dash-f2s7am", "type": "dash", "sourceId": "https://example.com/live/manifest.mpd", "sourceKind": "manifest", "muted": true, "label": "DASH Feed" }
+    { "id": "dash-f2s7am", "type": "dash", "sourceId": "https://example.com/live/manifest.mpd", "sourceKind": "manifest", "muted": true, "label": "DASH Feed" },
+    { "id": "iframe-8y4a2b", "type": "iframe", "sourceId": "https://embed.windy.com/embed2.html?lat=40.7&lon=-74&zoom=5", "sourceKind": "embed", "muted": true, "label": "Windy Embed" }
   ],
   "settings": {
     "layout": "featured",
@@ -261,6 +263,7 @@ The test suite covers parser contracts plus a Playwright-rendered workflow for h
 ### Embed Security
 
 - Third-party video, chat, and weather iframes include titles, lazy loading, referrer policy, and sandbox policies.
+- Generic iframe embeds require an explicit `iframe:` or `embed:` prefix and must match the built-in provider allowlist before they are saved or rendered.
 - Runtime JavaScript libraries are loaded from pinned local files in `vendor/` instead of unpinned CDN URLs.
 
 ### Privacy

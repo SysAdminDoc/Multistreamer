@@ -43,6 +43,11 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
         }
         return route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
     });
+    await context.route('https://embed.windy.com/**', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<!doctype html><title>Windy stub</title>'
+    }));
 
     const room = 'rendered-' + Date.now();
     const hostKey = 'host-' + Date.now();
@@ -66,6 +71,13 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     await host.click('.grid-item[data-provider="dash"] button:has-text("Remove")');
     await host.waitForSelector('.empty-state');
 
+    await host.fill('#videoUrl', 'iframe:https://embed.windy.com/embed2.html?lat=40.7&lon=-74&zoom=5');
+    await host.click('.control-bar button:has-text("Add")');
+    await host.waitForSelector('.grid-item[data-provider="iframe"] iframe.video-frame');
+    assert.equal(await host.locator('.grid-item[data-provider="iframe"]').count(), 1);
+    await host.click('.grid-item[data-provider="iframe"] button:has-text("Remove")');
+    await host.waitForSelector('.empty-state');
+
     await host.click('button:has-text("Settings")');
     await host.click('.settings-actions button:has-text("Import")');
     await host.waitForSelector('#importModal.show');
@@ -82,7 +94,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('newer than supported')));
 
     await host.fill('#importData', JSON.stringify({
-        version: 5,
+        version: 6,
         room,
         streams: [
             { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, label: 'Workflow QA' },
@@ -106,7 +118,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 5);
+    assert.equal(exported.version, 6);
 
     await host.click('button:has-text("Share")');
     await host.waitForSelector('#shareModal.show');

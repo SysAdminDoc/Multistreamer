@@ -66,6 +66,19 @@ test('parses DASH manifest URLs', () => {
     assert.equal(source.displayName, 'DASH: example.com');
 });
 
+test('parses allowlisted iframe embed URLs only with an explicit prefix', () => {
+    const source = Sources.parseStreamUrl('iframe:https://embed.windy.com/embed2.html?lat=40.7&lon=-74&zoom=5');
+    assert.match(source.id, /^iframe-[a-z0-9]+$/);
+    assert.equal(source.type, 'iframe');
+    assert.equal(source.sourceKind, 'embed');
+    assert.equal(source.sourceId, 'https://embed.windy.com/embed2.html?lat=40.7&lon=-74&zoom=5');
+    assert.equal(source.displayName, 'Embed: Windy');
+
+    assert.equal(Sources.parseStreamUrl('https://embed.windy.com/embed2.html?lat=40.7'), null);
+    assert.equal(Sources.parseStreamUrl('iframe:http://embed.windy.com/embed2.html'), null);
+    assert.equal(Sources.parseStreamUrl('iframe:https://example.com/embed.html'), null);
+});
+
 test('normalizes legacy YouTube records without type fields', () => {
     const stream = Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', muted: false, label: 'Main' }, 'dQw4w9WgXcQ');
     assert.equal(stream.type, 'youtube');
@@ -124,4 +137,15 @@ test('builds DASH media records', () => {
     assert.equal(dash.title, 'DASH stream https://example.com/live/manifest.mpd');
     assert.equal(dash.mediaUrl, 'https://example.com/live/manifest.mpd');
     assert.equal(dash.videoUrl, '');
+});
+
+test('builds allowlisted iframe embed records with sandbox policy', () => {
+    const source = Sources.parseStreamUrl('embed:https://embed.windy.com/embed2.html?lat=40.7&lon=-74&zoom=5');
+    const embed = Sources.buildEmbed(Sources.streamToGunRecord(source), {});
+    assert.equal(embed.type, 'iframe');
+    assert.equal(embed.title, 'Windy embed');
+    assert.equal(embed.videoUrl, 'https://embed.windy.com/embed2.html?lat=40.7&lon=-74&zoom=5');
+    assert.match(embed.sandbox, /allow-scripts/);
+    assert.match(embed.sandbox, /allow-forms/);
+    assert.equal(embed.referrerPolicy, 'strict-origin-when-cross-origin');
 });

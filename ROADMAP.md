@@ -4,9 +4,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Planned Features
 
-### Source Expansion
-- Generic `<iframe>` allowlist for user-supplied embeds
-
 ### Sync & Latency
 - NTP-calibrated playback sync (delay each player by rolling average of viewer buffers)
 - Scrub sync: host scrubs → all viewers seek to same timestamp

@@ -81,6 +81,7 @@ test('keeps provider adapters and health recovery wired', () => {
     assert.match(html, /const providerAdapters = \{/);
     assert.match(html, /youtube: createIframeAdapter\('youtube'\)/);
     assert.match(html, /twitch: createIframeAdapter\('twitch'\)/);
+    assert.match(html, /iframe: createIframeAdapter\('iframe'\)/);
     assert.match(html, /hls: createHlsAdapter\(\)/);
     assert.match(html, /dash: createDashAdapter\(\)/);
     assert.match(html, /function mountProviderAdapters\(\)/);
@@ -95,7 +96,7 @@ test('keeps provider adapters and health recovery wired', () => {
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 5;/);
+    assert.match(html, /const CONFIG_VERSION = 6;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);

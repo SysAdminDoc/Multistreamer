@@ -1117,7 +1117,7 @@
         <div class="control-bar">
             <div class="input-group">
                 <label class="sr-only" for="videoUrl" data-i18n="streamUrl">Stream URL</label>
-                <input type="text" id="videoUrl" placeholder="YouTube, Twitch, Rumble, HLS, or DASH URL..." data-i18n-placeholder="streamUrlPlaceholder" onkeypress="if(event.key==='Enter')addStream()" aria-label="Stream URL" data-i18n-aria-label="streamUrl">
+                <input type="text" id="videoUrl" placeholder="YouTube, Twitch, Rumble, HLS, DASH, or iframe: embed URL..." data-i18n-placeholder="streamUrlPlaceholder" onkeypress="if(event.key==='Enter')addStream()" aria-label="Stream URL" data-i18n-aria-label="streamUrl">
                 <button class="btn-primary" onclick="addStream()" data-i18n="add">Add</button>
             </div>
             <div class="divider"></div>
@@ -1142,7 +1142,7 @@
                         <path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/>
                     </svg>
                     <h2 id="emptyTitle" data-i18n="noStreamsTitle">No Streams Yet</h2>
-                    <p id="emptyText" data-i18n="noStreamsInitialText">Add YouTube, Twitch, Rumble, HLS, or DASH URLs to start.</p>
+                    <p id="emptyText" data-i18n="noStreamsInitialText">Add YouTube, Twitch, Rumble, HLS, DASH, or allowlisted iframe embeds to start.</p>
                 </div>
             </div>
 
@@ -1296,8 +1296,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.12.0';
-        const CONFIG_VERSION = 5;
+        const APP_VERSION = '0.13.0';
+        const CONFIG_VERSION = 6;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
@@ -1336,6 +1336,7 @@
             youtube: createIframeAdapter('youtube'),
             twitch: createIframeAdapter('twitch'),
             rumble: createIframeAdapter('rumble'),
+            iframe: createIframeAdapter('iframe'),
             hls: createHlsAdapter(),
             dash: createDashAdapter()
         };
@@ -1373,7 +1374,7 @@
                 watching: 'watching',
                 host: 'HOST',
                 streamUrl: 'Stream URL',
-                streamUrlPlaceholder: 'YouTube, Twitch, Rumble, HLS, or DASH URL...',
+                streamUrlPlaceholder: 'YouTube, Twitch, Rumble, HLS, DASH, or iframe: embed URL...',
                 add: 'Add',
                 grid: 'Grid',
                 gridLayout: 'Grid layout',
@@ -1429,11 +1430,11 @@
                 waitingForHostText: 'Streams will appear here.',
                 noStreamsTitle: 'No Streams Yet',
                 noStreamsText: 'Add URLs above.',
-                noStreamsInitialText: 'Add YouTube, Twitch, Rumble, HLS, or DASH URLs to start.',
+                noStreamsInitialText: 'Add YouTube, Twitch, Rumble, HLS, DASH, or allowlisted iframe embeds to start.',
                 enterRoomName: 'Enter a room name.',
                 copied: 'Copied!',
                 copy: 'Copy',
-                validStreamPrompt: 'Paste a valid YouTube video, Twitch channel/VOD, Rumble embed, HLS .m3u8, or DASH .mpd URL.',
+                validStreamPrompt: 'Paste a valid YouTube video, Twitch channel/VOD, Rumble embed, HLS .m3u8, DASH .mpd, or allowlisted iframe: URL.',
                 duplicateStream: 'That stream is already in this room.',
                 streamAdded: '{name} added.',
                 allStreamsCleared: 'All streams cleared.',
@@ -2246,6 +2247,7 @@
         function typeLabel(type) {
             if (type === 'hls') return 'HLS';
             if (type === 'dash') return 'DASH';
+            if (type === 'iframe') return 'Embed';
             return type.charAt(0).toUpperCase() + type.slice(1);
         }
 
