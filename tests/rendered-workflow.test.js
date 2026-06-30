@@ -94,7 +94,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('newer than supported')));
 
     await host.fill('#importData', JSON.stringify({
-        version: 7,
+        version: 8,
         room,
         streams: [
             { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, label: 'Workflow QA', latencyOffsetMs: 0 },
@@ -103,6 +103,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
         settings: {
             layout: 'grid',
             featuredId: 'dQw4w9WgXcQ',
+            grid: { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' },
             weather: { enabled: true, lat: 41.25, lon: -72.5 },
             display: { gridGap: 4, labels: 'always', theme: 'amoled', accent: '#00d4ff' }
         }
@@ -126,7 +127,8 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 7);
+    assert.equal(exported.version, 8);
+    assert.deepEqual(exported.settings.grid, { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' });
     assert.equal(exported.streams.find(stream => stream.id === 'dQw4w9WgXcQ').latencyOffsetMs, 2500);
 
     await host.click('button:has-text("Share")');

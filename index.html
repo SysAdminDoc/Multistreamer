@@ -1203,6 +1203,20 @@
                     </div>
                 </div>
                 <div class="setting-row">
+                    <label class="setting-label" for="gridPresetSelect" data-i18n="gridPreset">Grid Preset</label>
+                    <select id="gridPresetSelect" onchange="setGridSetting('preset',this.value)">
+                        <option value="auto" data-i18n="gridPresetAuto">Auto</option>
+                        <option value="1+2" data-i18n="gridPresetOnePlusTwo">1+2</option>
+                        <option value="2+3" data-i18n="gridPresetTwoPlusThree">2+3</option>
+                        <option value="3+1" data-i18n="gridPresetThreePlusOne">3+1</option>
+                        <option value="custom" data-i18n="gridPresetCustom">Custom</option>
+                    </select>
+                </div>
+                <div class="setting-row" id="customGridTemplateRow" style="display:none;">
+                    <label class="setting-label" for="customGridTemplate" data-i18n="customGridTemplate">Custom Columns</label>
+                    <input type="text" id="customGridTemplate" placeholder="repeat(3, minmax(0, 1fr))" data-i18n-placeholder="customGridTemplatePlaceholder" onchange="setGridSetting('customTemplate',this.value)">
+                </div>
+                <div class="setting-row">
                     <label class="setting-label" for="labelsSelect" data-i18n="labels">Labels</label>
                     <select id="labelsSelect" onchange="setSetting('labels',this.value)">
                         <option value="hover" data-i18n="labelsHover">On Hover</option>
@@ -1322,14 +1336,15 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.17.0';
-        const CONFIG_VERSION = 7;
+        const APP_VERSION = '0.18.0';
+        const CONFIG_VERSION = 8;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
         const RELAY_OFFLINE_AFTER_MS = 45000;
         const LEADER_ELECTION_CHECK_MS = 15000;
         const LEADER_TTL_MS = 45000;
+        const GRID_PRESETS = new Set(['auto', '1+2', '2+3', '3+1', 'custom']);
         const SYNC_HEARTBEAT_MS = 5000;
         const SYNC_MAX_SAMPLES = 8;
         const SYNC_TARGET_LIVE_DELAY_MS = 8000;
@@ -1346,7 +1361,7 @@
         let isHost = false;
         let electedHost = false;
         let streams = [];
-        let settings = { layout: 'grid', featuredId: null, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' } };
+        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' } };
         let chatExpanded = true;
         let username = localStorage.getItem('ms-user') || '';
         let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
@@ -1451,6 +1466,14 @@
                 announcement: 'Announcement',
                 displaySynced: 'Display (Synced)',
                 gridGap: 'Grid Gap',
+                gridPreset: 'Grid Preset',
+                gridPresetAuto: 'Auto',
+                gridPresetOnePlusTwo: '1+2',
+                gridPresetTwoPlusThree: '2+3',
+                gridPresetThreePlusOne: '3+1',
+                gridPresetCustom: 'Custom',
+                customGridTemplate: 'Custom Columns',
+                customGridTemplatePlaceholder: 'repeat(3, minmax(0, 1fr))',
                 labels: 'Labels',
                 labelsHover: 'On Hover',
                 labelsAlways: 'Always',
@@ -1555,6 +1578,9 @@
                 settingsDisplayLabels: 'settings.display.labels must be hover, always, or never.',
                 settingsDisplayTheme: 'settings.display.theme must be dark, midnight, or amoled.',
                 settingsDisplayAccent: 'settings.display.accent must be a hex color like #00d4ff.',
+                settingsGridObject: 'settings.grid must be an object.',
+                settingsGridPreset: 'settings.grid.preset must be auto, 1+2, 2+3, 3+1, or custom.',
+                settingsGridTemplateInvalid: 'Custom grid columns must be a valid grid-template-columns value under 80 characters.',
                 linkCopied: 'Link copied.',
                 diagnosticsCopied: 'Diagnostics copied.',
                 send: 'Send',
@@ -1735,6 +1761,8 @@
 
             roomRef.get('settings').get('layout').on(v => { if (v) { settings.layout = v; updateLayoutBtns(); render(); } });
             roomRef.get('settings').get('featuredId').on(v => { settings.featuredId = v || null; render(); });
+            roomRef.get('settings').get('grid').get('preset').on(v => { if (v) applyGridSettings({ preset: v }); });
+            roomRef.get('settings').get('grid').get('customTemplate').on(v => { applyGridSettings({ customTemplate: typeof v === 'string' ? v : '' }); });
             roomRef.get('settings').get('weather').on(w => { if (w) { settings.weather = w; document.getElementById('weatherLat').value = w.lat; document.getElementById('weatherLon').value = w.lon; document.getElementById('weatherBtn')?.classList.toggle('btn-active', w.enabled); render(); } });
 
             roomRef.get('settings').get('display').get('gridGap').on(v => { if (typeof v === 'number') applyDisplay({ gridGap: v }); });
@@ -2334,6 +2362,22 @@
             }
         }
 
+        function applyGridSettings(next) {
+            const grid = settings.grid || { preset: 'auto', customTemplate: '' };
+            if (next.preset && GRID_PRESETS.has(next.preset)) grid.preset = next.preset;
+            if (next.customTemplate !== undefined) grid.customTemplate = String(next.customTemplate || '').trim();
+            settings.grid = grid;
+            document.getElementById('gridPresetSelect').value = grid.preset;
+            document.getElementById('customGridTemplate').value = grid.customTemplate;
+            updateGridControls();
+            render();
+        }
+
+        function updateGridControls() {
+            const row = document.getElementById('customGridTemplateRow');
+            if (row) row.style.display = settings.grid?.preset === 'custom' ? '' : 'none';
+        }
+
         function updateLayoutBtns() {
             document.getElementById('layoutGridBtn').classList.toggle('btn-active', settings.layout === 'grid');
             document.getElementById('layoutFeaturedBtn').classList.toggle('btn-active', settings.layout === 'featured');
@@ -2365,6 +2409,12 @@
         function muteAll() { streams.forEach(s => { s.muted = true; if (hasHostControls()) roomRef.get('streams').get(s.id).get('muted').put(true); }); render(); }
         function unmuteAll() { streams.forEach(s => { s.muted = false; if (hasHostControls()) roomRef.get('streams').get(s.id).get('muted').put(false); }); render(); }
         function setLayout(l) { if (hasHostControls()) roomRef.get('settings').get('layout').put(l); }
+        function setGridSetting(key, value) {
+            if (!hasHostControls()) return;
+            if (key === 'preset' && !GRID_PRESETS.has(value)) return notify(t('settingsGridPreset'), 'error');
+            if (key === 'customTemplate' && !isSafeGridTemplate(value)) return notify(t('settingsGridTemplateInvalid'), 'error');
+            roomRef.get('settings').get('grid').get(key).put(key === 'customTemplate' ? String(value || '').trim() : value);
+        }
         function toggleWeather() { if (hasHostControls()) { const w = settings.weather; roomRef.get('settings').get('weather').put({ enabled: !w.enabled, lat: w.lat, lon: w.lon }); } }
         function applyWeather() {
             if (!hasHostControls()) return;
@@ -2424,6 +2474,9 @@
 
             if (!items.length) {
                 container.className = 'grid-container';
+                container.style.gridTemplateColumns = '1fr';
+                container.style.gridTemplateRows = '';
+                container.style.gridAutoRows = '';
                 container.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/></svg><h2>${hasHostControls() ? t('noStreamsTitle') : t('waitingForHostTitle')}</h2><p>${hasHostControls() ? t('noStreamsText') : t('waitingForHostText')}</p></div>`;
                 return;
             }
@@ -2440,20 +2493,64 @@
             if (layout === 'featured' && sorted.length > 1) {
                 container.style.gridTemplateColumns = '1fr 280px';
                 container.style.gridTemplateRows = '1fr';
+                container.style.gridAutoRows = '';
                 container.innerHTML = `${renderItem(sorted[0], labelMode)}<div class="sidebar-stack">${sorted.slice(1).map(s => renderItem(s, labelMode)).join('')}</div>`;
                 mountProviderAdapters();
             } else {
-                const n = sorted.length;
-                const cols = n <= 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : n <= 6 ? 3 : n <= 9 ? 3 : Math.ceil(Math.sqrt(n));
-                container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-                container.style.gridTemplateRows = '';
-                container.innerHTML = sorted.map(s => renderItem(s, labelMode)).join('');
+                const gridPlan = getGridPlan(sorted.length);
+                container.style.gridTemplateColumns = gridPlan.columns;
+                container.style.gridTemplateRows = gridPlan.rows;
+                container.style.gridAutoRows = gridPlan.autoRows;
+                container.innerHTML = sorted.map((s, index) => renderItem(s, labelMode, index, gridPlan)).join('');
                 mountProviderAdapters();
             }
         }
 
-        function renderItem(item, labelMode) {
+        function getGridPlan(count) {
+            const preset = settings.grid?.preset || 'auto';
+            if (preset === 'custom' && isSafeGridTemplate(settings.grid?.customTemplate)) {
+                const columns = String(settings.grid.customTemplate || '').trim();
+                if (columns) return { columns, rows: '', autoRows: 'minmax(0, 1fr)', itemStyles: [] };
+            }
+            if (preset === '1+2' && count >= 3) {
+                return {
+                    columns: 'minmax(0, 2fr) minmax(220px, 1fr)',
+                    rows: 'repeat(2, minmax(0, 1fr))',
+                    autoRows: 'minmax(0, 1fr)',
+                    itemStyles: ['grid-column:1;grid-row:1 / span 2;', 'grid-column:2;grid-row:1;', 'grid-column:2;grid-row:2;']
+                };
+            }
+            if (preset === '2+3' && count >= 5) {
+                return {
+                    columns: 'repeat(6, minmax(0, 1fr))',
+                    rows: 'repeat(2, minmax(0, 1fr))',
+                    autoRows: 'minmax(0, 1fr)',
+                    itemStyles: ['grid-column:1 / span 3;grid-row:1;', 'grid-column:4 / span 3;grid-row:1;', 'grid-column:1 / span 2;grid-row:2;', 'grid-column:3 / span 2;grid-row:2;', 'grid-column:5 / span 2;grid-row:2;']
+                };
+            }
+            if (preset === '3+1' && count >= 4) {
+                return {
+                    columns: 'repeat(3, minmax(0, 1fr))',
+                    rows: 'repeat(2, minmax(0, 1fr))',
+                    autoRows: 'minmax(0, 1fr)',
+                    itemStyles: ['grid-column:1;grid-row:1;', 'grid-column:2;grid-row:1;', 'grid-column:3;grid-row:1;', 'grid-column:1 / span 3;grid-row:2;']
+                };
+            }
+
+            const cols = count <= 1 ? 1 : count === 2 ? 2 : count <= 4 ? 2 : count <= 9 ? 3 : Math.ceil(Math.sqrt(count));
+            return { columns: `repeat(${cols}, minmax(0, 1fr))`, rows: '', autoRows: 'minmax(0, 1fr)', itemStyles: [] };
+        }
+
+        function isSafeGridTemplate(value) {
+            const text = String(value || '').trim();
+            if (!text) return true;
+            if (text.length > 80 || /[;{}<>]/.test(text)) return false;
+            return !window.CSS?.supports || CSS.supports('grid-template-columns', text);
+        }
+
+        function renderItem(item, labelMode, index = 0, gridPlan = null) {
             const labelClass = labelMode === 'always' ? '' : labelMode === 'never' ? 'hidden' : 'hover-only';
+            const itemStyle = gridPlan?.itemStyles?.[index] ? ` style="${escAttr(gridPlan.itemStyles[index])}"` : '';
 
             if (item.type === 'weather') {
                 const { lat, lon } = settings.weather;
@@ -2465,7 +2562,7 @@
                     loading: 'lazy',
                     allow: 'fullscreen'
                 });
-                return `<div class="grid-item"><iframe src="${src}" ${attrs}></iframe><div class="overlay"><div class="controls">${hasHostControls() ? `<button class="host-only" onclick="toggleWeather()" aria-label="${t('removeWeatherRadar')}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${t('weatherRadar')}</div></div>`;
+                return `<div class="grid-item"${itemStyle}><iframe src="${src}" ${attrs}></iframe><div class="overlay"><div class="controls">${hasHostControls() ? `<button class="host-only" onclick="toggleWeather()" aria-label="${t('removeWeatherRadar')}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${t('weatherRadar')}</div></div>`;
             }
 
             const { id, muted, label } = item;
@@ -2487,7 +2584,7 @@
             }
             const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="${escAttr(t('reloadStream', { label: label || embed.label || id }))}">${t('reload')}</button></div>`;
 
-            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? t('unmute') : t('mute')} ${controlLabel}">${muted ? t('unmute') : t('mute')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? t('unmute') : t('mute')} ${controlLabel}">${muted ? t('unmute') : t('mute')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
 
         function destroyProviderAdapters() {
@@ -2977,7 +3074,23 @@
                 next.featuredId = rawSettings.featuredId;
             }
             if (rawSettings.weather !== undefined) next.weather = validateWeatherSettings(rawSettings.weather);
+            if (rawSettings.grid !== undefined) next.grid = validateGridSettings(rawSettings.grid);
             if (rawSettings.display !== undefined) next.display = validateDisplaySettings(rawSettings.display);
+            return next;
+        }
+
+        function validateGridSettings(grid) {
+            if (!grid || typeof grid !== 'object' || Array.isArray(grid)) throw new Error(t('settingsGridObject'));
+            const next = {};
+            if (grid.preset !== undefined) {
+                if (typeof grid.preset !== 'string' || !GRID_PRESETS.has(grid.preset)) throw new Error(t('settingsGridPreset'));
+                next.preset = grid.preset;
+            }
+            if (grid.customTemplate !== undefined) {
+                const customTemplate = String(grid.customTemplate || '').trim();
+                if (!isSafeGridTemplate(customTemplate)) throw new Error(t('settingsGridTemplateInvalid'));
+                next.customTemplate = customTemplate;
+            }
             return next;
         }
 
@@ -3016,6 +3129,9 @@
         function applyImportedSettings(importedSettings) {
             if (importedSettings.layout) roomRef.get('settings').get('layout').put(importedSettings.layout);
             if (importedSettings.featuredId) roomRef.get('settings').get('featuredId').put(importedSettings.featuredId);
+            if (importedSettings.grid) {
+                Object.entries(importedSettings.grid).forEach(([key, value]) => roomRef.get('settings').get('grid').get(key).put(value));
+            }
             if (importedSettings.weather) roomRef.get('settings').get('weather').put(importedSettings.weather);
             if (importedSettings.display) {
                 Object.entries(importedSettings.display).forEach(([key, value]) => roomRef.get('settings').get('display').get(key).put(value));

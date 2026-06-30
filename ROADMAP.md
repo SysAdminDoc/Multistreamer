@@ -5,7 +5,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 ## Planned Features
 
 ### Layout & Controls
-- Manual grid layouts (1+2, 2+3, 3+1, custom CSS grid template)
 - Per-stream audio mix slider instead of binary mute
 - Pop-out mode: open a single stream in a floating picture-in-picture
 - Keyboard shortcuts: 1-9 to focus a stream, `M` to mute all, `F` featured

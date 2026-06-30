@@ -82,6 +82,8 @@ test('keeps primary form controls labelled', () => {
         'usernameInput',
         'messageInput',
         'gridGapSlider',
+        'gridPresetSelect',
+        'customGridTemplate',
         'labelsSelect',
         'themeSelect',
         'accentColor',
@@ -118,6 +120,20 @@ test('keeps mobile header compact and chat toggle stateful', () => {
     assert.match(html, /chatToggleBtn'\)\.setAttribute\('aria-expanded', String\(chatExpanded\)\)/);
 });
 
+test('keeps manual grid layouts wired', () => {
+    assert.match(html, /const GRID_PRESETS = new Set\(\['auto', '1\+2', '2\+3', '3\+1', 'custom'\]\)/);
+    assert.match(html, /id="gridPresetSelect"/);
+    assert.match(html, /id="customGridTemplate"/);
+    assert.match(html, /function setGridSetting\(key, value\)/);
+    assert.match(html, /function applyGridSettings\(next\)/);
+    assert.match(html, /function getGridPlan\(count\)/);
+    assert.match(html, /preset === '1\+2'/);
+    assert.match(html, /preset === '2\+3'/);
+    assert.match(html, /preset === '3\+1'/);
+    assert.match(html, /CSS\.supports\('grid-template-columns', text\)/);
+    assert.match(html, /roomRef\.get\('settings'\)\.get\('grid'\)\.get\('preset'\)\.on/);
+});
+
 test('keeps provider adapters and health recovery wired', () => {
     assert.match(html, /<script src="vendor\/dash\.all-5\.2\.0\.min\.js"><\/script>/);
     assert.match(html, /const providerAdapters = \{/);
@@ -138,10 +154,12 @@ test('keeps provider adapters and health recovery wired', () => {
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 7;/);
+    assert.match(html, /const CONFIG_VERSION = 8;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /function validateLatencyOffsetMs\(value\)/);
+    assert.match(html, /function validateGridSettings\(grid\)/);
+    assert.match(html, /if \(rawSettings\.grid !== undefined\) next\.grid = validateGridSettings\(rawSettings\.grid\)/);
     assert.match(html, /latencyOffsetMs: validateLatencyOffsetMs\(raw\.latencyOffsetMs\)/);
     assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);
     assert.match(html, /throw new Error\(t\('configVersionFuture', \{ version, supported: CONFIG_VERSION \}\)\)/);
