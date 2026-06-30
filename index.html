@@ -521,6 +521,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            position: relative;
         }
 
         /* Grid */
@@ -885,6 +886,75 @@
         }
 
         .chat-input input:focus { border-color: var(--accent); }
+
+        .reaction-strip {
+            display: inline-flex;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .reaction-strip button {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .reaction-strip button:hover {
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .reaction-layer {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 180px;
+            z-index: 80;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .reaction-burst {
+            position: absolute;
+            left: var(--x, 50%);
+            bottom: -38px;
+            transform: translateX(-50%);
+            min-width: 44px;
+            height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 22px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.45);
+            box-shadow: 0 10px 32px rgba(0,0,0,0.35);
+            font-size: 28px;
+            animation: reactionFloat 2.8s ease-out forwards;
+        }
+
+        .reaction-burst .reaction-name {
+            position: absolute;
+            top: 44px;
+            max-width: 90px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-secondary);
+            font-size: 10px;
+            white-space: nowrap;
+        }
+
+        @keyframes reactionFloat {
+            0% { opacity: 0; transform: translate(-50%, 0) scale(0.7); }
+            12% { opacity: 1; transform: translate(-50%, -18px) scale(1); }
+            100% { opacity: 0; transform: translate(calc(-50% + var(--drift, 0px)), -260px) scale(1.35); }
+        }
 
         .chat-user-display {
             font-size: 12px;
@@ -1265,6 +1335,7 @@
                     <p id="emptyText" data-i18n="noStreamsInitialText">Add YouTube, Twitch, Rumble, HLS, DASH, or allowlisted iframe embeds to start.</p>
                 </div>
             </div>
+            <div class="reaction-layer" id="reactionLayer" aria-hidden="true"></div>
 
             <!-- Chat -->
             <div class="chat-bar" id="chatBar">
@@ -1276,6 +1347,12 @@
                 </div>
                 <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
                 <div class="chat-input" id="chatInput">
+                    <div class="reaction-strip" id="reactionStrip" aria-label="Reactions" data-i18n-aria-label="reactions">
+                        <button type="button" onclick="sendReaction('cheer')" aria-label="Send cheer reaction" title="Send cheer reaction" data-i18n-aria-label="sendCheerReaction" data-i18n-title="sendCheerReaction">&#128079;</button>
+                        <button type="button" onclick="sendReaction('heart')" aria-label="Send heart reaction" title="Send heart reaction" data-i18n-aria-label="sendHeartReaction" data-i18n-title="sendHeartReaction">&#10084;</button>
+                        <button type="button" onclick="sendReaction('fire')" aria-label="Send fire reaction" title="Send fire reaction" data-i18n-aria-label="sendFireReaction" data-i18n-title="sendFireReaction">&#128293;</button>
+                        <button type="button" onclick="sendReaction('wow')" aria-label="Send wow reaction" title="Send wow reaction" data-i18n-aria-label="sendWowReaction" data-i18n-title="sendWowReaction">&#10024;</button>
+                    </div>
                     <span class="chat-user-display" id="chatUserDisplay" style="display:none;"></span>
                     <label class="sr-only" for="usernameInput" data-i18n="chatUsername">Chat username</label>
                     <input type="text" id="usernameInput" placeholder="Set username..." data-i18n-placeholder="usernamePlaceholder" aria-label="Chat username" data-i18n-aria-label="chatUsername" autocomplete="nickname">
@@ -1459,7 +1536,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.21.0';
+        const APP_VERSION = '0.22.0';
         const CONFIG_VERSION = 9;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
@@ -1478,6 +1555,13 @@
         const SCRUB_EVENT_TTL_MS = 30000;
         const SCRUB_SEEK_TOLERANCE_SECONDS = 0.5;
         const SCRUB_EVENT_LIMIT = 20;
+        const REACTION_EVENT_TTL_MS = 15000;
+        const REACTION_TYPES = {
+            cheer: { labelKey: 'reactionCheer', glyph: '&#128079;' },
+            heart: { labelKey: 'reactionHeart', glyph: '&#10084;' },
+            fire: { labelKey: 'reactionFire', glyph: '&#128293;' },
+            wow: { labelKey: 'reactionWow', glyph: '&#10024;' }
+        };
 
         // ========== GLOBAL STATE ==========
         let gun = null;
@@ -1497,6 +1581,7 @@
         const seenStreams = new Map();
         const msgEls = new Map();
         const chatMessages = new Map();
+        const seenReactions = new Set();
         const Sources = window.MultiStreamSources;
         const mountedProviders = new Map();
         const recentErrors = [];
@@ -1598,6 +1683,15 @@
                 usernamePlaceholder: 'Set username...',
                 chatMessage: 'Chat message',
                 messagePlaceholder: 'Message...',
+                reactions: 'Reactions',
+                sendCheerReaction: 'Send cheer reaction',
+                sendHeartReaction: 'Send heart reaction',
+                sendFireReaction: 'Send fire reaction',
+                sendWowReaction: 'Send wow reaction',
+                reactionCheer: 'Cheer',
+                reactionHeart: 'Heart',
+                reactionFire: 'Fire',
+                reactionWow: 'Wow',
                 closeSettings: 'Close settings',
                 popoutStream: 'Pop-out stream',
                 closePopout: 'Close pop-out',
@@ -1745,6 +1839,7 @@
                 bannedNotice: 'You were banned by the host on this browser token.',
                 moderationApplied: '{action} applied to {username}.',
                 moderationBlocked: 'Chat is disabled because this browser was removed by the host.',
+                reactionBlocked: 'Reactions are disabled because this browser was removed by the host.',
                 userJoined: '{username} joined'
             }
         };
@@ -1946,6 +2041,9 @@
 
             chatRef.get('messages').map().on((msg, id) => {
                 if (msg?.timestamp && msg.timestamp > Date.now() - 2*60*60*1000) renderMsg({ ...msg, id });
+            });
+            chatRef.get('reactions').map().on((reaction, id) => {
+                if (reaction?.timestamp && reaction.timestamp > Date.now() - REACTION_EVENT_TTL_MS) renderReaction({ ...reaction, id });
             });
 
             if (username) restoreUsername();
@@ -3619,6 +3717,7 @@
                 const el = document.getElementById(id);
                 if (el) el.disabled = disabled;
             });
+            document.querySelectorAll('#reactionStrip button').forEach(button => { button.disabled = disabled; });
         }
 
         function moderateUser(target, action, label = '') {
@@ -3666,6 +3765,43 @@
 
         function refreshChatModerationControls() {
             chatMessages.forEach(msg => renderMsg(msg));
+        }
+
+        function sendReaction(kind) {
+            if (isModerationBlocked()) return notify(t('reactionBlocked'), 'error');
+            const type = REACTION_TYPES[kind];
+            if (!type || !chatRef) return;
+            const id = `${sessionId}-rx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            const reaction = {
+                id,
+                kind,
+                username: username || 'viewer',
+                timestamp: Date.now(),
+                sessionId,
+                moderationToken,
+                isHost: hasHostControls()
+            };
+            renderReaction(reaction);
+            chatRef.get('reactions').get(id).put(reaction);
+        }
+
+        function renderReaction(reaction) {
+            if (!reaction?.id || seenReactions.has(reaction.id)) return;
+            const type = REACTION_TYPES[reaction.kind];
+            if (!type || !reaction.timestamp || reaction.timestamp < Date.now() - REACTION_EVENT_TTL_MS) return;
+            seenReactions.add(reaction.id);
+            if (seenReactions.size > 120) seenReactions.delete(seenReactions.values().next().value);
+
+            const layer = document.getElementById('reactionLayer');
+            if (!layer) return;
+            const burst = document.createElement('div');
+            burst.className = 'reaction-burst';
+            burst.dataset.reaction = reaction.kind;
+            burst.style.setProperty('--x', `${12 + Math.random() * 76}%`);
+            burst.style.setProperty('--drift', `${Math.round((Math.random() - 0.5) * 90)}px`);
+            burst.innerHTML = `${type.glyph}<span class="reaction-name">${esc(reaction.username || t(type.labelKey))}</span>`;
+            layer.appendChild(burst);
+            setTimeout(() => burst.remove(), 3000);
         }
 
         // ========== CHAT ==========

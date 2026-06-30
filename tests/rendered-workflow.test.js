@@ -130,7 +130,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
 
     const [download] = await Promise.all([
         host.waitForEvent('download'),
-        host.click('.settings-actions .btn-primary')
+        host.click('.settings-actions .btn-primary', { noWaitAfter: true })
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
@@ -154,6 +154,9 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await viewer.waitForSelector('#viewerPage.active');
     await viewer.waitForFunction(() => document.body.classList.contains('viewer-mode'));
     assert.equal(await viewer.locator('.control-bar').isVisible(), false);
+    await viewer.click('#reactionStrip button[aria-label="Send fire reaction"]');
+    await viewer.waitForSelector('#reactionLayer .reaction-burst[data-reaction="fire"]');
+
     await host.evaluate(() => {
         renderMsg({
             id: 'qa-moderation-message',

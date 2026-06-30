@@ -141,6 +141,21 @@ test('keeps chat moderation tokens wired', () => {
     assert.match(html, /moderationBlocked: 'Chat is disabled because this browser was removed by the host\.'/);
 });
 
+test('keeps ephemeral reactions wired', () => {
+    assert.match(html, /const REACTION_EVENT_TTL_MS = 15000;/);
+    assert.match(html, /const REACTION_TYPES = \{/);
+    assert.match(html, /cheer: \{ labelKey: 'reactionCheer', glyph: '&#128079;' \}/);
+    assert.match(html, /id="reactionStrip"/);
+    assert.match(html, /id="reactionLayer"/);
+    assert.match(html, /function sendReaction\(kind\)/);
+    assert.match(html, /chatRef\.get\('reactions'\)\.get\(id\)\.put\(reaction\)/);
+    assert.match(html, /chatRef\.get\('reactions'\)\.map\(\)\.on/);
+    assert.match(html, /function renderReaction\(reaction\)/);
+    assert.match(html, /className = 'reaction-burst'/);
+    assert.match(html, /burst\.dataset\.reaction = reaction\.kind/);
+    assert.match(html, /reactionBlocked: 'Reactions are disabled because this browser was removed by the host\.'/);
+});
+
 test('keeps manual grid layouts wired', () => {
     assert.match(html, /const GRID_PRESETS = new Set\(\['auto', '1\+2', '2\+3', '3\+1', 'custom'\]\)/);
     assert.match(html, /id="gridPresetSelect"/);

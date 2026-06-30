@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.21.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.22.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -22,6 +22,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
 - **Leader Election** - If the real host disappears, active viewers deterministically elect a temporary host
 - **Chat Moderation** - Hosts can kick or ban chat participants using stable local moderation tokens
+- **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
 - **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, iframe reloads, and per-stream controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
@@ -203,6 +204,7 @@ All these sync in real-time to viewers:
 - Host-only Kick and Ban controls appear beside viewer chat messages.
 - Kicks expire after 10 minutes; bans persist for that browser's local moderation token.
 - Moderated browsers stop counting as active viewers, cannot chat, and cannot become elected temporary hosts.
+- Reaction buttons send short-lived cheer, heart, fire, and wow stickers that float over the grid for active viewers.
 - 2-hour message history
 - Collapsible bottom bar (doesn't cover videos)
 
