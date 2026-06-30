@@ -5,7 +5,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 ## Planned Features
 
 ### Chat & Moderation
-- Host ban / kick with moderation tokens
 - Emote / sticker reactions with ephemeral overlay
 - Chat history export (JSON/TXT)
 - Slow-mode and per-user rate limits

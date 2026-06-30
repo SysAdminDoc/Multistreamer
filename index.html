@@ -848,6 +848,20 @@
         .chat-msg .host-tag { background: #f59e0b; color: #000; padding: 1px 4px; border-radius: 4px; font-size: 9px; margin-left: 3px; }
         .chat-msg .time { color: var(--text-secondary); font-size: 10px; margin-left: 6px; }
         .chat-msg.system { color: var(--text-secondary); font-style: italic; text-align: center; font-size: 12px; }
+        .chat-msg .mod-actions {
+            display: inline-flex;
+            gap: 4px;
+            margin-left: 8px;
+        }
+        .chat-msg .mod-actions button {
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(248,113,113,0.45);
+            background: rgba(127,29,29,0.35);
+            color: #fecaca;
+            font-size: 10px;
+            cursor: pointer;
+        }
 
         .chat-input {
             display: flex;
@@ -876,6 +890,47 @@
             font-size: 12px;
             color: var(--accent);
             white-space: nowrap;
+        }
+
+        .moderation-notice {
+            position: fixed;
+            inset: 0;
+            z-index: 1600;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(0,0,0,0.72);
+            backdrop-filter: blur(8px);
+        }
+
+        .moderation-card {
+            width: min(460px, 100%);
+            padding: 24px;
+            border: 1px solid rgba(248,113,113,0.45);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+            text-align: center;
+        }
+
+        .moderation-card h2 {
+            margin-bottom: 10px;
+            color: #fecaca;
+            font-size: 22px;
+        }
+
+        .moderation-card p {
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        body.moderated-mode .moderation-notice { display: flex; }
+        body.moderated-mode .video-grid,
+        body.moderated-mode .control-bar,
+        body.moderated-mode .chat-input {
+            pointer-events: none;
+            filter: blur(2px);
         }
 
         /* Settings Panel */
@@ -1232,6 +1287,13 @@
         </div>
     </div>
 
+    <div class="moderation-notice" id="moderationNotice" role="alert" aria-live="assertive" aria-hidden="true">
+        <div class="moderation-card">
+            <h2 id="moderationTitle" data-i18n="moderationRemovedTitle">Removed from room</h2>
+            <p id="moderationText" data-i18n="moderationRemovedText">The host removed this browser from the room.</p>
+        </div>
+    </div>
+
     <div class="popout-panel" id="popoutPanel" role="dialog" aria-label="Pop-out stream" data-i18n-aria-label="popoutStream" aria-hidden="true">
         <div class="popout-header">
             <span id="popoutTitle" data-i18n="popoutStream">Pop-out stream</span>
@@ -1397,10 +1459,12 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.20.0';
+        const APP_VERSION = '0.21.0';
         const CONFIG_VERSION = 9;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
+        const MODERATION_KICK_MS = 10 * 60 * 1000;
+        const MODERATION_ACTIONS = new Set(['kick', 'ban']);
         const RELAY_RECONNECT_AFTER_MS = 12000;
         const RELAY_OFFLINE_AFTER_MS = 45000;
         const LEADER_ELECTION_CHECK_MS = 15000;
@@ -1419,6 +1483,7 @@
         let gun = null;
         let roomRef = null;
         let chatRef = null;
+        let moderationRef = null;
         let isHost = false;
         let electedHost = false;
         let streams = [];
@@ -1427,8 +1492,11 @@
         let username = localStorage.getItem('ms-user') || '';
         let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
         localStorage.setItem('ms-sid', sessionId);
+        let moderationToken = localStorage.getItem('ms-mod-token') || ('mt' + Math.random().toString(36).substr(2, 14));
+        localStorage.setItem('ms-mod-token', moderationToken);
         const seenStreams = new Map();
         const msgEls = new Map();
+        const chatMessages = new Map();
         const Sources = window.MultiStreamSources;
         const mountedProviders = new Map();
         const recentErrors = [];
@@ -1462,6 +1530,13 @@
             scrubEvents: [],
             lastHostPulseAt: 0,
             appliedCorrections: []
+        };
+        let moderationState = {
+            blocked: false,
+            action: '',
+            actionId: '',
+            expiresAt: 0,
+            label: ''
         };
         const providerAdapters = {
             youtube: createIframeAdapter('youtube'),
@@ -1526,6 +1601,10 @@
                 closeSettings: 'Close settings',
                 popoutStream: 'Pop-out stream',
                 closePopout: 'Close pop-out',
+                moderationRemovedTitle: 'Removed from room',
+                moderationRemovedText: 'The host removed this browser from the room.',
+                moderationBannedTitle: 'Banned from room',
+                moderationBannedText: 'The host banned this browser from the room.',
                 room: 'Room',
                 announcement: 'Announcement',
                 displaySynced: 'Display (Synced)',
@@ -1656,6 +1735,16 @@
                 send: 'Send',
                 set: 'Set',
                 change: 'Change',
+                kick: 'Kick',
+                ban: 'Ban',
+                kickUser: 'Kick {username}',
+                banUser: 'Ban {username}',
+                userKicked: '{username} was kicked by the host.',
+                userBanned: '{username} was banned by the host.',
+                kickedNotice: 'You were removed by the host. You can try rejoining after a few minutes.',
+                bannedNotice: 'You were banned by the host on this browser token.',
+                moderationApplied: '{action} applied to {username}.',
+                moderationBlocked: 'Chat is disabled because this browser was removed by the host.',
                 userJoined: '{username} joined'
             }
         };
@@ -1758,6 +1847,7 @@
             gun = Gun(GUN_RELAYS);
             roomRef = gun.get('ms4-' + roomId);
             chatRef = gun.get('ms4-chat-' + roomId);
+            moderationRef = roomRef.get('moderation');
             document.getElementById('roomTitle').textContent = roomId;
             document.title = roomId + ' - MultiStream';
             setupRelayHealth();
@@ -1844,6 +1934,8 @@
             roomRef.get('sync').get('clock').on(handleHostClockSync);
             roomRef.get('sync').get('scrub').on(handleHostScrubSync);
             roomRef.get('sync').get('leader').on(handleLeaderState);
+            moderationRef.get(moderationToken).on(handleModerationRecord);
+            moderationRef.get(sessionId).on(handleModerationRecord);
 
             writePresence();
             setInterval(writePresence, PRESENCE_HEARTBEAT_MS);
@@ -1864,10 +1956,15 @@
             const controls = hasHostControls();
             document.body.classList.toggle('viewer-mode', !controls);
             document.querySelectorAll('.host-only-inline').forEach(el => el.style.display = controls ? '' : 'none');
+            refreshChatModerationControls();
         }
 
         function hasHostControls() {
-            return isHost || electedHost;
+            return (isHost || electedHost) && !isModerationBlocked();
+        }
+
+        function isModerationBlocked() {
+            return Boolean(moderationState.blocked);
         }
 
         function setupRelayHealth() {
@@ -1969,14 +2066,21 @@
             if (!roomRef) return;
             const now = Date.now();
             relayHealth.lastHeartbeatAt = now;
-            roomRef.get('presence').get(sessionId).put({ online: true, time: now, role: isHost ? 'host' : electedHost ? 'elected-host' : 'viewer' });
+            const blocked = isModerationBlocked();
+            roomRef.get('presence').get(sessionId).put({
+                online: !blocked,
+                time: now,
+                role: blocked ? 'blocked' : isHost ? 'host' : electedHost ? 'elected-host' : 'viewer',
+                username: username || '',
+                moderationToken
+            });
         }
 
         function countViewers() {
             const cutoff = Date.now() - PRESENCE_TTL_MS;
             let count = 0;
             roomRef.get('presence').map().once((p) => {
-                if (p?.time > cutoff) count++;
+                if (p?.time > cutoff && p.online !== false && p.role !== 'blocked') count++;
             });
             setTimeout(() => document.getElementById('viewerCount').textContent = count, 500);
         }
@@ -2007,7 +2111,7 @@
             const activeSessions = [];
             const cutoff = Date.now() - PRESENCE_TTL_MS;
             roomRef.get('presence').map().once((presence, id) => {
-                if (id === '_' || !presence || presence.time <= cutoff) return;
+                if (id === '_' || !presence || presence.time <= cutoff || presence.online === false || presence.role === 'blocked') return;
                 activeSessions.push({ id: String(id), role: presence.role || 'viewer', time: presence.time });
             });
             setTimeout(() => resolveLeaderElection(activeSessions), 600);
@@ -3445,8 +3549,130 @@
             }, {});
         }
 
+        function handleModerationRecord(record) {
+            if (isHost) {
+                clearModerationBlock(record?.actionId);
+                return;
+            }
+            if (!record || typeof record !== 'object' || !record.action) return;
+
+            const action = String(record.action || '');
+            if (!MODERATION_ACTIONS.has(action)) return;
+            const expiresAt = Number(record.expiresAt || 0);
+            if (action === 'kick' && expiresAt && expiresAt <= Date.now()) {
+                clearModerationBlock(record.actionId);
+                return;
+            }
+
+            const normalized = {
+                action,
+                actionId: String(record.actionId || `${action}-${record.at || Date.now()}`),
+                expiresAt,
+                label: String(record.label || '')
+            };
+            applyModerationBlock(normalized);
+
+            if (action === 'kick' && expiresAt) {
+                const delay = Math.max(0, Math.min(expiresAt - Date.now(), MODERATION_KICK_MS));
+                setTimeout(() => handleModerationRecord(record), delay + 100);
+            }
+        }
+
+        function applyModerationBlock(record) {
+            if (moderationState.blocked && moderationState.actionId === record.actionId) return;
+            moderationState = { blocked: true, ...record };
+            electedHost = false;
+            stopHostPlaybackSync();
+            document.body.classList.add('moderated-mode');
+            updateModerationNotice();
+            setChatDisabled(true);
+            updateHostUI();
+            writePresence();
+        }
+
+        function clearModerationBlock(actionId = '') {
+            if (!moderationState.blocked) return;
+            if (actionId && moderationState.actionId && actionId !== moderationState.actionId) return;
+            moderationState = { blocked: false, action: '', actionId: '', expiresAt: 0, label: '' };
+            document.body.classList.remove('moderated-mode');
+            document.getElementById('moderationNotice')?.setAttribute('aria-hidden', 'true');
+            document.getElementById('moderationNotice')?.setAttribute('hidden', '');
+            setChatDisabled(false);
+            updateHostUI();
+            writePresence();
+        }
+
+        function updateModerationNotice() {
+            const notice = document.getElementById('moderationNotice');
+            const title = document.getElementById('moderationTitle');
+            const text = document.getElementById('moderationText');
+            if (!notice || !title || !text) return;
+            const banned = moderationState.action === 'ban';
+            title.textContent = t(banned ? 'moderationBannedTitle' : 'moderationRemovedTitle');
+            text.textContent = t(banned ? 'bannedNotice' : 'kickedNotice');
+            notice.removeAttribute('hidden');
+            notice.setAttribute('aria-hidden', 'false');
+        }
+
+        function setChatDisabled(disabled) {
+            ['usernameInput', 'messageInput', 'chatBtn'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = disabled;
+            });
+        }
+
+        function moderateUser(target, action, label = '') {
+            if (!hasHostControls() || !moderationRef) return;
+            const cleanTarget = sanitizeModerationTarget(target);
+            if (!cleanTarget || cleanTarget === moderationToken || cleanTarget === sessionId || !MODERATION_ACTIONS.has(action)) return;
+            const displayName = String(label || 'viewer').slice(0, 32);
+            const actionId = `${sessionId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const record = {
+                action,
+                actionId,
+                target: cleanTarget,
+                label: displayName,
+                by: sessionId,
+                at: Date.now(),
+                expiresAt: action === 'kick' ? Date.now() + MODERATION_KICK_MS : 0
+            };
+            moderationRef.get(cleanTarget).put(record);
+            const messageKey = action === 'ban' ? 'userBanned' : 'userKicked';
+            chatRef.get('messages').get('mod-' + actionId).put({ id: 'mod-' + actionId, text: t(messageKey, { username: displayName }), timestamp: Date.now(), system: true });
+            notify(t('moderationApplied', { action: action === 'ban' ? t('ban') : t('kick'), username: displayName }));
+        }
+
+        function sanitizeModerationTarget(target) {
+            return String(target || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+        }
+
+        function moderationTargetForMessage(msg) {
+            return sanitizeModerationTarget(msg?.moderationToken || msg?.sessionId || '');
+        }
+
+        function canModerateMessage(msg) {
+            const target = moderationTargetForMessage(msg);
+            return hasHostControls() && !msg.system && !msg.isHost && target && target !== moderationToken && target !== sessionId;
+        }
+
+        function moderationControlsForMessage(msg) {
+            if (!canModerateMessage(msg)) return '';
+            const target = escAttr(moderationTargetForMessage(msg));
+            const label = escAttr(msg.username || 'viewer');
+            const kickLabel = escAttr(t('kickUser', { username: msg.username || 'viewer' }));
+            const banLabel = escAttr(t('banUser', { username: msg.username || 'viewer' }));
+            return `<span class="mod-actions"><button type="button" data-target="${target}" data-label="${label}" onclick="moderateUser(this.dataset.target,'kick',this.dataset.label)" aria-label="${kickLabel}">${t('kick')}</button><button type="button" data-target="${target}" data-label="${label}" onclick="moderateUser(this.dataset.target,'ban',this.dataset.label)" aria-label="${banLabel}">${t('ban')}</button></span>`;
+        }
+
+        function refreshChatModerationControls() {
+            chatMessages.forEach(msg => renderMsg(msg));
+        }
+
         // ========== CHAT ==========
-        function chatAction() { username ? sendMessage() : setUsername(); }
+        function chatAction() {
+            if (isModerationBlocked()) return notify(t('moderationBlocked'), 'error');
+            username ? sendMessage() : setUsername();
+        }
 
         function setUsername() {
             const name = document.getElementById('usernameInput').value.trim();
@@ -3454,6 +3680,7 @@
             username = name.substring(0, 20);
             localStorage.setItem('ms-user', username);
             restoreUsername();
+            writePresence();
             chatRef.get('messages').get('sys-' + Date.now()).put({ id: 'sys-' + Date.now(), text: t('userJoined', { username }), timestamp: Date.now(), system: true });
         }
 
@@ -3472,17 +3699,20 @@
             document.getElementById('messageInput').style.display = 'none';
             document.getElementById('chatBtn').textContent = t('set');
             document.getElementById('chatUserDisplay').style.display = 'none';
+            writePresence();
         }
 
         function sendMessage() {
+            if (isModerationBlocked()) return notify(t('moderationBlocked'), 'error');
             const text = document.getElementById('messageInput').value.trim();
             if (!text || !username) return;
-            chatRef.get('messages').get(sessionId + '-' + Date.now()).put({ id: sessionId + '-' + Date.now(), username, text, timestamp: Date.now(), sessionId, isHost: hasHostControls() });
+            chatRef.get('messages').get(sessionId + '-' + Date.now()).put({ id: sessionId + '-' + Date.now(), username, text, timestamp: Date.now(), sessionId, moderationToken, isHost: hasHostControls() });
             document.getElementById('messageInput').value = '';
         }
 
         function renderMsg(msg) {
             if (!msg?.id) return;
+            chatMessages.set(msg.id, msg);
             const c = document.getElementById('chatMessages');
             let el = msgEls.get(msg.id);
             if (!el) { el = document.createElement('div'); msgEls.set(msg.id, el); c.appendChild(el); }
@@ -3493,7 +3723,7 @@
             } else {
                 el.className = 'chat-msg';
                 const hostTag = msg.isHost ? `<span class="host-tag">${t('host')}</span>` : '';
-                el.innerHTML = `<span class="user ${msg.isHost ? 'host' : ''}">${esc(msg.username)}${hostTag}</span><span>${esc(msg.text)}</span><span class="time">${formatChatTime(msg.timestamp)}</span>`;
+                el.innerHTML = `<span class="user ${msg.isHost ? 'host' : ''}">${esc(msg.username)}${hostTag}</span><span>${esc(msg.text)}</span><span class="time">${formatChatTime(msg.timestamp)}</span>${moderationControlsForMessage(msg)}`;
             }
             c.scrollTop = c.scrollHeight;
         }

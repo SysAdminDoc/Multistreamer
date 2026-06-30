@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.20.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.21.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -21,6 +21,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
 - **Leader Election** - If the real host disappears, active viewers deterministically elect a temporary host
+- **Chat Moderation** - Hosts can kick or ban chat participants using stable local moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
 - **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, iframe reloads, and per-stream controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
@@ -79,6 +80,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 | Settings | Customize theme, colors, layout |
 | Share | Get viewer/host links |
 | Diagnostics | Copy room, relay, browser, and stream health data with host keys redacted |
+| Kick/Ban | Remove a chat participant temporarily or ban their browser token from the room |
 | Clear | Remove all streams |
 
 **Room Management:**
@@ -198,6 +200,9 @@ All these sync in real-time to viewers:
 - Usernames saved locally
 - Messages sync in real-time
 - Host messages highlighted with badge
+- Host-only Kick and Ban controls appear beside viewer chat messages.
+- Kicks expire after 10 minutes; bans persist for that browser's local moderation token.
+- Moderated browsers stop counting as active viewers, cannot chat, and cannot become elected temporary hosts.
 - 2-hour message history
 - Collapsible bottom bar (doesn't cover videos)
 

@@ -154,6 +154,34 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await viewer.waitForSelector('#viewerPage.active');
     await viewer.waitForFunction(() => document.body.classList.contains('viewer-mode'));
     assert.equal(await viewer.locator('.control-bar').isVisible(), false);
+    await host.evaluate(() => {
+        renderMsg({
+            id: 'qa-moderation-message',
+            username: 'Viewer QA',
+            text: 'moderate me',
+            timestamp: Date.now(),
+            sessionId: 'viewer-qa-session',
+            moderationToken: 'viewer-qa-token',
+            isHost: false
+        });
+    });
+    await host.waitForSelector('#chatMessages .mod-actions button[aria-label="Ban Viewer QA"]');
+    await host.click('#chatMessages .mod-actions button[aria-label="Ban Viewer QA"]');
+    await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Ban applied to Viewer QA')));
+    await viewer.evaluate(() => {
+        handleModerationRecord({
+            action: 'ban',
+            actionId: 'qa-ban',
+            target: localStorage.getItem('ms-mod-token'),
+            label: 'Viewer QA',
+            by: 'host',
+            at: Date.now(),
+            expiresAt: 0
+        });
+    });
+    await viewer.waitForFunction(() => document.body.classList.contains('moderated-mode'));
+    assert.equal(await viewer.getAttribute('#moderationNotice', 'aria-hidden'), 'false');
+    assert.equal(await viewer.locator('#messageInput').isDisabled(), true);
 
     await context.close();
 

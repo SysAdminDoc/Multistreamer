@@ -24,7 +24,7 @@ test('exposes sync health and redacted diagnostics fields', () => {
     assert.match(html, /providerCounts/);
     assert.match(html, /recentErrors: recentErrors\.slice\(-10\)/);
     assert.match(html, /const cutoff = Date\.now\(\) - PRESENCE_TTL_MS/);
-    assert.match(html, /if \(p\?\.time > cutoff\) count\+\+/);
+    assert.match(html, /if \(p\?\.time > cutoff && p\.online !== false && p\.role !== 'blocked'\) count\+\+/);
     assert.match(html, /function redactSensitiveUrl\(value\)/);
     assert.match(html, /url\.searchParams\.set\('host', '\[redacted\]'\)/);
 });
@@ -38,7 +38,7 @@ test('keeps leader election wired', () => {
     assert.match(html, /function resolveLeaderElection\(activeSessions\)/);
     assert.match(html, /function publishLeaderState\(role, quorumSize, claimedAt = Date\.now\(\)\)/);
     assert.match(html, /function hasHostControls\(\)/);
-    assert.match(html, /role: isHost \? 'host' : electedHost \? 'elected-host' : 'viewer'/);
+    assert.match(html, /role: blocked \? 'blocked' : isHost \? 'host' : electedHost \? 'elected-host' : 'viewer'/);
     assert.match(html, /mode: isHost \? 'host' : electedHost \? 'elected-host' : 'viewer'/);
     assert.match(html, /document\.body\.classList\.toggle\('viewer-mode', !controls\)/);
 });
@@ -118,6 +118,27 @@ test('keeps mobile header compact and chat toggle stateful', () => {
     assert.match(html, /grid-template-columns: minmax\(0, 1fr\);/);
     assert.match(html, /id="chatToggleBtn"[^>]+aria-expanded="true"/);
     assert.match(html, /chatToggleBtn'\)\.setAttribute\('aria-expanded', String\(chatExpanded\)\)/);
+});
+
+test('keeps chat moderation tokens wired', () => {
+    assert.match(html, /const MODERATION_KICK_MS = 10 \* 60 \* 1000;/);
+    assert.match(html, /const MODERATION_ACTIONS = new Set\(\['kick', 'ban'\]\)/);
+    assert.match(html, /let moderationRef = null;/);
+    assert.match(html, /localStorage\.getItem\('ms-mod-token'\)/);
+    assert.match(html, /moderationRef = roomRef\.get\('moderation'\)/);
+    assert.match(html, /moderationRef\.get\(moderationToken\)\.on\(handleModerationRecord\)/);
+    assert.match(html, /function handleModerationRecord\(record\)/);
+    assert.match(html, /function applyModerationBlock\(record\)/);
+    assert.match(html, /function moderateUser\(target, action, label = ''\)/);
+    assert.match(html, /moderationRef\.get\(cleanTarget\)\.put\(record\)/);
+    assert.match(html, /moderationToken/);
+    assert.match(html, /class="moderation-notice"/);
+    assert.match(html, /class="mod-actions"/);
+    assert.match(html, /body\.moderated-mode/);
+    assert.match(html, /role: blocked \? 'blocked'/);
+    assert.match(html, /presence\.online === false \|\| presence\.role === 'blocked'/);
+    assert.match(html, /moderationControlsForMessage\(msg\)/);
+    assert.match(html, /moderationBlocked: 'Chat is disabled because this browser was removed by the host\.'/);
 });
 
 test('keeps manual grid layouts wired', () => {
