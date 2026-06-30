@@ -84,6 +84,9 @@ test('keeps primary form controls labelled', () => {
         'gridGapSlider',
         'gridPresetSelect',
         'customGridTemplate',
+        'slowModeSeconds',
+        'rateLimitCount',
+        'rateLimitSeconds',
         'labelsSelect',
         'themeSelect',
         'accentColor',
@@ -171,6 +174,21 @@ test('keeps chat history export wired without moderation tokens', () => {
     assert.match(html, /chatExported: 'Chat history exported as \{format\}\.'/);
 });
 
+test('keeps synced chat rate controls wired', () => {
+    assert.match(html, /settings\.chat/);
+    assert.match(html, /id="slowModeSeconds"/);
+    assert.match(html, /id="rateLimitCount"/);
+    assert.match(html, /id="rateLimitSeconds"/);
+    assert.match(html, /function applyChatSettings\(next\)/);
+    assert.match(html, /function normalizeChatSetting\(key, value, fallback\)/);
+    assert.match(html, /function setChatSetting\(key, value\)/);
+    assert.match(html, /roomRef\.get\('settings'\)\.get\('chat'\)\.get\('slowModeSeconds'\)\.on/);
+    assert.match(html, /function checkChatSendAllowed\(now = Date\.now\(\)\)/);
+    assert.match(html, /function recordChatSend\(now = Date\.now\(\)\)/);
+    assert.match(html, /chatSlowModeWait: 'Slow mode: wait \{seconds\}s before sending again\.'/);
+    assert.match(html, /chatRateLimited: 'Rate limit reached: \{count\} messages per \{seconds\}s\.'/);
+});
+
 test('keeps manual grid layouts wired', () => {
     assert.match(html, /const GRID_PRESETS = new Set\(\['auto', '1\+2', '2\+3', '3\+1', 'custom'\]\)/);
     assert.match(html, /id="gridPresetSelect"/);
@@ -214,13 +232,15 @@ test('keeps provider adapters and health recovery wired', () => {
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 9;/);
+    assert.match(html, /const CONFIG_VERSION = 10;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /function validateLatencyOffsetMs\(value\)/);
     assert.match(html, /function validateImportVolume\(value, muted\)/);
     assert.match(html, /function validateGridSettings\(grid\)/);
+    assert.match(html, /function validateChatSettings\(chat\)/);
     assert.match(html, /if \(rawSettings\.grid !== undefined\) next\.grid = validateGridSettings\(rawSettings\.grid\)/);
+    assert.match(html, /if \(rawSettings\.chat !== undefined\) next\.chat = validateChatSettings\(rawSettings\.chat\)/);
     assert.match(html, /volume: validateImportVolume\(raw\.volume, raw\.muted\)/);
     assert.match(html, /latencyOffsetMs: validateLatencyOffsetMs\(raw\.latencyOffsetMs\)/);
     assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);
@@ -228,6 +248,7 @@ test('keeps import config validation wired', () => {
     assert.match(html, /function validateWeatherSettings\(weather\)/);
     assert.match(html, /function validateDisplaySettings\(display\)/);
     assert.match(html, /function applyImportedSettings\(importedSettings\)/);
+    assert.match(html, /settingsChatSlowMode: 'settings\.chat\.slowModeSeconds must be an integer from 0 to 60\.'/);
     assert.match(html, /configImportedSkipped: 'Config imported\. Skipped \{count\} invalid \{streamWord\}\.'/);
     assert.match(html, /t\('configImportedSkipped', \{ count: result\.skippedStreams/);
 });

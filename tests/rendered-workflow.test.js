@@ -99,7 +99,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('newer than supported')));
 
     await host.fill('#importData', JSON.stringify({
-        version: 9,
+        version: 10,
         room,
         streams: [
             { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, volume: 0, label: 'Workflow QA', latencyOffsetMs: 0 },
@@ -110,6 +110,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
             featuredId: 'dQw4w9WgXcQ',
             grid: { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' },
             weather: { enabled: true, lat: 41.25, lon: -72.5 },
+            chat: { slowModeSeconds: 5, rateLimitCount: 3, rateLimitSeconds: 30 },
             display: { gridGap: 4, labels: 'always', theme: 'amoled', accent: '#00d4ff' }
         }
     }));
@@ -134,8 +135,9 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 9);
+    assert.equal(exported.version, 10);
     assert.deepEqual(exported.settings.grid, { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' });
+    assert.deepEqual(exported.settings.chat, { slowModeSeconds: 5, rateLimitCount: 3, rateLimitSeconds: 30 });
     const exportedWorkflowStream = exported.streams.find(stream => stream.id === 'dQw4w9WgXcQ');
     assert.equal(exportedWorkflowStream.latencyOffsetMs, 2500);
     assert.equal(exportedWorkflowStream.volume, 60);
@@ -158,6 +160,25 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     assert.equal(await viewer.locator('.control-bar').isVisible(), false);
     await viewer.click('#reactionStrip button[aria-label="Send fire reaction"]');
     await viewer.waitForSelector('#reactionLayer .reaction-burst[data-reaction="fire"]');
+    const slowModeGate = await viewer.evaluate(() => {
+        const now = Date.now();
+        settings.chat.slowModeSeconds = 5;
+        chatSendTimes = [];
+        recordChatSend(now);
+        return checkChatSendAllowed(now + 1000);
+    });
+    assert.equal(slowModeGate.ok, false);
+    assert.match(slowModeGate.message, /Slow mode/);
+    const rateLimitGate = await viewer.evaluate(() => {
+        const now = Date.now();
+        settings.chat.slowModeSeconds = 0;
+        settings.chat.rateLimitCount = 3;
+        settings.chat.rateLimitSeconds = 30;
+        chatSendTimes = [now - 3000, now - 2000, now - 1000];
+        return checkChatSendAllowed(now);
+    });
+    assert.equal(rateLimitGate.ok, false);
+    assert.match(rateLimitGate.message, /Rate limit/);
 
     await host.evaluate(() => {
         renderMsg({

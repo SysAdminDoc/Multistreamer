@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.23.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.24.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -22,6 +22,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
 - **Leader Election** - If the real host disappears, active viewers deterministically elect a temporary host
 - **Chat Moderation** - Hosts can kick or ban chat participants using stable local moderation tokens
+- **Chat Rate Controls** - Synced slow-mode and per-user message windows reduce spam during busy rooms
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -205,6 +206,7 @@ All these sync in real-time to viewers:
 - Host-only Kick and Ban controls appear beside viewer chat messages.
 - Kicks expire after 10 minutes; bans persist for that browser's local moderation token.
 - Moderated browsers stop counting as active viewers, cannot chat, and cannot become elected temporary hosts.
+- Hosts can sync slow-mode seconds plus per-user message count/window limits from Settings.
 - Reaction buttons send short-lived cheer, heart, fire, and wow stickers that float over the grid for active viewers.
 - Header JSON/TXT buttons export the visible two-hour chat history without session or moderation tokens.
 - 2-hour message history
@@ -228,7 +230,7 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 9,
+  "version": 10,
   "room": "my-room",
   "streams": [
     { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "volume": 0, "label": "Main Camera", "latencyOffsetMs": 0 },
@@ -243,6 +245,7 @@ Save your room configuration as JSON:
     "featuredId": "dQw4w9WgXcQ",
     "grid": { "preset": "custom", "customTemplate": "minmax(0, 2fr) minmax(220px, 1fr)" },
     "weather": { "enabled": true, "lat": 40.7128, "lon": -74.006 },
+    "chat": { "slowModeSeconds": 5, "rateLimitCount": 5, "rateLimitSeconds": 30 },
     "display": { "gridGap": 2, "labels": "hover", "theme": "dark", "accent": "#00d4ff" }
   }
 }
@@ -257,6 +260,7 @@ Imported configs are validated before they change the room:
 - Stream volumes are range-checked from 0 to 100.
 - Per-stream latency offsets are range-checked to +/-30 seconds.
 - Grid presets and custom CSS grid columns are validated before sync.
+- Chat slow-mode and rate-limit settings are range-checked before sync.
 - Layout, featured stream, weather coordinates, display labels, theme, grid gap, and accent colors are range-checked before sync.
 
 ### Localization

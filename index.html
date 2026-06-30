@@ -1474,6 +1474,21 @@
                 </div>
                 <button class="btn-primary" onclick="applyWeather()" style="width:100%;margin-top:8px;" data-i18n="applyShowWeather">Apply & Show Weather</button>
             </div>
+            <div class="settings-section">
+                <h4 data-i18n="chatSynced">Chat (Synced)</h4>
+                <div class="setting-row">
+                    <label class="setting-label" for="slowModeSeconds" data-i18n="slowModeSeconds">Slow Mode Seconds</label>
+                    <input type="number" id="slowModeSeconds" min="0" max="60" step="1" value="5" onchange="setChatSetting('slowModeSeconds',this.value)">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="rateLimitCount" data-i18n="rateLimitMessages">Messages Per Window</label>
+                    <input type="number" id="rateLimitCount" min="1" max="20" step="1" value="5" onchange="setChatSetting('rateLimitCount',this.value)">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="rateLimitSeconds" data-i18n="rateLimitWindowSeconds">Rate Window Seconds</label>
+                    <input type="number" id="rateLimitSeconds" min="5" max="300" step="5" value="30" onchange="setChatSetting('rateLimitSeconds',this.value)">
+                </div>
+            </div>
         </div>
         <div class="settings-actions">
             <button class="btn-primary" onclick="exportConfig()" data-i18n="export">Export</button>
@@ -1561,8 +1576,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.23.0';
-        const CONFIG_VERSION = 9;
+        const APP_VERSION = '0.24.0';
+        const CONFIG_VERSION = 10;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const MODERATION_KICK_MS = 10 * 60 * 1000;
@@ -1596,7 +1611,7 @@
         let isHost = false;
         let electedHost = false;
         let streams = [];
-        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' } };
+        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
         let chatExpanded = true;
         let username = localStorage.getItem('ms-user') || '';
         let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
@@ -1607,6 +1622,7 @@
         const msgEls = new Map();
         const chatMessages = new Map();
         const seenReactions = new Set();
+        let chatSendTimes = [];
         const Sources = window.MultiStreamSources;
         const mountedProviders = new Map();
         const recentErrors = [];
@@ -1750,6 +1766,10 @@
                 latitude: 'Latitude',
                 longitude: 'Longitude',
                 applyShowWeather: 'Apply & Show Weather',
+                chatSynced: 'Chat (Synced)',
+                slowModeSeconds: 'Slow Mode Seconds',
+                rateLimitMessages: 'Messages Per Window',
+                rateLimitWindowSeconds: 'Rate Window Seconds',
                 export: 'Export',
                 import: 'Import',
                 shareRoom: 'Share Room',
@@ -1848,6 +1868,10 @@
                 settingsDisplayLabels: 'settings.display.labels must be hover, always, or never.',
                 settingsDisplayTheme: 'settings.display.theme must be dark, midnight, or amoled.',
                 settingsDisplayAccent: 'settings.display.accent must be a hex color like #00d4ff.',
+                settingsChatObject: 'settings.chat must be an object.',
+                settingsChatSlowMode: 'settings.chat.slowModeSeconds must be an integer from 0 to 60.',
+                settingsChatRateLimitCount: 'settings.chat.rateLimitCount must be an integer from 1 to 20.',
+                settingsChatRateLimitSeconds: 'settings.chat.rateLimitSeconds must be an integer from 5 to 300.',
                 settingsGridObject: 'settings.grid must be an object.',
                 settingsGridPreset: 'settings.grid.preset must be auto, 1+2, 2+3, 3+1, or custom.',
                 settingsGridTemplateInvalid: 'Custom grid columns must be a valid grid-template-columns value under 80 characters.',
@@ -1869,6 +1893,8 @@
                 reactionBlocked: 'Reactions are disabled because this browser was removed by the host.',
                 chatExported: 'Chat history exported as {format}.',
                 chatExportBlocked: 'Chat export is disabled because this browser was removed by the host.',
+                chatSlowModeWait: 'Slow mode: wait {seconds}s before sending again.',
+                chatRateLimited: 'Rate limit reached: {count} messages per {seconds}s.',
                 userJoined: '{username} joined'
             }
         };
@@ -2055,6 +2081,9 @@
             roomRef.get('settings').get('display').get('labels').on(v => { if (v) applyDisplay({ labels: v }); });
             roomRef.get('settings').get('display').get('theme').on(v => { if (v) applyDisplay({ theme: v }); });
             roomRef.get('settings').get('display').get('accent').on(v => { if (v) applyDisplay({ accent: v }); });
+            roomRef.get('settings').get('chat').get('slowModeSeconds').on(v => { if (v !== undefined && v !== null) applyChatSettings({ slowModeSeconds: v }); });
+            roomRef.get('settings').get('chat').get('rateLimitCount').on(v => { if (v !== undefined && v !== null) applyChatSettings({ rateLimitCount: v }); });
+            roomRef.get('settings').get('chat').get('rateLimitSeconds').on(v => { if (v !== undefined && v !== null) applyChatSettings({ rateLimitSeconds: v }); });
             roomRef.get('sync').get('clock').on(handleHostClockSync);
             roomRef.get('sync').get('scrub').on(handleHostScrubSync);
             roomRef.get('sync').get('leader').on(handleLeaderState);
@@ -2665,6 +2694,33 @@
             }
         }
 
+        function applyChatSettings(next) {
+            if (next.slowModeSeconds !== undefined) {
+                settings.chat.slowModeSeconds = normalizeChatSetting('slowModeSeconds', next.slowModeSeconds, settings.chat.slowModeSeconds);
+                document.getElementById('slowModeSeconds').value = settings.chat.slowModeSeconds;
+            }
+            if (next.rateLimitCount !== undefined) {
+                settings.chat.rateLimitCount = normalizeChatSetting('rateLimitCount', next.rateLimitCount, settings.chat.rateLimitCount);
+                document.getElementById('rateLimitCount').value = settings.chat.rateLimitCount;
+            }
+            if (next.rateLimitSeconds !== undefined) {
+                settings.chat.rateLimitSeconds = normalizeChatSetting('rateLimitSeconds', next.rateLimitSeconds, settings.chat.rateLimitSeconds);
+                document.getElementById('rateLimitSeconds').value = settings.chat.rateLimitSeconds;
+            }
+        }
+
+        function normalizeChatSetting(key, value, fallback) {
+            const ranges = {
+                slowModeSeconds: { min: 0, max: 60 },
+                rateLimitCount: { min: 1, max: 20 },
+                rateLimitSeconds: { min: 5, max: 300 }
+            };
+            const range = ranges[key];
+            const number = Number(value);
+            if (!range || !Number.isInteger(number) || number < range.min || number > range.max) return fallback;
+            return number;
+        }
+
         function applyGridSettings(next) {
             const grid = settings.grid || { preset: 'auto', customTemplate: '' };
             if (next.preset && GRID_PRESETS.has(next.preset)) grid.preset = next.preset;
@@ -2741,6 +2797,11 @@
             notify(t('allStreamsCleared'));
         }
         function setSetting(key, val) { if (hasHostControls()) roomRef.get('settings').get('display').get(key).put(key === 'gridGap' ? parseInt(val) : val); }
+        function setChatSetting(key, value) {
+            if (!hasHostControls()) return;
+            const next = normalizeChatSetting(key, Number(value), settings.chat[key]);
+            roomRef.get('settings').get('chat').get(key).put(next);
+        }
 
         function editLabel(id) {
             const s = streams.find(x => x.id === id);
@@ -3482,6 +3543,7 @@
             if (rawSettings.weather !== undefined) next.weather = validateWeatherSettings(rawSettings.weather);
             if (rawSettings.grid !== undefined) next.grid = validateGridSettings(rawSettings.grid);
             if (rawSettings.display !== undefined) next.display = validateDisplaySettings(rawSettings.display);
+            if (rawSettings.chat !== undefined) next.chat = validateChatSettings(rawSettings.chat);
             return next;
         }
 
@@ -3532,6 +3594,27 @@
             return next;
         }
 
+        function validateChatSettings(chat) {
+            if (!chat || typeof chat !== 'object' || Array.isArray(chat)) throw new Error(t('settingsChatObject'));
+            const next = {};
+            if (chat.slowModeSeconds !== undefined) {
+                const slowModeSeconds = Number(chat.slowModeSeconds);
+                if (!Number.isInteger(slowModeSeconds) || slowModeSeconds < 0 || slowModeSeconds > 60) throw new Error(t('settingsChatSlowMode'));
+                next.slowModeSeconds = slowModeSeconds;
+            }
+            if (chat.rateLimitCount !== undefined) {
+                const rateLimitCount = Number(chat.rateLimitCount);
+                if (!Number.isInteger(rateLimitCount) || rateLimitCount < 1 || rateLimitCount > 20) throw new Error(t('settingsChatRateLimitCount'));
+                next.rateLimitCount = rateLimitCount;
+            }
+            if (chat.rateLimitSeconds !== undefined) {
+                const rateLimitSeconds = Number(chat.rateLimitSeconds);
+                if (!Number.isInteger(rateLimitSeconds) || rateLimitSeconds < 5 || rateLimitSeconds > 300) throw new Error(t('settingsChatRateLimitSeconds'));
+                next.rateLimitSeconds = rateLimitSeconds;
+            }
+            return next;
+        }
+
         function applyImportedSettings(importedSettings) {
             if (importedSettings.layout) roomRef.get('settings').get('layout').put(importedSettings.layout);
             if (importedSettings.featuredId) roomRef.get('settings').get('featuredId').put(importedSettings.featuredId);
@@ -3541,6 +3624,9 @@
             if (importedSettings.weather) roomRef.get('settings').get('weather').put(importedSettings.weather);
             if (importedSettings.display) {
                 Object.entries(importedSettings.display).forEach(([key, value]) => roomRef.get('settings').get('display').get(key).put(value));
+            }
+            if (importedSettings.chat) {
+                Object.entries(importedSettings.chat).forEach(([key, value]) => roomRef.get('settings').get('chat').get(key).put(value));
             }
         }
 
@@ -3921,8 +4007,34 @@
             if (isModerationBlocked()) return notify(t('moderationBlocked'), 'error');
             const text = document.getElementById('messageInput').value.trim();
             if (!text || !username) return;
+            const gate = checkChatSendAllowed();
+            if (!gate.ok) return notify(gate.message, 'error');
             chatRef.get('messages').get(sessionId + '-' + Date.now()).put({ id: sessionId + '-' + Date.now(), username, text, timestamp: Date.now(), sessionId, moderationToken, isHost: hasHostControls() });
+            recordChatSend();
             document.getElementById('messageInput').value = '';
+        }
+
+        function checkChatSendAllowed(now = Date.now()) {
+            if (hasHostControls()) return { ok: true };
+            const slowModeMs = settings.chat.slowModeSeconds * 1000;
+            const lastSentAt = chatSendTimes[chatSendTimes.length - 1] || 0;
+            if (slowModeMs > 0 && lastSentAt && now - lastSentAt < slowModeMs) {
+                const seconds = Math.ceil((slowModeMs - (now - lastSentAt)) / 1000);
+                return { ok: false, message: t('chatSlowModeWait', { seconds }) };
+            }
+
+            const windowMs = settings.chat.rateLimitSeconds * 1000;
+            chatSendTimes = chatSendTimes.filter(time => now - time < windowMs);
+            if (chatSendTimes.length >= settings.chat.rateLimitCount) {
+                return { ok: false, message: t('chatRateLimited', { count: settings.chat.rateLimitCount, seconds: settings.chat.rateLimitSeconds }) };
+            }
+            return { ok: true };
+        }
+
+        function recordChatSend(now = Date.now()) {
+            chatSendTimes.push(now);
+            const windowMs = settings.chat.rateLimitSeconds * 1000;
+            chatSendTimes = chatSendTimes.filter(time => now - time < windowMs).slice(-settings.chat.rateLimitCount);
         }
 
         function renderMsg(msg) {
