@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.15.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.16.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -17,7 +17,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
-- **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay and mirrors host scrubs
+- **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
 - **Provider Health** - Player adapter health snapshots, HLS/DASH recovery, iframe reloads, and per-stream controls
 - **Accessible Field UI** - Labelled controls, semantic dialogs, focus-safe modals, and compact mobile headers
 - **Localization-Ready UI** - Visible app copy and chat timestamps flow through a message catalog and locale-aware formatter
@@ -67,6 +67,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 | Add Stream | Paste YouTube, Twitch, Rumble, HLS, DASH, or `iframe:` allowlisted embed URL and click Add |
 | Set Main | Make a video the featured/large video |
 | Label | Give streams custom names |
+| Offset | Add a per-stream latency offset for native HLS/DASH sync correction |
 | Mute/Unmute All | Control audio for all streams |
 | Weather | Add a Windy.com radar panel |
 | Settings | Customize theme, colors, layout |
@@ -147,6 +148,7 @@ All these sync in real-time to viewers:
 - Hosts publish a lightweight sync heartbeat every 5 seconds with a rolling clock sample and native HLS/DASH playback-buffer measurements.
 - Viewers use the rolling host-clock offset plus their own HLS/DASH latency samples to seek or gently adjust playback rate toward an 8-second live-buffer target.
 - Host HLS/DASH scrubs publish a separate sync event so viewers seek to the same media timestamp when that timestamp is still seekable.
+- Per-stream offsets can add or subtract up to 30 seconds from native HLS/DASH sync targets to compensate for provider latency differences.
 - HLS uses hls.js live-latency data when available and falls back to the media element buffer range.
 - DASH uses dash.js live-latency data when available and falls back to the media element buffer range.
 - YouTube, Twitch, Rumble, and generic iframe embeds stay on the shared room-state sync path; browser iframe isolation does not expose their media timelines for direct seek/rate correction.
@@ -200,10 +202,10 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 6,
+  "version": 7,
   "room": "my-room",
   "streams": [
-    { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "label": "Main Camera" },
+    { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "label": "Main Camera", "latencyOffsetMs": 0 },
     { "id": "twitch-stormwatch", "type": "twitch", "sourceId": "stormwatch", "sourceKind": "channel", "muted": true, "label": "Storm Watch" },
     { "id": "rumble-v1io41", "type": "rumble", "sourceId": "v1io41", "sourceKind": "embed", "muted": true, "label": "Rumble Clip" },
     { "id": "hls-mwizu8", "type": "hls", "sourceId": "https://example.com/live/camera.m3u8", "sourceKind": "playlist", "muted": true, "label": "HLS Camera" },
@@ -225,6 +227,7 @@ Imported configs are validated before they change the room:
 - Future config versions are rejected with an update message.
 - Stream records are normalized through the same source parser used by the Add Stream control.
 - Invalid stream records are skipped and reported after import.
+- Per-stream latency offsets are range-checked to +/-30 seconds.
 - Layout, featured stream, weather coordinates, display labels, theme, grid gap, and accent colors are range-checked before sync.
 
 ### Localization

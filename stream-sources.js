@@ -10,6 +10,7 @@
     const TWITCH_VIDEO_RE = /^(?:v)?(\d+)$/i;
     const RUMBLE_EMBED_RE = /^v[A-Za-z0-9_-]+$/;
     const IFRAME_PREFIX_RE = /^(?:iframe|embed):(.+)$/i;
+    const MAX_LATENCY_OFFSET_MS = 30000;
     const TWITCH_RESERVED_PATHS = new Set([
         'about',
         'activate',
@@ -331,8 +332,15 @@
             sourceKind,
             addedAt: record.addedAt || Date.now(),
             muted: record.muted !== false,
-            label: record.label || ''
+            label: record.label || '',
+            latencyOffsetMs: normalizeLatencyOffsetMs(record.latencyOffsetMs)
         };
+    }
+
+    function normalizeLatencyOffsetMs(value) {
+        const numeric = Number(value || 0);
+        if (!Number.isFinite(numeric)) return 0;
+        return Math.max(-MAX_LATENCY_OFFSET_MS, Math.min(MAX_LATENCY_OFFSET_MS, Math.round(numeric)));
     }
 
     function streamToGunRecord(source, now) {
@@ -343,7 +351,8 @@
             sourceKind: source.sourceKind,
             addedAt: now || Date.now(),
             muted: true,
-            label: ''
+            label: '',
+            latencyOffsetMs: 0
         };
     }
 

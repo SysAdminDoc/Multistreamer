@@ -94,10 +94,10 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('newer than supported')));
 
     await host.fill('#importData', JSON.stringify({
-        version: 6,
+        version: 7,
         room,
         streams: [
-            { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, label: 'Workflow QA' },
+            { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, label: 'Workflow QA', latencyOffsetMs: 0 },
             { id: 'bad-hls', type: 'hls', sourceId: 'not-a-url', sourceKind: 'playlist' }
         ],
         settings: {
@@ -112,13 +112,22 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 6
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Skipped 1 invalid stream')));
     assert.equal(await host.locator('.grid-item[data-stream-id="bad-hls"]').count(), 0);
 
+    await host.click('.grid-item[data-provider="youtube"] button:has-text("Offset")');
+    await host.waitForSelector('#latencyOffsetModal.show');
+    assert.equal(await host.evaluate(() => document.activeElement.id), 'latencyOffsetInput');
+    await host.fill('#latencyOffsetInput', '2.5');
+    await host.click('#latencyOffsetModal .btn-primary');
+    await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Latency offset saved')));
+    await host.waitForFunction(() => document.querySelector('.latency-offset-badge')?.textContent === '+2.5s');
+
     const [download] = await Promise.all([
         host.waitForEvent('download'),
         host.click('.settings-actions .btn-primary')
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 6);
+    assert.equal(exported.version, 7);
+    assert.equal(exported.streams.find(stream => stream.id === 'dQw4w9WgXcQ').latencyOffsetMs, 2500);
 
     await host.click('button:has-text("Share")');
     await host.waitForSelector('#shareModal.show');

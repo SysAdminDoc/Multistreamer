@@ -691,6 +691,18 @@
             font-weight: 500;
         }
 
+        .grid-item .latency-offset-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 2px 5px;
+            border: 1px solid rgba(0, 212, 255, 0.35);
+            border-radius: 4px;
+            background: rgba(0, 212, 255, 0.12);
+            color: var(--accent);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
         .empty-state {
             display: flex;
             flex-direction: column;
@@ -1291,13 +1303,27 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="latencyOffsetModal" role="dialog" aria-modal="true" aria-labelledby="latencyOffsetModalTitle" aria-hidden="true" tabindex="-1" onclick="if(event.target===this)closeModal('latencyOffsetModal')">
+        <div class="modal">
+            <h3 id="latencyOffsetModalTitle" data-i18n="editLatencyOffset">Edit Latency Offset</h3>
+            <label class="sr-only" for="latencyOffsetInput" data-i18n="latencyOffsetSeconds">Latency offset seconds</label>
+            <input type="number" id="latencyOffsetInput" min="-30" max="30" step="0.5" placeholder="0" data-i18n-placeholder="latencyOffsetPlaceholder" style="width:100%;padding:12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:var(--text-primary);">
+            <p data-i18n="latencyOffsetHint">Positive values delay this stream; negative values pull native HLS/DASH streams closer to live.</p>
+            <input type="hidden" id="latencyOffsetStreamId">
+            <div class="actions">
+                <button class="btn-secondary" onclick="closeModal('latencyOffsetModal')" data-i18n="cancel">Cancel</button>
+                <button class="btn-primary" onclick="saveLatencyOffset()" data-i18n="save">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ========== GUN RELAY SERVERS ==========
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.15.0';
-        const CONFIG_VERSION = 6;
+        const APP_VERSION = '0.16.0';
+        const CONFIG_VERSION = 7;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const RELAY_RECONNECT_AFTER_MS = 12000;
@@ -1446,6 +1472,10 @@
                 editStreamLabel: 'Edit Stream Label',
                 streamLabel: 'Stream label',
                 customLabelPlaceholder: 'Custom label...',
+                editLatencyOffset: 'Edit Latency Offset',
+                latencyOffsetSeconds: 'Latency offset seconds',
+                latencyOffsetPlaceholder: '0',
+                latencyOffsetHint: 'Positive values delay this stream; negative values pull native HLS/DASH streams closer to live.',
                 waitingForHostTitle: 'Waiting for Host',
                 waitingForHostText: 'Streams will appear here.',
                 noStreamsTitle: 'No Streams Yet',
@@ -1486,12 +1516,16 @@
                 setMain: 'Set Main',
                 main: 'Main',
                 label: 'Label',
+                offset: 'Offset',
                 remove: 'Remove',
                 unsetMainFor: 'Unset main stream for {label}',
                 setMainFor: 'Set main stream for {label}',
                 editLabelFor: 'Edit label for {label}',
+                editOffsetFor: 'Edit latency offset for {label}',
                 removeStream: 'Remove {label}',
                 reloadStream: 'Reload {label}',
+                latencyOffsetSaved: 'Latency offset saved.',
+                latencyOffsetInvalid: 'Latency offset must be between -30 and 30 seconds.',
                 hostAccessRequired: 'Host access is required to import a config.',
                 configImported: 'Config imported.',
                 configImportedSkipped: 'Config imported. Skipped {count} invalid {streamWord}.',
@@ -1684,6 +1718,7 @@
                             });
                             if (s.muted !== stream.muted) { s.muted = stream.muted; changed = true; }
                             if (s.label !== stream.label) { s.label = stream.label; changed = true; }
+                            if (s.latencyOffsetMs !== stream.latencyOffsetMs) { s.latencyOffsetMs = stream.latencyOffsetMs; changed = true; }
                             if (changed) render();
                         }
                     }
@@ -1843,10 +1878,15 @@
 
         function writePlaybackSyncPulse() {
             if (!roomRef || !isHost) return;
+            const sentAt = Date.now();
+            const nativeStreams = collectNativePlaybackState();
             roomRef.get('sync').get('clock').put({
-                sentAt: Date.now(),
+                sentAt,
                 targetDelayMs: SYNC_TARGET_LIVE_DELAY_MS,
-                streams: collectNativePlaybackState()
+                streams: nativeStreams
+            });
+            Object.values(nativeStreams).forEach(target => {
+                if (getLatencyOffsetMs(target.id) !== 0) applyPlaybackSyncTarget(target, 0, sentAt);
             });
         }
 
@@ -1888,6 +1928,10 @@
 
         function publishScrubSync(instance) {
             if (!roomRef || !isHost || !isNativeSyncProvider(instance)) return;
+            if (instance.suppressNextScrubPublish) {
+                instance.suppressNextScrubPublish = false;
+                return;
+            }
             const currentTime = instance.video?.currentTime;
             if (!Number.isFinite(currentTime)) return;
             const event = {
@@ -1925,6 +1969,7 @@
             }
 
             try {
+                entry.instance.suppressNextScrubPublish = true;
                 video.currentTime = targetTime;
                 video.playbackRate = 1;
                 recordScrubEvent({ action: 'seek', streamId: target.streamId, currentTime: roundSeconds(targetTime), time: new Date().toISOString() });
@@ -1965,10 +2010,11 @@
 
             const localLatencyMs = recordStreamLatencySample(target.id, metrics.latencyMs);
             const hostLatencyMs = Number(target.latencyMs);
+            const baseTargetDelayMs = Math.max(defaultTargetDelayMs ?? SYNC_TARGET_LIVE_DELAY_MS, Number.isFinite(hostLatencyMs) ? hostLatencyMs : 0);
             const targetDelayMs = clampMs(
-                Math.max(defaultTargetDelayMs || SYNC_TARGET_LIVE_DELAY_MS, Number.isFinite(hostLatencyMs) ? hostLatencyMs : 0),
+                baseTargetDelayMs + getLatencyOffsetMs(target.id),
                 1000,
-                30000
+                60000
             );
             const driftSeconds = (localLatencyMs - targetDelayMs) / 1000;
             if (!Number.isFinite(driftSeconds)) return;
@@ -1979,6 +2025,7 @@
                 if (Math.abs(driftSeconds) >= SYNC_SEEK_TOLERANCE_SECONDS) {
                     const seekTarget = bufferedTimeForLag(video, targetDelayMs);
                     if (seekTarget !== null) {
+                        entry.instance.suppressNextScrubPublish = true;
                         video.currentTime = seekTarget;
                         video.playbackRate = 1;
                         action = 'seek';
@@ -2009,6 +2056,19 @@
 
         function isNativeSyncProvider(instance) {
             return Boolean(instance?.video && (instance.type === 'hls' || instance.type === 'dash'));
+        }
+
+        function getLatencyOffsetMs(streamId) {
+            const stream = streams.find(s => s.id === streamId);
+            const offset = Number(stream?.latencyOffsetMs || 0);
+            return Number.isFinite(offset) ? Math.max(-30000, Math.min(30000, Math.round(offset))) : 0;
+        }
+
+        function formatLatencyOffset(ms) {
+            const seconds = (Number(ms) || 0) / 1000;
+            if (!seconds) return '0s';
+            const formatted = Math.abs(seconds).toFixed(1).replace(/\.0$/, '');
+            return `${seconds > 0 ? '+' : '-'}${formatted}s`;
         }
 
         function measureNativePlayback(instance) {
@@ -2120,6 +2180,7 @@
                 hostClockOffsetMs: roundMs(playbackSync.hostClockOffsetMs),
                 clockSamplesMs: playbackSync.hostClockSamples.map(roundMs),
                 lastHostPulseAt: playbackSync.lastHostPulseAt ? new Date(playbackSync.lastHostPulseAt).toISOString() : null,
+                latencyOffsetsMs: streams.filter(stream => getLatencyOffsetMs(stream.id) !== 0).map(stream => ({ id: stream.id, label: stream.label || '', latencyOffsetMs: getLatencyOffsetMs(stream.id) })),
                 streamLatencyMs: Array.from(playbackSync.streamLatencyMs.entries()).map(([id, latencyMs]) => ({ id, latencyMs: roundMs(latencyMs) })),
                 pendingScrubs: Array.from(playbackSync.pendingScrubs.entries()).map(([id, target]) => ({ id, currentTime: target.currentTime, queuedAt: new Date(target.queuedAt).toISOString() })),
                 corrections: playbackSync.appliedCorrections.slice(-10),
@@ -2231,6 +2292,28 @@
             closeModal('labelModal');
         }
 
+        function editLatencyOffset(id) {
+            const offsetMs = getLatencyOffsetMs(id);
+            document.getElementById('latencyOffsetInput').value = offsetMs ? String(offsetMs / 1000) : '0';
+            document.getElementById('latencyOffsetStreamId').value = id;
+            openModal('latencyOffsetModal', '#latencyOffsetInput');
+        }
+
+        function saveLatencyOffset() {
+            const id = document.getElementById('latencyOffsetStreamId').value;
+            const seconds = Number(document.getElementById('latencyOffsetInput').value);
+            if (!Number.isFinite(seconds) || seconds < -30 || seconds > 30) {
+                notify(t('latencyOffsetInvalid'), 'error');
+                return;
+            }
+            const offsetMs = Math.round(seconds * 1000);
+            if (isHost && id) {
+                roomRef.get('streams').get(id).get('latencyOffsetMs').put(offsetMs);
+                notify(t('latencyOffsetSaved'));
+            }
+            closeModal('latencyOffsetModal');
+        }
+
         // ========== RENDER ==========
         function render() {
             const container = document.getElementById('gridContainer');
@@ -2286,11 +2369,13 @@
 
             const { id, muted, label } = item;
             const isFeatured = id === settings.featuredId;
+            const latencyOffsetMs = getLatencyOffsetMs(id);
             const embed = Sources.buildEmbed(item, { parent: location.hostname });
             if (!embed) return '';
             const hasChat = !!embed.chatUrl;
             const streamClass = `grid-item ${embed.type}-source${hasChat ? ' has-chat' : ''}`;
-            const labelHtml = label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label);
+            const offsetBadge = latencyOffsetMs ? `<span class="latency-offset-badge">${esc(formatLatencyOffset(latencyOffsetMs))}</span>` : '';
+            const labelHtml = `${label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label)}${offsetBadge}`;
             const controlLabel = escAttr(label || embed.label || id);
             const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}" ${frameAttrs({ title: embed.chatTitle, sandbox: embed.chatSandbox, referrerPolicy: embed.chatReferrerPolicy, loading: embed.chatLoading })}></iframe>` : '';
             let mediaFrame = `<iframe class="video-frame" data-provider="${escAttr(embed.type)}" data-stream-id="${escAttr(id)}" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
@@ -2301,7 +2386,7 @@
             }
             const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="${escAttr(t('reloadStream', { label: label || embed.label || id }))}">${t('reload')}</button></div>`;
 
-            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? t('unmute') : t('mute')} ${controlLabel}">${muted ? t('unmute') : t('mute')}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls"><button onclick="toggleMute('${id}')" aria-label="${muted ? t('unmute') : t('mute')} ${controlLabel}">${muted ? t('unmute') : t('mute')}</button>${isHost ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
 
         function destroyProviderAdapters() {
@@ -2713,7 +2798,7 @@
         }
 
         function exportConfig() {
-            const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, label: s.label })), settings };
+            const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, label: s.label, latencyOffsetMs: getLatencyOffsetMs(s.id) })), settings };
             const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${roomId}.json`; a.click();
         }
@@ -2725,7 +2810,7 @@
                 const result = validateImportConfig(data);
                 streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
                 result.streams.forEach((stream, index) => {
-                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, label: stream.label });
+                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, label: stream.label, latencyOffsetMs: stream.latencyOffsetMs });
                 });
                 applyImportedSettings(result.settings);
                 closeModal('importModal');
@@ -2758,7 +2843,8 @@
                     sourceId: stream.sourceId,
                     sourceKind: stream.sourceKind,
                     muted: raw.muted !== false,
-                    label: typeof raw.label === 'string' ? raw.label.slice(0, 80) : ''
+                    label: typeof raw.label === 'string' ? raw.label.slice(0, 80) : '',
+                    latencyOffsetMs: validateLatencyOffsetMs(raw.latencyOffsetMs)
                 });
             });
             if (!streamsOut.length && data.streams.length) throw new Error(t('configNoValidStreams'));
@@ -2768,6 +2854,13 @@
                 settings: validateImportSettings(data.settings || {}, streamsOut),
                 skippedStreams
             };
+        }
+
+        function validateLatencyOffsetMs(value) {
+            if (value === undefined || value === null || value === '') return 0;
+            const offset = Number(value);
+            if (!Number.isFinite(offset) || offset < -30000 || offset > 30000) throw new Error(t('latencyOffsetInvalid'));
+            return Math.round(offset);
         }
 
         function validateImportSettings(rawSettings, importedStreams) {

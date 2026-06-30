@@ -5,7 +5,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 ## Planned Features
 
 ### Sync & Latency
-- Latency offset per-stream (compensate for Twitch 2s vs YouTube 8s lag)
 - Leader-election for when host drops out (viewer quorum chooses new host)
 
 ### Layout & Controls

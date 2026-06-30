@@ -36,6 +36,8 @@ test('keeps native playback sync calibration wired', () => {
     assert.match(html, /function writePlaybackSyncPulse\(\)/);
     assert.match(html, /function handleHostClockSync\(data\)/);
     assert.match(html, /function applyPlaybackSyncTarget\(target, defaultTargetDelayMs, pulseSentAt\)/);
+    assert.match(html, /baseTargetDelayMs \+ getLatencyOffsetMs\(target\.id\)/);
+    assert.match(html, /function getLatencyOffsetMs\(streamId\)/);
     assert.match(html, /roomRef\.get\('sync'\)\.get\('scrub'\)\.on\(handleHostScrubSync\)/);
     assert.match(html, /function publishScrubSync\(instance\)/);
     assert.match(html, /function handleHostScrubSync\(data\)/);
@@ -74,7 +76,8 @@ test('keeps primary form controls labelled', () => {
         'shareHostLink',
         'announcementInput',
         'importData',
-        'labelInput'
+        'labelInput',
+        'latencyOffsetInput'
     ].forEach(id => {
         const hasLabel = new RegExp(`<label[^>]+for="${id}"`).test(html);
         const hasAria = new RegExp(`id="${id}"[^>]+aria-(label|labelledby)=`).test(html);
@@ -83,7 +86,7 @@ test('keeps primary form controls labelled', () => {
 });
 
 test('keeps dialogs semantic and keyboard-managed', () => {
-    ['shareModal', 'announcementModal', 'importModal', 'labelModal'].forEach(id => {
+    ['shareModal', 'announcementModal', 'importModal', 'labelModal', 'latencyOffsetModal'].forEach(id => {
         const pattern = new RegExp(`id="${id}"[^>]+role="dialog"[^>]+aria-modal="true"[^>]+aria-labelledby=`);
         assert.match(html, pattern);
     });
@@ -120,9 +123,11 @@ test('keeps provider adapters and health recovery wired', () => {
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 6;/);
+    assert.match(html, /const CONFIG_VERSION = 7;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
+    assert.match(html, /function validateLatencyOffsetMs\(value\)/);
+    assert.match(html, /latencyOffsetMs: validateLatencyOffsetMs\(raw\.latencyOffsetMs\)/);
     assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);
     assert.match(html, /throw new Error\(t\('configVersionFuture', \{ version, supported: CONFIG_VERSION \}\)\)/);
     assert.match(html, /function validateWeatherSettings\(weather\)/);
