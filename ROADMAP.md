@@ -4,9 +4,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Planned Features
 
-### Layout & Controls
-- Keyboard shortcuts: 1-9 to focus a stream, `M` to mute all, `F` featured
-
 ### Chat & Moderation
 - Host ban / kick with moderation tokens
 - Emote / sticker reactions with ephemeral overlay
