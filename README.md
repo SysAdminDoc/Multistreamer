@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.24.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.25.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -23,6 +23,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Leader Election** - If the real host disappears, active viewers deterministically elect a temporary host
 - **Chat Moderation** - Hosts can kick or ban chat participants using stable local moderation tokens
 - **Chat Rate Controls** - Synced slow-mode and per-user message windows reduce spam during busy rooms
+- **YouTube LiveChat Mirror** - Hosts can locally poll YouTube LiveChat and merge those messages into room chat
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -207,6 +208,8 @@ All these sync in real-time to viewers:
 - Kicks expire after 10 minutes; bans persist for that browser's local moderation token.
 - Moderated browsers stop counting as active viewers, cannot chat, and cannot become elected temporary hosts.
 - Hosts can sync slow-mode seconds plus per-user message count/window limits from Settings.
+- Hosts can save a YouTube Data API key locally and mirror the featured or first YouTube stream's LiveChat into room chat.
+- YouTube API keys stay in local browser storage; only mirrored message text, author name, timestamp, and source tag sync to viewers.
 - Reaction buttons send short-lived cheer, heart, fire, and wow stickers that float over the grid for active viewers.
 - Header JSON/TXT buttons export the visible two-hour chat history without session or moderation tokens.
 - 2-hour message history
@@ -316,6 +319,7 @@ The test suite covers parser contracts plus a Playwright-rendered workflow for h
 
 - No data stored on your server
 - Room data stored on Gun.js relay network
+- Optional YouTube API keys are stored only in the host browser's local storage
 - Chat messages expire after 2 hours
 - No analytics or tracking
 

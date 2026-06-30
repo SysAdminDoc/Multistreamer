@@ -87,6 +87,7 @@ test('keeps primary form controls labelled', () => {
         'slowModeSeconds',
         'rateLimitCount',
         'rateLimitSeconds',
+        'youtubeApiKey',
         'labelsSelect',
         'themeSelect',
         'accentColor',
@@ -187,6 +188,25 @@ test('keeps synced chat rate controls wired', () => {
     assert.match(html, /function recordChatSend\(now = Date\.now\(\)\)/);
     assert.match(html, /chatSlowModeWait: 'Slow mode: wait \{seconds\}s before sending again\.'/);
     assert.match(html, /chatRateLimited: 'Rate limit reached: \{count\} messages per \{seconds\}s\.'/);
+});
+
+test('keeps YouTube LiveChat mirror wired locally', () => {
+    assert.match(html, /const YOUTUBE_API_BASE = 'https:\/\/www\.googleapis\.com\/youtube\/v3'/);
+    assert.match(html, /localStorage\.getItem\('ms-youtube-api-key'\)/);
+    assert.match(html, /id="youtubeChatMirrorBtn"/);
+    assert.match(html, /function saveYouTubeApiKey\(\)/);
+    assert.match(html, /function toggleYouTubeChatMirror\(\)/);
+    assert.match(html, /async function startYouTubeChatMirror\(\)/);
+    assert.match(html, /function stopYouTubeChatMirror/);
+    assert.match(html, /function findYouTubeMirrorStream\(\)/);
+    assert.match(html, /async function fetchYouTubeLiveChatId\(stream\)/);
+    assert.match(html, /async function pollYouTubeLiveChat\(\)/);
+    assert.match(html, /function mirrorYouTubeChatMessage\(item\)/);
+    assert.match(html, /videos\?part=liveStreamingDetails/);
+    assert.match(html, /liveChat\/messages/);
+    assert.match(html, /source: 'youtube'/);
+    assert.match(html, /class="source-tag"/);
+    assert.match(html, /youtubeMirrorNeedsKey: 'Save a YouTube Data API key first\.'/);
 });
 
 test('keeps manual grid layouts wired', () => {

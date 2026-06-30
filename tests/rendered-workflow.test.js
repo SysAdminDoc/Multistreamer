@@ -128,6 +128,26 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.waitForFunction(() => document.querySelector('.latency-offset-badge')?.textContent === '+2.5s');
     await host.locator('.grid-item[data-provider="youtube"] .volume-slider').fill('60');
     await host.waitForFunction(() => document.querySelector('.grid-item[data-provider="youtube"] .volume-slider')?.value === '60');
+    const liveChatId = await host.evaluate(async () => {
+        const originalFetch = window.fetch;
+        youtubeChatMirror.apiKey = 'test-key';
+        window.fetch = async () => ({
+            ok: true,
+            json: async () => ({ items: [{ liveStreamingDetails: { activeLiveChatId: 'live-chat-1' } }] })
+        });
+        const id = await fetchYouTubeLiveChatId({ sourceId: 'dQw4w9WgXcQ' });
+        window.fetch = originalFetch;
+        return id;
+    });
+    assert.equal(liveChatId, 'live-chat-1');
+    await host.evaluate(() => {
+        mirrorYouTubeChatMessage({
+            id: 'yt-rendered-message',
+            snippet: { displayMessage: 'hello from youtube', publishedAt: new Date().toISOString() },
+            authorDetails: { displayName: 'YT User' }
+        });
+    });
+    await host.waitForFunction(() => Array.from(document.querySelectorAll('#chatMessages .chat-msg')).some(msg => msg.textContent.includes('hello from youtube') && msg.textContent.includes('YouTube')));
 
     const [download] = await Promise.all([
         host.waitForEvent('download'),

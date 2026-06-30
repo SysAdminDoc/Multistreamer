@@ -4,9 +4,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Planned Features
 
-### Chat & Moderation
-- YouTube LiveChat mirror into the built-in chat (merge feeds)
-
 ### Weather / Overlays
 - Configurable overlay iframes beyond Windy (RadarScope-lite, Ventusky, lightning live)
 - Incident overlay: pinned NWS alert text scroll
