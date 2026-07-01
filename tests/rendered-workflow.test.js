@@ -27,6 +27,7 @@ test.after(async () => {
 
 test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 120000 }, async () => {
     const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, acceptDownloads: true });
+    let persistedSnapshot = null;
     await context.route('https://www.youtube.com/**', route => route.fulfill({
         status: 200,
         contentType: 'text/html',
@@ -74,6 +75,18 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
             ]
         })
     }));
+    await context.route('https://persist.supabase.co/rest/v1/room_snapshots**', async route => {
+        const request = route.request();
+        if (request.method() === 'POST') {
+            persistedSnapshot = JSON.parse(request.postData() || '{}');
+            return route.fulfill({ status: 201, contentType: 'application/json', body: '' });
+        }
+        return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(persistedSnapshot ? [{ config: persistedSnapshot.config }] : [])
+        });
+    });
 
     const room = 'rendered-' + Date.now();
     const hostKey = 'host-' + Date.now();
@@ -158,6 +171,15 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.waitForSelector('#incidentAlertBar.show');
     assert.match(await host.textContent('#incidentAlertText'), /Flood Warning issued for QA County/);
     assert.match(await host.textContent('#nwsAlertStatus'), /NWS alert pinned/);
+    await host.selectOption('#persistenceProvider', 'supabase');
+    await host.fill('#persistenceEndpoint', 'https://persist.supabase.co');
+    await host.fill('#persistenceKey', 'anon-test-key');
+    await host.click('button:has-text("Save Local Settings")');
+    await host.click('button:has-text("Push Snapshot")');
+    await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Room snapshot pushed')));
+    assert.equal(persistedSnapshot.room_id, room);
+    assert.equal(persistedSnapshot.config.version, 13);
+    assert.equal(persistedSnapshot.config.streams[0].geo.lat, 39.7456);
 
     await host.click('.grid-item[data-provider="youtube"] button:has-text("Offset")');
     await host.waitForSelector('#latencyOffsetModal.show');

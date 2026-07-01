@@ -88,6 +88,9 @@ test('keeps primary form controls labelled', () => {
         'rateLimitCount',
         'rateLimitSeconds',
         'youtubeApiKey',
+        'persistenceProvider',
+        'persistenceEndpoint',
+        'persistenceKey',
         'labelsSelect',
         'themeSelect',
         'accentColor',
@@ -258,6 +261,8 @@ test('keeps import config validation wired', () => {
     assert.match(html, /const CONFIG_VERSION = 13;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
+    assert.match(html, /function buildRoomConfig\(\)/);
+    assert.match(html, /function applyValidatedImportResult\(result\)/);
     assert.match(html, /function validateLatencyOffsetMs\(value\)/);
     assert.match(html, /function validateImportVolume\(value, muted\)/);
     assert.match(html, /function validateImportGeo\(value\)/);
@@ -284,6 +289,21 @@ test('keeps import config validation wired', () => {
     assert.match(html, /settingsChatSlowMode: 'settings\.chat\.slowModeSeconds must be an integer from 0 to 60\.'/);
     assert.match(html, /configImportedSkipped: 'Config imported\. Skipped \{count\} invalid \{streamWord\}\.'/);
     assert.match(html, /t\('configImportedSkipped', \{ count: result\.skippedStreams/);
+});
+
+test('keeps optional persistence mirror wired locally', () => {
+    assert.match(html, /let persistenceMirror = \{/);
+    assert.match(html, /localStorage\.getItem\('ms-persistence-provider'\)/);
+    assert.match(html, /function savePersistenceMirrorSettings\(\)/);
+    assert.match(html, /function pushPersistenceSnapshot\(\)/);
+    assert.match(html, /function pullPersistenceSnapshot\(\)/);
+    assert.match(html, /function pushSupabaseSnapshot\(config, roomConfig\)/);
+    assert.match(html, /function pullSupabaseSnapshot\(config\)/);
+    assert.match(html, /function pushFirebaseSnapshot\(config, roomConfig\)/);
+    assert.match(html, /function firebaseSnapshotUrl\(config\)/);
+    assert.match(html, /room_snapshots/);
+    assert.match(html, /resolution=merge-duplicates,return=minimal/);
+    assert.match(html, /multistreamer\/rooms\/\$\{encodeURIComponent\(roomId\)\}\.json/);
 });
 
 test('keeps UI copy and chat time formatting localization-ready', () => {

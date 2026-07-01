@@ -1665,6 +1665,29 @@
                 <p id="nwsAlertStatus" data-i18n="nwsAlertIdle">No NWS alert loaded.</p>
             </div>
             <div class="settings-section">
+                <h4 data-i18n="persistenceMirror">Persistence Mirror</h4>
+                <div class="setting-row">
+                    <label class="setting-label" for="persistenceProvider" data-i18n="provider">Provider</label>
+                    <select id="persistenceProvider">
+                        <option value="off" data-i18n="providerOff">Off</option>
+                        <option value="supabase" data-i18n="providerSupabase">Supabase</option>
+                        <option value="firebase" data-i18n="providerFirebase">Firebase</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="persistenceEndpoint" data-i18n="endpointUrl">Endpoint URL</label>
+                    <input type="url" id="persistenceEndpoint" placeholder="https://project.supabase.co" data-i18n-placeholder="endpointUrlPlaceholder" autocomplete="off">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="persistenceKey" data-i18n="publicKeyOrToken">Public Key / Token</label>
+                    <input type="password" id="persistenceKey" placeholder="Anon key or Firebase auth token" data-i18n-placeholder="publicKeyOrTokenPlaceholder" autocomplete="off">
+                </div>
+                <button class="btn-secondary" onclick="savePersistenceMirrorSettings()" style="width:100%;margin-top:8px;" data-i18n="saveMirrorSettings">Save Local Settings</button>
+                <button class="btn-primary" onclick="pushPersistenceSnapshot()" style="width:100%;margin-top:8px;" data-i18n="pushSnapshot">Push Snapshot</button>
+                <button class="btn-secondary" onclick="pullPersistenceSnapshot()" style="width:100%;margin-top:8px;" data-i18n="pullSnapshot">Pull Snapshot</button>
+                <p id="persistenceStatus" data-i18n="persistenceIdle">No persistence mirror configured.</p>
+            </div>
+            <div class="settings-section">
                 <h4 data-i18n="chatSynced">Chat (Synced)</h4>
                 <div class="setting-row">
                     <label class="setting-label" for="slowModeSeconds" data-i18n="slowModeSeconds">Slow Mode Seconds</label>
@@ -1792,7 +1815,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.29.0';
+        const APP_VERSION = '0.30.0';
         const CONFIG_VERSION = 13;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
@@ -1842,6 +1865,11 @@
         let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, incident: { enabled: false, text: '', event: '', severity: '', headline: '', area: '', updatedAt: 0, expiresAt: '' }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
         let chatExpanded = true;
         let username = localStorage.getItem('ms-user') || '';
+        let persistenceMirror = {
+            provider: localStorage.getItem('ms-persistence-provider') || 'off',
+            endpoint: localStorage.getItem('ms-persistence-endpoint') || '',
+            key: localStorage.getItem('ms-persistence-key') || ''
+        };
         let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
         localStorage.setItem('ms-sid', sessionId);
         let moderationToken = localStorage.getItem('ms-mod-token') || ('mt' + Math.random().toString(36).substr(2, 14));
@@ -2091,6 +2119,30 @@
                 nwsAlertCleared: 'NWS alert cleared.',
                 nwsAlertNone: 'No active NWS alerts for this point.',
                 nwsAlertError: 'NWS alert fetch failed: {message}',
+                persistenceMirror: 'Persistence Mirror',
+                provider: 'Provider',
+                providerOff: 'Off',
+                providerSupabase: 'Supabase',
+                providerFirebase: 'Firebase',
+                endpointUrl: 'Endpoint URL',
+                endpointUrlPlaceholder: 'https://project.supabase.co',
+                publicKeyOrToken: 'Public Key / Token',
+                publicKeyOrTokenPlaceholder: 'Anon key or Firebase auth token',
+                saveMirrorSettings: 'Save Local Settings',
+                pushSnapshot: 'Push Snapshot',
+                pullSnapshot: 'Pull Snapshot',
+                persistenceIdle: 'No persistence mirror configured.',
+                persistenceSettingsSaved: 'Persistence mirror settings saved locally.',
+                persistenceHostOnly: 'Host access is required to use the persistence mirror.',
+                persistenceProviderMissing: 'Choose Supabase or Firebase before syncing snapshots.',
+                persistenceEndpointMissing: 'Enter a valid persistence endpoint URL.',
+                persistenceKeyMissing: 'Enter a public API key or auth token for this provider.',
+                persistencePushing: 'Pushing room snapshot...',
+                persistencePulling: 'Pulling room snapshot...',
+                persistencePushed: 'Room snapshot pushed.',
+                persistencePulled: 'Room snapshot pulled.',
+                persistenceNoSnapshot: 'No room snapshot found.',
+                persistenceError: 'Persistence mirror error: {message}',
                 hlsUnsupportedTitle: 'HLS Unsupported',
                 hlsUnsupportedText: 'This browser cannot play HLS.',
                 hlsSourceMissing: 'HLS source missing',
@@ -2270,6 +2322,7 @@
         // ========== PAGE INIT ==========
         setupRuntimeDiagnostics();
         applyLocalizedCopy();
+        initPersistenceMirrorControls();
         document.addEventListener('keydown', handleModalKeydown);
         window.addEventListener('beforeunload', () => {
             stopHostPlaybackSync();
@@ -4049,8 +4102,13 @@
             openModal('importModal', '#importData');
         }
 
-        function exportConfig() {
+        function buildRoomConfig() {
             const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, volume: validateVolume(s.volume) ?? (s.muted ? 0 : 100), label: s.label, latencyOffsetMs: getLatencyOffsetMs(s.id), geo: normalizeStreamGeo(s.geo) })), settings };
+            return config;
+        }
+
+        function exportConfig() {
+            const config = buildRoomConfig();
             downloadBlob(`${roomId}.json`, 'application/json', JSON.stringify(config, null, 2));
         }
 
@@ -4064,19 +4122,172 @@
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
+        function initPersistenceMirrorControls() {
+            document.getElementById('persistenceProvider').value = normalizePersistenceProvider(persistenceMirror.provider);
+            document.getElementById('persistenceEndpoint').value = persistenceMirror.endpoint;
+            document.getElementById('persistenceKey').value = persistenceMirror.key;
+            updatePersistenceStatus(persistenceMirror.provider === 'off' ? t('persistenceIdle') : t('persistenceSettingsSaved'));
+        }
+
+        function normalizePersistenceProvider(provider) {
+            return ['off', 'supabase', 'firebase'].includes(provider) ? provider : 'off';
+        }
+
+        function readPersistenceMirrorSettings() {
+            return {
+                provider: normalizePersistenceProvider(document.getElementById('persistenceProvider').value),
+                endpoint: document.getElementById('persistenceEndpoint').value.trim(),
+                key: document.getElementById('persistenceKey').value.trim()
+            };
+        }
+
+        function savePersistenceMirrorSettings() {
+            persistenceMirror = readPersistenceMirrorSettings();
+            localStorage.setItem('ms-persistence-provider', persistenceMirror.provider);
+            localStorage.setItem('ms-persistence-endpoint', persistenceMirror.endpoint);
+            localStorage.setItem('ms-persistence-key', persistenceMirror.key);
+            updatePersistenceStatus(t('persistenceSettingsSaved'));
+            notify(t('persistenceSettingsSaved'));
+        }
+
+        function getPersistenceMirrorSettings() {
+            const config = readPersistenceMirrorSettings();
+            const provider = normalizePersistenceProvider(config.provider);
+            if (!hasHostControls()) throw new Error(t('persistenceHostOnly'));
+            if (provider === 'off') throw new Error(t('persistenceProviderMissing'));
+            if (!config.endpoint) throw new Error(t('persistenceEndpointMissing'));
+            if (!config.key) throw new Error(t('persistenceKeyMissing'));
+            try {
+                return { provider, endpoint: new URL(config.endpoint).origin, key: config.key };
+            } catch (_) {
+                throw new Error(t('persistenceEndpointMissing'));
+            }
+        }
+
+        async function pushPersistenceSnapshot() {
+            try {
+                const config = getPersistenceMirrorSettings();
+                updatePersistenceStatus(t('persistencePushing'));
+                if (config.provider === 'supabase') await pushSupabaseSnapshot(config, buildRoomConfig());
+                else await pushFirebaseSnapshot(config, buildRoomConfig());
+                updatePersistenceStatus(t('persistencePushed'));
+                notify(t('persistencePushed'));
+            } catch (error) {
+                handlePersistenceError(error);
+            }
+        }
+
+        async function pullPersistenceSnapshot() {
+            try {
+                const config = getPersistenceMirrorSettings();
+                updatePersistenceStatus(t('persistencePulling'));
+                const snapshot = config.provider === 'supabase' ? await pullSupabaseSnapshot(config) : await pullFirebaseSnapshot(config);
+                if (!snapshot) {
+                    updatePersistenceStatus(t('persistenceNoSnapshot'), 'error');
+                    notify(t('persistenceNoSnapshot'), 'error');
+                    return;
+                }
+                const result = validateImportConfig(snapshot);
+                applyValidatedImportResult(result);
+                updatePersistenceStatus(t('persistencePulled'));
+                notify(t('persistencePulled'));
+            } catch (error) {
+                handlePersistenceError(error);
+            }
+        }
+
+        async function pushSupabaseSnapshot(config, roomConfig) {
+            const url = new URL('/rest/v1/room_snapshots', config.endpoint);
+            url.searchParams.set('on_conflict', 'room_id');
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: supabasePersistenceHeaders(config, {
+                    'Content-Type': 'application/json',
+                    Prefer: 'resolution=merge-duplicates,return=minimal'
+                }),
+                body: JSON.stringify({ room_id: roomId, config: roomConfig, updated_at: new Date().toISOString() })
+            });
+            if (!response.ok) throw new Error(await persistenceHttpError(response));
+        }
+
+        async function pullSupabaseSnapshot(config) {
+            const url = new URL('/rest/v1/room_snapshots', config.endpoint);
+            url.searchParams.set('select', 'config');
+            url.searchParams.set('room_id', `eq.${roomId}`);
+            url.searchParams.set('limit', '1');
+            const response = await fetch(url, { headers: supabasePersistenceHeaders(config) });
+            if (!response.ok) throw new Error(await persistenceHttpError(response));
+            const rows = await response.json();
+            return Array.isArray(rows) ? rows[0]?.config || null : null;
+        }
+
+        function supabasePersistenceHeaders(config, extra = {}) {
+            return {
+                apikey: config.key,
+                Authorization: `Bearer ${config.key}`,
+                Accept: 'application/json',
+                ...extra
+            };
+        }
+
+        async function pushFirebaseSnapshot(config, roomConfig) {
+            const response = await fetch(firebaseSnapshotUrl(config), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config: roomConfig, updatedAt: new Date().toISOString() })
+            });
+            if (!response.ok) throw new Error(await persistenceHttpError(response));
+        }
+
+        async function pullFirebaseSnapshot(config) {
+            const response = await fetch(firebaseSnapshotUrl(config));
+            if (!response.ok) throw new Error(await persistenceHttpError(response));
+            const data = await response.json();
+            return data?.config || null;
+        }
+
+        function firebaseSnapshotUrl(config) {
+            const base = config.endpoint.endsWith('/') ? config.endpoint : `${config.endpoint}/`;
+            const url = new URL(`multistreamer/rooms/${encodeURIComponent(roomId)}.json`, base);
+            url.searchParams.set('auth', config.key);
+            return url;
+        }
+
+        async function persistenceHttpError(response) {
+            const text = await response.text().catch(() => '');
+            return `${response.status} ${response.statusText}${text ? `: ${text.slice(0, 160)}` : ''}`.trim();
+        }
+
+        function updatePersistenceStatus(message, type = 'info') {
+            const status = document.getElementById('persistenceStatus');
+            if (!status) return;
+            status.textContent = message;
+            status.dataset.state = type;
+        }
+
+        function handlePersistenceError(error) {
+            const message = error?.message || 'network error';
+            updatePersistenceStatus(t('persistenceError', { message }), 'error');
+            notify(t('persistenceError', { message }), 'error');
+        }
+
         function importConfig() {
             if (!hasHostControls()) return notify(t('hostAccessRequired'), 'error');
             try {
                 const data = JSON.parse(document.getElementById('importData').value);
                 const result = validateImportConfig(data);
-                streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
-                result.streams.forEach((stream, index) => {
-                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, volume: stream.volume, label: stream.label, latencyOffsetMs: stream.latencyOffsetMs, geo: null, geoLat: stream.geo?.lat ?? null, geoLon: stream.geo?.lon ?? null });
-                });
-                applyImportedSettings(result.settings);
+                applyValidatedImportResult(result);
                 closeModal('importModal');
                 notify(result.skippedStreams ? t('configImportedSkipped', { count: result.skippedStreams, streamWord: result.skippedStreams === 1 ? 'stream' : 'streams' }) : t('configImported'));
             } catch (e) { notify(t('invalidConfig', { message: e.message }), 'error'); }
+        }
+
+        function applyValidatedImportResult(result) {
+            streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
+            result.streams.forEach((stream, index) => {
+                roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, volume: stream.volume, label: stream.label, latencyOffsetMs: stream.latencyOffsetMs, geo: null, geoLat: stream.geo?.lat ?? null, geoLon: stream.geo?.lon ?? null });
+            });
+            applyImportedSettings(result.settings);
         }
 
         function validateImportConfig(data) {

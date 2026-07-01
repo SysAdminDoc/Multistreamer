@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.29.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.30.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -27,6 +27,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Weather Overlay Providers** - Add synced Windy, Zoom Earth, Ventusky, or LightningMaps overlays by location
 - **NWS Incident Alerts** - Fetch active National Weather Service alerts and pin the highest-priority alert as a synced ticker
 - **Stream Minimap** - Add per-stream geo-tags and show synced camera markers on a compact minimap
+- **Persistence Mirror** - Push/pull room snapshots to optional Supabase or Firebase REST backends
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -86,6 +87,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 | Mute/Unmute All | Set all stream volumes to 0 or 100 |
 | Weather | Add a Windy, Zoom Earth, Ventusky, or LightningMaps overlay panel |
 | Fetch NWS Alerts | Pin the highest-priority active NWS alert for the configured weather coordinates |
+| Persistence Mirror | Save local Supabase/Firebase REST settings and push/pull room snapshots |
 | Settings | Customize theme, colors, layout |
 | Share | Get viewer/host links |
 | Diagnostics | Copy room, relay, browser, and stream health data with host keys redacted |
@@ -333,6 +335,7 @@ The test suite covers parser contracts plus a Playwright-rendered workflow for h
 - Optional YouTube API keys are stored only in the host browser's local storage
 - Chat messages expire after 2 hours
 - No analytics or tracking
+- Optional Supabase/Firebase mirror keys are stored only in the host browser's local storage
 
 ## Self-Hosting Gun Relay (Optional)
 
@@ -366,6 +369,46 @@ docker compose ps
 docker compose logs -f
 docker compose pull && docker compose up -d --build
 ```
+
+## Supabase / Firebase Persistence Mirror (Optional)
+
+The Settings panel can mirror the current room config to a durable backend without replacing Gun's realtime sync path. Provider URL and key/token values stay in the host browser's local storage.
+
+### Supabase
+
+Create a `room_snapshots` table and expose it through Supabase's REST API:
+
+```sql
+create table if not exists public.room_snapshots (
+  room_id text primary key,
+  config jsonb not null,
+  updated_at timestamptz not null default now()
+);
+```
+
+Use the Supabase project URL as the endpoint, for example:
+
+```text
+https://your-project.supabase.co
+```
+
+Use an anon key with Row Level Security policies that match your room-sharing model. Do not paste a service role key into the browser.
+
+### Firebase Realtime Database
+
+Use the database root URL as the endpoint:
+
+```text
+https://your-project-default-rtdb.firebaseio.com
+```
+
+The app stores snapshots under:
+
+```text
+/multistreamer/rooms/<room-id>
+```
+
+Use Firebase rules or an auth token that only grants the rooms you intend to mirror. The mirror pushes the same validated JSON config used by Import/Export and can pull it back into the room when the Gun relay has lost state.
 
 ## Use Cases
 
