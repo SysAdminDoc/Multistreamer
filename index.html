@@ -1425,6 +1425,62 @@
 
         .settings-actions button { flex: 1; }
 
+        .clip-title-input {
+            width: 170px;
+            min-width: 0;
+            padding: 6px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 12px;
+        }
+
+        .clip-list {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .clip-card {
+            padding: 9px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.04);
+            display: grid;
+            gap: 6px;
+        }
+
+        .clip-card.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px rgba(0,212,255,0.35);
+        }
+
+        .clip-card-title {
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .clip-card-meta,
+        .clip-empty {
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+
+        .clip-card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .clip-card-actions button {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
         /* Modal */
         .modal-overlay {
             position: fixed;
@@ -1844,6 +1900,16 @@
                 </div>
             </div>
             <div class="settings-section">
+                <h4 data-i18n="timeline">Timeline</h4>
+                <div class="setting-row">
+                    <label class="setting-label" for="clipTitleInput" data-i18n="clipTitle">Clip Title</label>
+                    <input type="text" class="clip-title-input" id="clipTitleInput" maxlength="80" placeholder="Key moment..." data-i18n-placeholder="clipTitlePlaceholder" autocomplete="off">
+                </div>
+                <button class="btn-primary host-only-inline" onclick="addClipBookmark()" style="width:100%;margin-top:8px;" data-i18n="addClipBookmark">Add Clip Bookmark</button>
+                <button class="btn-secondary" onclick="exportClipBookmarks()" style="width:100%;margin-top:8px;" data-i18n="exportClips">Export Clips</button>
+                <div class="clip-list" id="clipList" role="list" aria-live="polite"></div>
+            </div>
+            <div class="settings-section">
                 <h4 data-i18n="weather">Weather</h4>
                 <div class="setting-row">
                     <label class="setting-label" for="weatherProvider" data-i18n="overlayProvider">Overlay Provider</label>
@@ -2021,7 +2087,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.35.0';
+        const APP_VERSION = '0.36.0';
         const CONFIG_VERSION = 15;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
@@ -2062,6 +2128,8 @@
         const INCIDENT_SEVERITY_RANK = { Extreme: 0, Severe: 1, Moderate: 2, Minor: 3, Unknown: 4 };
         const INCIDENT_URGENCY_RANK = { Immediate: 0, Expected: 1, Future: 2, Past: 3, Unknown: 4 };
         const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
+        const CLIP_TITLE_MAX_LENGTH = 80;
+        const CLIP_STREAM_LABEL_MAX_LENGTH = 80;
 
         // ========== GLOBAL STATE ==========
         let gun = null;
@@ -2086,6 +2154,7 @@
         const seenStreams = new Map();
         const msgEls = new Map();
         const chatMessages = new Map();
+        const clipBookmarks = new Map();
         const seenReactions = new Set();
         let chatSendTimes = [];
         const youtubeChatMirror = {
@@ -2107,6 +2176,7 @@
         let currentScheduleState = 'open';
         let popoutProvider = null;
         let offlineRoomCacheTimer = null;
+        let selectedClipAnnounced = false;
         const relayHealth = {
             state: 'connecting',
             statusText: 'Connecting',
@@ -2404,6 +2474,21 @@
                 volumeFor: 'Volume for {label}',
                 audioOnlyMode: 'Audio-only Mode',
                 audioOnlyBadge: 'Audio',
+                timeline: 'Timeline',
+                clipTitle: 'Clip Title',
+                clipTitlePlaceholder: 'Key moment...',
+                addClipBookmark: 'Add Clip Bookmark',
+                exportClips: 'Export Clips',
+                noClips: 'No clip bookmarks yet.',
+                clipSaved: 'Clip bookmark saved.',
+                clipCopied: 'Clip link copied.',
+                clipRemoved: 'Clip bookmark removed.',
+                clipExported: 'Clip bookmarks exported.',
+                clipNeedsStream: 'Add a stream before bookmarking a clip.',
+                clipAtTime: '{stream} at {time}',
+                clipNativeTime: 'media {seconds}s',
+                clipLinkLoaded: 'Clip link loaded: {title}',
+                copyClipLink: 'Copy Link',
                 remove: 'Remove',
                 unsetMainFor: 'Unset main stream for {label}',
                 setMainFor: 'Set main stream for {label}',
@@ -2478,6 +2563,7 @@
         // ========== URL PARAMS ==========
         const params = new URLSearchParams(location.search);
         const roomId = params.get('room');
+        const selectedClipId = params.get('clip') || '';
         const hostKeyFromUrl = params.get('host') || '';
         let hostKey = hostKeyFromUrl || getStoredHostKey();
 
@@ -2940,6 +3026,15 @@
             roomRef.get('sync').get('leader').on(handleLeaderState);
             moderationRef.get(moderationToken).on(handleModerationRecord);
             moderationRef.get(sessionId).on(handleModerationRecord);
+            roomRef.get('clips').map().on((clip, id) => {
+                if (!clip) {
+                    clipBookmarks.delete(id);
+                } else {
+                    const normalized = normalizeClipBookmark({ ...clip, id: clip.id || id });
+                    if (normalized) clipBookmarks.set(normalized.id, normalized);
+                }
+                renderClipTimeline();
+            });
 
             writePresence();
             setInterval(writePresence, PRESENCE_HEARTBEAT_MS);
@@ -2966,6 +3061,7 @@
             document.body.classList.toggle('viewer-mode', !controls);
             document.querySelectorAll('.host-only-inline').forEach(el => el.style.display = controls ? '' : 'none');
             refreshChatModerationControls();
+            renderClipTimeline();
         }
 
         function hasHostControls() {
@@ -4763,6 +4859,155 @@
             document.execCommand('copy');
             notify(t('linkCopied'));
         }
+
+        function cleanClipText(value, maxLength) {
+            return String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+        }
+
+        function getTimelineStream() {
+            return streams.find(stream => stream.id === settings.featuredId) || streams[0] || null;
+        }
+
+        function getMountedStreamCurrentTime(streamId) {
+            const time = mountedProviders.get(streamId)?.instance?.video?.currentTime;
+            return Number.isFinite(time) && time > 0 ? Number(time.toFixed(3)) : 0;
+        }
+
+        function normalizeClipBookmark(raw) {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+            const id = String(raw.id || '').replace(/[^a-z0-9-]/gi, '').slice(0, 80);
+            const streamId = cleanClipText(raw.streamId, 120);
+            const at = Number(raw.at);
+            if (!id || !streamId || !Number.isFinite(at) || at <= 0) return null;
+            const streamLabel = cleanClipText(raw.streamLabel, CLIP_STREAM_LABEL_MAX_LENGTH) || streamId;
+            const title = cleanClipText(raw.title, CLIP_TITLE_MAX_LENGTH) || streamLabel;
+            const streamTime = Number(raw.streamTime);
+            return {
+                id,
+                title,
+                streamId,
+                streamLabel,
+                provider: cleanClipText(raw.provider, 24) || 'unknown',
+                at: Math.round(at),
+                streamTime: Number.isFinite(streamTime) && streamTime > 0 ? Number(streamTime.toFixed(3)) : 0
+            };
+        }
+
+        function addClipBookmark() {
+            if (!hasHostControls()) return notify(t('hostAccessRequired'), 'error');
+            const stream = getTimelineStream();
+            if (!stream) return notify(t('clipNeedsStream'), 'error');
+
+            const id = `clip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const titleInput = document.getElementById('clipTitleInput');
+            const streamLabel = cleanClipText(stream.label || stream.sourceId || stream.id, CLIP_STREAM_LABEL_MAX_LENGTH) || stream.id;
+            const clip = normalizeClipBookmark({
+                id,
+                title: cleanClipText(titleInput?.value, CLIP_TITLE_MAX_LENGTH) || streamLabel,
+                streamId: stream.id,
+                streamLabel,
+                provider: stream.type || 'youtube',
+                at: Date.now(),
+                streamTime: getMountedStreamCurrentTime(stream.id)
+            });
+            if (!clip) return notify(t('clipNeedsStream'), 'error');
+
+            roomRef.get('clips').get(clip.id).put(clip);
+            clipBookmarks.set(clip.id, clip);
+            if (titleInput) titleInput.value = '';
+            renderClipTimeline();
+            notify(t('clipSaved'));
+        }
+
+        function getSortedClipBookmarks() {
+            return Array.from(clipBookmarks.values()).sort((a, b) => b.at - a.at);
+        }
+
+        function getClipShareUrl(id) {
+            const url = new URL(location.origin + location.pathname);
+            url.searchParams.set('room', roomId || '');
+            url.searchParams.set('clip', id);
+            return url.toString();
+        }
+
+        async function copyClipLink(id) {
+            const url = getClipShareUrl(id);
+            try {
+                if (navigator.clipboard?.writeText && window.isSecureContext) {
+                    await navigator.clipboard.writeText(url);
+                } else {
+                    fallbackCopyText(url);
+                }
+                notify(t('clipCopied'));
+            } catch (_) {
+                fallbackCopyText(url);
+                notify(t('clipCopied'));
+            }
+        }
+
+        function removeClipBookmark(id) {
+            if (!hasHostControls()) return notify(t('hostAccessRequired'), 'error');
+            roomRef.get('clips').get(id).put(null);
+            clipBookmarks.delete(id);
+            renderClipTimeline();
+            notify(t('clipRemoved'));
+        }
+
+        function formatClipWallTime(timestamp) {
+            return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(timestamp));
+        }
+
+        function clipMetaText(clip) {
+            const parts = [t('clipAtTime', { stream: clip.streamLabel, time: formatClipWallTime(clip.at) })];
+            if (clip.streamTime > 0) parts.push(t('clipNativeTime', { seconds: clip.streamTime.toFixed(1) }));
+            return parts.join(' | ');
+        }
+
+        function renderClipTimeline() {
+            const list = document.getElementById('clipList');
+            if (!list) return;
+            const clips = getSortedClipBookmarks();
+            if (!clips.length) {
+                list.innerHTML = `<p class="clip-empty">${esc(t('noClips'))}</p>`;
+                return;
+            }
+
+            const canRemove = hasHostControls();
+            list.innerHTML = clips.map(clip => {
+                const selected = clip.id === selectedClipId;
+                if (selected && !selectedClipAnnounced) {
+                    selectedClipAnnounced = true;
+                    notify(t('clipLinkLoaded', { title: clip.title }));
+                }
+                const removeButton = canRemove ? `<button class="btn-danger" type="button" onclick="removeClipBookmark('${escAttr(clip.id)}')" data-clip-action="remove">${esc(t('remove'))}</button>` : '';
+                return `
+                    <div class="clip-card ${selected ? 'selected' : ''}" role="listitem" data-clip-id="${escAttr(clip.id)}">
+                        <div class="clip-card-title">${esc(clip.title)}</div>
+                        <div class="clip-card-meta">${esc(clipMetaText(clip))}</div>
+                        <div class="clip-card-actions">
+                            <button class="btn-secondary" type="button" onclick="copyClipLink('${escAttr(clip.id)}')" data-clip-action="copy">${esc(t('copyClipLink'))}</button>
+                            ${removeButton}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function exportClipBookmarks() {
+            const clips = getSortedClipBookmarks().map(clip => ({
+                ...clip,
+                shareUrl: getClipShareUrl(clip.id),
+                atIso: new Date(clip.at).toISOString()
+            }));
+            downloadBlob(`${roomId || 'room'}-clips.json`, 'application/json', JSON.stringify({
+                version: APP_VERSION,
+                room: roomId,
+                exportedAt: new Date().toISOString(),
+                clips
+            }, null, 2));
+            notify(t('clipExported'));
+        }
+
         function showImportModal() {
             document.getElementById('importData').value = '';
             openModal('importModal', '#importData');

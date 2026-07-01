@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.35.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.36.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -33,6 +33,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Private Host Passwords** - Host links work once, then the password is stored locally and stripped from the browser URL while only a hash syncs to room metadata
 - **Scheduled Rooms** - Hosts can set an opening time and duration so public viewers see scheduled/closed states automatically
 - **Offline PWA Cache** - Installable app shell with per-room last-known stream/settings snapshots for reconnects and offline reloads
+- **Timeline Clip Bookmarks** - Hosts can bookmark key room moments, sync them to viewers, copy `?clip=` links, and export clip JSON
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -93,6 +94,7 @@ The `host` value is a first-use password in the URL, not long-term room state. A
 | Volume Slider | Mix each stream from 0-100; host changes sync to viewers |
 | Mute/Unmute All | Set all stream volumes to 0 or 100 |
 | Audio-only Mode | Hide video panels and use compact stream cards with volume sliders |
+| Clip Bookmark | Save the featured or first stream as a timeline moment with a shareable clip link |
 | Weather | Add a Windy, Zoom Earth, Ventusky, or LightningMaps overlay panel |
 | Fetch NWS Alerts | Pin the highest-priority active NWS alert for the configured weather coordinates |
 | Persistence Mirror | Save local Supabase/Firebase REST settings and push/pull room snapshots |
@@ -132,6 +134,7 @@ Viewers cannot:
 |-----------|-------------|---------|
 | `room` | Room identifier (required for viewing) | `room=blizzard-2025` |
 | `host` | First-use host password; stripped from the visible URL after verification and stored locally while only a hash syncs to room metadata | `host=mySecretKey` |
+| `clip` | Optional timeline bookmark id used to highlight a shared key moment | `clip=clip-1893456000000-ab12c` |
 
 **Examples:**
 ```
@@ -222,6 +225,13 @@ All these sync in real-time to viewers:
 - The room switches to compact audio cards, hides weather/video/chat surfaces, and keeps each provider mounted so active streams can continue playing.
 - HLS/DASH streams use real browser volume control; iframe providers keep the same state-level volume behavior as normal grid mode.
 
+### Timeline Clip Bookmarks
+
+- Hosts can add a clip bookmark from Settings using the featured stream, or the first stream when no stream is featured.
+- Clip bookmarks sync to viewers, can be copied as shareable `?room=...&clip=...` links, and show the linked clip as selected when opened.
+- Export Clips downloads a JSON list with room id, bookmark titles, wall-clock timestamps, stream ids, stream labels, media time when available, and share URLs.
+- Native HLS/DASH bookmarks include the readable media timestamp; iframe providers still get room-moment bookmarks because browsers do not expose their internal media time.
+
 ### Provider Health and Recovery
 
 - YouTube, Twitch, Rumble, HLS, DASH, and allowlisted iframe embeds mount through small provider adapters with `mount`, `destroy`, `mute`, `health`, and `reload` hooks.
@@ -305,6 +315,8 @@ Save your room configuration as JSON:
 
 Import configs to quickly set up similar events.
 
+Timeline clip bookmarks export separately from room config so sharing event highlights does not change the config schema.
+
 Imported configs are validated before they change the room:
 - Future config versions are rejected with an update message.
 - Stream records are normalized through the same source parser used by the Add Stream control.
@@ -360,7 +372,7 @@ npm install
 npm test
 ```
 
-The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, import validation, offline room snapshots, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
+The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, clip bookmark export, import validation, offline room snapshots, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
 
 ### Embed Security
 

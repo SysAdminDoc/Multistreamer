@@ -9,9 +9,9 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifes
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+const escapedVersion = pkg.version.replaceAll('.', '\\.');
 
 test('keeps app version strings in sync', () => {
-    const escapedVersion = pkg.version.replaceAll('.', '\\.');
     assert.match(html, new RegExp(`const APP_VERSION = '${escapedVersion}'`));
     assert.match(readme, new RegExp(`version-v${escapedVersion}-blue`));
 });
@@ -43,7 +43,7 @@ test('keeps offline PWA shell and room cache wired', () => {
     assert.match(html, /`ms-room-cache-\$\{roomId\}`/);
     assert.match(html, /validateImportConfig\(config\)/);
     assert.match(html, /buildRoomConfig\(\)/);
-    assert.match(sw, /const CACHE_NAME = 'multistreamer-v0\.35\.0'/);
+    assert.match(sw, new RegExp(`const CACHE_NAME = 'multistreamer-v${escapedVersion}'`));
     assert.match(sw, /manifest\.webmanifest/);
     assert.match(sw, /vendor\/gun-0\.2020\.1241\.min\.js/);
     assert.match(sw, /self\.addEventListener\('fetch'/);
@@ -120,6 +120,7 @@ test('keeps primary form controls labelled', () => {
         'gridPresetSelect',
         'customGridTemplate',
         'audioOnlyToggle',
+        'clipTitleInput',
         'scheduleStartsAt',
         'scheduleDurationHours',
         'slowModeSeconds',
@@ -345,6 +346,26 @@ test('keeps import config validation wired', () => {
     assert.match(html, /settingsChatSlowMode: 'settings\.chat\.slowModeSeconds must be an integer from 0 to 60\.'/);
     assert.match(html, /configImportedSkipped: 'Config imported\. Skipped \{count\} invalid \{streamWord\}\.'/);
     assert.match(html, /t\('configImportedSkipped', \{ count: result\.skippedStreams/);
+});
+
+test('keeps timeline clip bookmarks wired', () => {
+    assert.match(html, /const CLIP_TITLE_MAX_LENGTH = 80;/);
+    assert.match(html, /const clipBookmarks = new Map\(\);/);
+    assert.match(html, /const selectedClipId = params\.get\('clip'\) \|\| '';/);
+    assert.match(html, /id="clipTitleInput"/);
+    assert.match(html, /id="clipList" role="list" aria-live="polite"/);
+    assert.match(html, /roomRef\.get\('clips'\)\.map\(\)\.on/);
+    assert.match(html, /function normalizeClipBookmark\(raw\)/);
+    assert.match(html, /function addClipBookmark\(\)/);
+    assert.match(html, /function getMountedStreamCurrentTime\(streamId\)/);
+    assert.match(html, /function getClipShareUrl\(id\)/);
+    assert.match(html, /url\.searchParams\.set\('clip', id\)/);
+    assert.match(html, /function renderClipTimeline\(\)/);
+    assert.match(html, /function exportClipBookmarks\(\)/);
+    assert.match(html, /roomRef\.get\('clips'\)\.get\(clip\.id\)\.put\(clip\)/);
+    assert.match(html, /downloadBlob\(`\$\{roomId \|\| 'room'\}-clips\.json`, 'application\/json'/);
+    assert.match(html, /clipSaved: 'Clip bookmark saved\.'/);
+    assert.match(html, /clipLinkLoaded: 'Clip link loaded: \{title\}'/);
 });
 
 test('keeps optional persistence mirror wired locally', () => {

@@ -205,7 +205,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
 
     await host.waitForFunction(roomName => {
         const snapshot = JSON.parse(localStorage.getItem(`ms-room-cache-${roomName}`) || 'null');
-        return snapshot?.appVersion === '0.35.0'
+        return snapshot?.appVersion === '0.36.0'
             && snapshot?.cacheVersion === 1
             && snapshot?.config?.version === 15
             && snapshot?.config?.settings?.schedule?.enabled === true
@@ -239,6 +239,47 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     assert.ok(audioOnlyLayout.sliderWidth >= 140);
     await host.uncheck('#audioOnlyToggle');
     await host.waitForFunction(() => settings.display.audioOnly === false && !document.getElementById('gridContainer').classList.contains('audio-only-layout'));
+
+    await host.fill('#clipTitleInput', 'Opening moment');
+    await host.click('#settingsPanel button:has-text("Add Clip Bookmark")');
+    await host.waitForFunction(() => clipBookmarks.size === 1 && document.querySelectorAll('#clipList .clip-card').length === 1);
+    const clipState = await host.evaluate(() => {
+        const clip = Array.from(clipBookmarks.values())[0];
+        return {
+            count: clipBookmarks.size,
+            id: clip.id,
+            title: clip.title,
+            streamId: clip.streamId,
+            shareUrl: getClipShareUrl(clip.id)
+        };
+    });
+    assert.equal(clipState.count, 1);
+    assert.equal(clipState.title, 'Opening moment');
+    assert.equal(clipState.streamId, 'dQw4w9WgXcQ');
+    const clipUrl = new URL(clipState.shareUrl);
+    assert.equal(clipUrl.searchParams.get('room'), room);
+    assert.equal(clipUrl.searchParams.get('clip'), clipState.id);
+    await host.evaluate(() => {
+        window.__clipDownloads = [];
+        window.__originalDownloadBlob = downloadBlob;
+        downloadBlob = (filename, type, content) => window.__clipDownloads.push({ filename, type, content });
+    });
+    await host.click('#settingsPanel button:has-text("Export Clips")');
+    const clipDownloads = await host.evaluate(() => {
+        const downloads = window.__clipDownloads;
+        downloadBlob = window.__originalDownloadBlob;
+        delete window.__clipDownloads;
+        delete window.__originalDownloadBlob;
+        return downloads;
+    });
+    assert.equal(clipDownloads.length, 1);
+    assert.equal(clipDownloads[0].filename, `${room}-clips.json`);
+    assert.equal(clipDownloads[0].type, 'application/json');
+    const exportedClips = JSON.parse(clipDownloads[0].content);
+    assert.equal(exportedClips.version, '0.36.0');
+    assert.equal(exportedClips.room, room);
+    assert.equal(exportedClips.clips[0].title, 'Opening moment');
+    assert.equal(exportedClips.clips[0].shareUrl, clipState.shareUrl);
 
     await host.click('.grid-item[data-provider="youtube"] button:has-text("Offset")');
     await host.waitForSelector('#latencyOffsetModal.show');

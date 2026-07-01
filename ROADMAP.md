@@ -9,7 +9,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 - **Watch2Gether** — playlist queue + chat + sync; closer to watch-party angle.
 
 ## Nice-to-Haves
-- Timeline / clip mode: bookmark timestamps, export shareable links to key moments
 - Stats overlay: concurrent viewers per stream from public APIs
 - Integration with OBS browser source (send full grid as one composited feed)
 
