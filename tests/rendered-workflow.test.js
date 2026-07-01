@@ -48,6 +48,11 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
         contentType: 'text/html',
         body: '<!doctype html><title>Windy stub</title>'
     }));
+    await context.route(/https:\/\/www\.ventusky\.com\/.*/, route => route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<!doctype html><title>Ventusky stub</title>'
+    }));
 
     const room = 'rendered-' + Date.now();
     const hostKey = 'host-' + Date.now();
@@ -99,7 +104,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('newer than supported')));
 
     await host.fill('#importData', JSON.stringify({
-        version: 10,
+        version: 11,
         room,
         streams: [
             { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, volume: 0, label: 'Workflow QA', latencyOffsetMs: 0 },
@@ -109,7 +114,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
             layout: 'grid',
             featuredId: 'dQw4w9WgXcQ',
             grid: { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' },
-            weather: { enabled: true, lat: 41.25, lon: -72.5 },
+            weather: { enabled: true, provider: 'ventusky', lat: 41.25, lon: -72.5 },
             chat: { slowModeSeconds: 5, rateLimitCount: 3, rateLimitSeconds: 30 },
             display: { gridGap: 4, labels: 'always', theme: 'amoled', accent: '#00d4ff' }
         }
@@ -118,6 +123,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.waitForSelector('.grid-item[data-provider="youtube"]');
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Skipped 1 invalid stream')));
     assert.equal(await host.locator('.grid-item[data-stream-id="bad-hls"]').count(), 0);
+    await host.waitForSelector('iframe[src*="ventusky.com"]');
 
     await host.click('.grid-item[data-provider="youtube"] button:has-text("Offset")');
     await host.waitForSelector('#latencyOffsetModal.show');
@@ -155,8 +161,9 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 10);
+    assert.equal(exported.version, 11);
     assert.deepEqual(exported.settings.grid, { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' });
+    assert.deepEqual(exported.settings.weather, { enabled: true, provider: 'ventusky', lat: 41.25, lon: -72.5 });
     assert.deepEqual(exported.settings.chat, { slowModeSeconds: 5, rateLimitCount: 3, rateLimitSeconds: 30 });
     const exportedWorkflowStream = exported.streams.find(stream => stream.id === 'dQw4w9WgXcQ');
     assert.equal(exportedWorkflowStream.latencyOffsetMs, 2500);

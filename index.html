@@ -1466,6 +1466,15 @@
             <div class="settings-section">
                 <h4 data-i18n="weather">Weather</h4>
                 <div class="setting-row">
+                    <label class="setting-label" for="weatherProvider" data-i18n="overlayProvider">Overlay Provider</label>
+                    <select id="weatherProvider">
+                        <option value="windy" data-i18n="overlayProviderWindy">Windy Radar</option>
+                        <option value="zoomEarth" data-i18n="overlayProviderZoomEarth">Zoom Earth Radar</option>
+                        <option value="ventusky" data-i18n="overlayProviderVentusky">Ventusky Precipitation</option>
+                        <option value="lightningmaps" data-i18n="overlayProviderLightningMaps">LightningMaps Live</option>
+                    </select>
+                </div>
+                <div class="setting-row">
                     <label class="setting-label" for="weatherLat" data-i18n="latitude">Latitude</label>
                     <input type="number" id="weatherLat" step="0.001" value="40.7128">
                 </div>
@@ -1587,8 +1596,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.25.0';
-        const CONFIG_VERSION = 10;
+        const APP_VERSION = '0.26.0';
+        const CONFIG_VERSION = 11;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const MODERATION_KICK_MS = 10 * 60 * 1000;
@@ -1613,6 +1622,13 @@
             fire: { labelKey: 'reactionFire', glyph: '&#128293;' },
             wow: { labelKey: 'reactionWow', glyph: '&#10024;' }
         };
+        const WEATHER_PROVIDERS = {
+            windy: { labelKey: 'overlayProviderWindy', titleKey: 'weatherOverlayWindyTitle' },
+            zoomEarth: { labelKey: 'overlayProviderZoomEarth', titleKey: 'weatherOverlayZoomEarthTitle' },
+            ventusky: { labelKey: 'overlayProviderVentusky', titleKey: 'weatherOverlayVentuskyTitle' },
+            lightningmaps: { labelKey: 'overlayProviderLightningMaps', titleKey: 'weatherOverlayLightningMapsTitle' }
+        };
+        const WEATHER_PROVIDER_KEYS = new Set(Object.keys(WEATHER_PROVIDERS));
         const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
         // ========== GLOBAL STATE ==========
@@ -1623,7 +1639,7 @@
         let isHost = false;
         let electedHost = false;
         let streams = [];
-        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
+        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
         let chatExpanded = true;
         let username = localStorage.getItem('ms-user') || '';
         let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
@@ -1785,6 +1801,11 @@
                 themeMidnight: 'Midnight',
                 themeAmoled: 'AMOLED',
                 accentColor: 'Accent Color',
+                overlayProvider: 'Overlay Provider',
+                overlayProviderWindy: 'Windy Radar',
+                overlayProviderZoomEarth: 'Zoom Earth Radar',
+                overlayProviderVentusky: 'Ventusky Precipitation',
+                overlayProviderLightningMaps: 'LightningMaps Live',
                 latitude: 'Latitude',
                 longitude: 'Longitude',
                 applyShowWeather: 'Apply & Show Weather',
@@ -1842,8 +1863,12 @@
                 duplicateStream: 'That stream is already in this room.',
                 streamAdded: '{name} added.',
                 allStreamsCleared: 'All streams cleared.',
-                weatherRadar: 'Weather Radar',
-                removeWeatherRadar: 'Remove weather radar',
+                weatherRadar: 'Weather Overlay',
+                weatherOverlayWindyTitle: 'Windy radar overlay',
+                weatherOverlayZoomEarthTitle: 'Zoom Earth radar overlay',
+                weatherOverlayVentuskyTitle: 'Ventusky precipitation overlay',
+                weatherOverlayLightningMapsTitle: 'LightningMaps live overlay',
+                removeWeatherRadar: 'Remove weather overlay',
                 hlsUnsupportedTitle: 'HLS Unsupported',
                 hlsUnsupportedText: 'This browser cannot play HLS.',
                 hlsSourceMissing: 'HLS source missing',
@@ -1899,6 +1924,7 @@
                 settingsFeaturedIdInvalid: 'settings.featuredId must be a stream id.',
                 settingsFeaturedIdMissing: 'settings.featuredId must match an imported stream id.',
                 settingsWeatherObject: 'settings.weather must be an object.',
+                settingsWeatherProvider: 'settings.weather.provider must be windy, zoomEarth, ventusky, or lightningmaps.',
                 settingsWeatherLat: 'settings.weather.lat must be between -90 and 90.',
                 settingsWeatherLon: 'settings.weather.lon must be between -180 and 180.',
                 settingsDisplayObject: 'settings.display must be an object.',
@@ -2118,7 +2144,16 @@
             roomRef.get('settings').get('featuredId').on(v => { settings.featuredId = v || null; render(); });
             roomRef.get('settings').get('grid').get('preset').on(v => { if (v) applyGridSettings({ preset: v }); });
             roomRef.get('settings').get('grid').get('customTemplate').on(v => { applyGridSettings({ customTemplate: typeof v === 'string' ? v : '' }); });
-            roomRef.get('settings').get('weather').on(w => { if (w) { settings.weather = w; document.getElementById('weatherLat').value = w.lat; document.getElementById('weatherLon').value = w.lon; document.getElementById('weatherBtn')?.classList.toggle('btn-active', w.enabled); render(); } });
+            roomRef.get('settings').get('weather').on(w => {
+                if (w) {
+                    settings.weather = normalizeWeatherState(w);
+                    document.getElementById('weatherProvider').value = settings.weather.provider;
+                    document.getElementById('weatherLat').value = settings.weather.lat;
+                    document.getElementById('weatherLon').value = settings.weather.lon;
+                    document.getElementById('weatherBtn')?.classList.toggle('btn-active', settings.weather.enabled);
+                    render();
+                }
+            });
 
             roomRef.get('settings').get('display').get('gridGap').on(v => { if (typeof v === 'number') applyDisplay({ gridGap: v }); });
             roomRef.get('settings').get('display').get('labels').on(v => { if (v) applyDisplay({ labels: v }); });
@@ -2827,12 +2862,57 @@
             if (key === 'customTemplate' && !isSafeGridTemplate(value)) return notify(t('settingsGridTemplateInvalid'), 'error');
             roomRef.get('settings').get('grid').get(key).put(key === 'customTemplate' ? String(value || '').trim() : value);
         }
-        function toggleWeather() { if (hasHostControls()) { const w = settings.weather; roomRef.get('settings').get('weather').put({ enabled: !w.enabled, lat: w.lat, lon: w.lon }); } }
+        function normalizeWeatherProvider(provider) {
+            return WEATHER_PROVIDER_KEYS.has(provider) ? provider : 'windy';
+        }
+
+        function normalizeWeatherState(weather = {}) {
+            const lat = Number(weather.lat);
+            const lon = Number(weather.lon);
+            return {
+                enabled: Boolean(weather.enabled),
+                provider: normalizeWeatherProvider(weather.provider),
+                lat: Number.isFinite(lat) && lat >= -90 && lat <= 90 ? lat : 40.7128,
+                lon: Number.isFinite(lon) && lon >= -180 && lon <= 180 ? lon : -74.006
+            };
+        }
+
+        function formatWeatherCoordinate(value, fallback, min, max) {
+            const number = Number(value);
+            const safe = Number.isFinite(number) && number >= min && number <= max ? number : fallback;
+            return String(Math.round(safe * 10000) / 10000);
+        }
+
+        function buildWeatherOverlayUrl(weather) {
+            const provider = normalizeWeatherProvider(weather.provider);
+            const lat = formatWeatherCoordinate(weather.lat, 40.7128, -90, 90);
+            const lon = formatWeatherCoordinate(weather.lon, -74.006, -180, 180);
+            if (provider === 'zoomEarth') return `https://zoom.earth/maps/radar/#view=${lat},${lon},7z`;
+            if (provider === 'ventusky') return `https://www.ventusky.com/?p=${lat};${lon};6&l=rain-3h`;
+            if (provider === 'lightningmaps') return `https://www.lightningmaps.org/?lang=en#m=oss;t=3;s=0;o=0;b=;ts=0;z=7;y=${lat};x=${lon};d=2;dl=2;dc=0;`;
+            return `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=&calendar=now&type=map`;
+        }
+
+        function getWeatherProviderLabel(provider) {
+            return t(WEATHER_PROVIDERS[normalizeWeatherProvider(provider)].labelKey);
+        }
+
+        function getWeatherOverlayTitle(provider) {
+            return t(WEATHER_PROVIDERS[normalizeWeatherProvider(provider)].titleKey);
+        }
+
+        function toggleWeather() {
+            if (hasHostControls()) {
+                const w = normalizeWeatherState(settings.weather);
+                roomRef.get('settings').get('weather').put({ enabled: !w.enabled, provider: w.provider, lat: w.lat, lon: w.lon });
+            }
+        }
+
         function applyWeather() {
             if (!hasHostControls()) return;
-            const lat = parseFloat(document.getElementById('weatherLat').value) || 40.7128;
-            const lon = parseFloat(document.getElementById('weatherLon').value) || -74.006;
-            roomRef.get('settings').get('weather').put({ enabled: true, lat, lon });
+            const provider = normalizeWeatherProvider(document.getElementById('weatherProvider').value);
+            const next = normalizeWeatherState({ enabled: true, provider, lat: document.getElementById('weatherLat').value, lon: document.getElementById('weatherLon').value });
+            roomRef.get('settings').get('weather').put(next);
         }
         function clearAll() {
             if (!hasHostControls()) return;
@@ -2970,16 +3050,17 @@
             const itemStyle = gridPlan?.itemStyles?.[index] ? ` style="${escAttr(gridPlan.itemStyles[index])}"` : '';
 
             if (item.type === 'weather') {
-                const { lat, lon } = settings.weather;
-                const src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=&calendar=now&type=map`;
+                const weather = normalizeWeatherState(settings.weather);
+                const src = buildWeatherOverlayUrl(weather);
+                const label = getWeatherProviderLabel(weather.provider);
                 const attrs = frameAttrs({
-                    title: 'Weather radar',
+                    title: getWeatherOverlayTitle(weather.provider),
                     sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups',
                     referrerPolicy: 'strict-origin-when-cross-origin',
                     loading: 'lazy',
                     allow: 'fullscreen'
                 });
-                return `<div class="grid-item"${itemStyle}><iframe src="${src}" ${attrs}></iframe><div class="overlay"><div class="controls">${hasHostControls() ? `<button class="host-only" onclick="toggleWeather()" aria-label="${t('removeWeatherRadar')}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${t('weatherRadar')}</div></div>`;
+                return `<div class="grid-item"${itemStyle}><iframe src="${escAttr(src)}" ${attrs}></iframe><div class="overlay"><div class="controls">${hasHostControls() ? `<button class="host-only" onclick="toggleWeather()" aria-label="${t('removeWeatherRadar')}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${esc(label)}</div></div>`;
             }
 
             const { id, label } = item;
@@ -3607,11 +3688,13 @@
 
         function validateWeatherSettings(weather) {
             if (!weather || typeof weather !== 'object' || Array.isArray(weather)) throw new Error(t('settingsWeatherObject'));
+            const provider = weather.provider === undefined ? 'windy' : weather.provider;
+            if (typeof provider !== 'string' || !WEATHER_PROVIDER_KEYS.has(provider)) throw new Error(t('settingsWeatherProvider'));
             const lat = Number(weather.lat);
             const lon = Number(weather.lon);
             if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error(t('settingsWeatherLat'));
             if (!Number.isFinite(lon) || lon < -180 || lon > 180) throw new Error(t('settingsWeatherLon'));
-            return { enabled: Boolean(weather.enabled), lat, lon };
+            return { enabled: Boolean(weather.enabled), provider, lat, lon };
         }
 
         function validateDisplaySettings(display) {
