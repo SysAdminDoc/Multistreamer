@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.33.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.34.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -31,6 +31,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Persistence Mirror** - Push/pull room snapshots to optional Supabase or Firebase REST backends
 - **Private Host Passwords** - Host links work once, then the password is stored locally and stripped from the browser URL while only a hash syncs to room metadata
 - **Scheduled Rooms** - Hosts can set an opening time and duration so public viewers see scheduled/closed states automatically
+- **Offline PWA Cache** - Installable app shell with per-room last-known stream/settings snapshots for reconnects and offline reloads
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -189,6 +190,12 @@ All these sync in real-time to viewers:
 - If no real host presence is fresh, active viewers choose the same temporary host by session ID until a real host returns.
 - The Diagnostics button copies a JSON bundle with app version, room ID, redacted room URL, relay state, retry history, playback-sync samples, provider counts, provider health snapshots, browser media support, and recent runtime/HLS/DASH errors.
 
+### Offline PWA Cache
+
+- `manifest.webmanifest` and `sw.js` make the static shell installable and cache `index.html`, local runtime scripts, the manifest, and the icon.
+- Each room writes a debounced local snapshot under `ms-room-cache-<room>` using the same validated config schema as Import/Export.
+- On reload, cached streams, layout, schedule, weather, incident, display, chat, title, and announcement hydrate immediately while Gun reconnects.
+
 ### Playback Sync
 
 - Hosts publish a lightweight sync heartbeat every 5 seconds with a rolling clock sample and native HLS/DASH playback-buffer measurements.
@@ -344,7 +351,7 @@ npm install
 npm test
 ```
 
-The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, import validation, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
+The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, import validation, offline room snapshots, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
 
 ### Embed Security
 
@@ -358,6 +365,7 @@ The test suite covers parser contracts plus a Playwright-rendered workflow for h
 - Room data stored on Gun.js relay network
 - Optional YouTube API keys are stored only in the host browser's local storage
 - Chat messages expire after 2 hours
+- Room snapshot cache is per-browser local storage and can be cleared by clearing site data
 - No analytics or tracking
 - Optional Supabase/Firebase mirror keys are stored only in the host browser's local storage
 

@@ -5,8 +5,10 @@ const test = require('node:test');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 
 test('keeps app version strings in sync', () => {
     const escapedVersion = pkg.version.replaceAll('.', '\\.');
@@ -27,6 +29,24 @@ test('exposes sync health and redacted diagnostics fields', () => {
     assert.match(html, /if \(p\?\.time > cutoff && p\.online !== false && p\.role !== 'blocked'\) count\+\+/);
     assert.match(html, /function redactSensitiveUrl\(value\)/);
     assert.match(html, /url\.searchParams\.set\('host', '\[redacted\]'\)/);
+});
+
+test('keeps offline PWA shell and room cache wired', () => {
+    assert.equal(manifest.name, 'MultiStream');
+    assert.equal(manifest.display, 'standalone');
+    assert.match(html, /<link rel="manifest" href="manifest\.webmanifest">/);
+    assert.match(html, /function registerServiceWorker\(\)/);
+    assert.match(html, /navigator\.serviceWorker\.register\('sw\.js'\)/);
+    assert.match(html, /const OFFLINE_ROOM_CACHE_VERSION = 1;/);
+    assert.match(html, /function hydrateOfflineRoomCache\(\)/);
+    assert.match(html, /function writeOfflineRoomCache\(\)/);
+    assert.match(html, /`ms-room-cache-\$\{roomId\}`/);
+    assert.match(html, /validateImportConfig\(config\)/);
+    assert.match(html, /buildRoomConfig\(\)/);
+    assert.match(sw, /const CACHE_NAME = 'multistreamer-v0\.34\.0'/);
+    assert.match(sw, /manifest\.webmanifest/);
+    assert.match(sw, /vendor\/gun-0\.2020\.1241\.min\.js/);
+    assert.match(sw, /self\.addEventListener\('fetch'/);
 });
 
 test('hashes room host passwords and strips private host URLs', () => {

@@ -203,6 +203,19 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     assert.equal(persistedSnapshot.config.settings.schedule.enabled, true);
     assert.equal(persistedSnapshot.config.streams[0].geo.lat, 39.7456);
 
+    await host.waitForFunction(roomName => {
+        const snapshot = JSON.parse(localStorage.getItem(`ms-room-cache-${roomName}`) || 'null');
+        return snapshot?.appVersion === '0.34.0'
+            && snapshot?.cacheVersion === 1
+            && snapshot?.config?.version === 14
+            && snapshot?.config?.settings?.schedule?.enabled === true
+            && snapshot?.config?.streams?.some(stream => stream.id === 'dQw4w9WgXcQ');
+    }, room);
+    const offlineSnapshot = await host.evaluate(roomName => JSON.parse(localStorage.getItem(`ms-room-cache-${roomName}`)), room);
+    assert.equal(offlineSnapshot.meta.title, room);
+    assert.equal(offlineSnapshot.config.settings.grid.preset, 'custom');
+    assert.equal(offlineSnapshot.config.streams.length >= 2, true);
+
     await host.click('.grid-item[data-provider="youtube"] button:has-text("Offset")');
     await host.waitForSelector('#latencyOffsetModal.show');
     assert.equal(await host.evaluate(() => document.activeElement.id), 'latencyOffsetInput');
@@ -452,6 +465,7 @@ function startStaticServer() {
 function contentType(filePath) {
     if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
     if (filePath.endsWith('.js')) return 'text/javascript; charset=utf-8';
+    if (filePath.endsWith('.webmanifest')) return 'application/manifest+json; charset=utf-8';
     if (filePath.endsWith('.png')) return 'image/png';
     if (filePath.endsWith('.json')) return 'application/json; charset=utf-8';
     return 'application/octet-stream';
