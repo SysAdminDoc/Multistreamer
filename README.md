@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.37.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.38.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -35,6 +35,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Offline PWA Cache** - Installable app shell with per-room last-known stream/settings snapshots for reconnects and offline reloads
 - **Timeline Clip Bookmarks** - Hosts can bookmark key room moments, sync them to viewers, copy `?clip=` links, and export clip JSON
 - **Stats Overlay** - Optional host-refreshed public viewer-count badges for supported YouTube and Twitch streams
+- **OBS Browser Source Mode** - Share a clean `?obs=1` URL that turns the synced grid into one full-viewport browser-source feed
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -102,7 +103,7 @@ The `host` value is a first-use password in the URL, not long-term room state. A
 | Persistence Mirror | Save local Supabase/Firebase REST settings and push/pull room snapshots |
 | Schedule | Set a synced start time and duration for public room access |
 | Settings | Customize theme, colors, layout |
-| Share | Get viewer/host links |
+| Share | Get viewer, host, and OBS browser-source links |
 | Diagnostics | Copy room, relay, browser, and stream health data with host keys redacted |
 | Kick/Ban | Remove a chat participant temporarily or ban their browser token from the room |
 | Clear | Remove all streams |
@@ -137,6 +138,7 @@ Viewers cannot:
 | `room` | Room identifier (required for viewing) | `room=blizzard-2025` |
 | `host` | First-use host password; stripped from the visible URL after verification and stored locally while only a hash syncs to room metadata | `host=mySecretKey` |
 | `clip` | Optional timeline bookmark id used to highlight a shared key moment | `clip=clip-1893456000000-ab12c` |
+| `obs` | Set to `1` to render a clean OBS browser-source grid without app chrome or chat controls | `obs=1` |
 
 **Examples:**
 ```
@@ -148,6 +150,9 @@ https://yoursite.github.io/?room=storm-watch
 
 # Host mode
 https://yoursite.github.io/?room=storm-watch&host=abc123
+
+# OBS browser source
+https://yoursite.github.io/?room=storm-watch&obs=1
 ```
 
 ## Features in Detail
@@ -241,6 +246,13 @@ All these sync in real-time to viewers:
 - The active host or elected host polls public stats sources and writes normalized counts to room state so viewers do not need API credentials.
 - YouTube live viewer counts use the same locally saved YouTube Data API key as the LiveChat mirror.
 - Twitch channel viewer counts use a no-auth public viewer-count endpoint; VODs and unsupported providers simply omit the badge.
+
+### OBS Browser Source
+
+- The Share dialog includes an OBS Browser Source URL in the form `?room=<room>&obs=1`.
+- OBS mode hides the top bar, host controls, chat drawer, modals, stream controls, reaction layer, minimap, and room banners.
+- The synced grid fills the browser-source viewport, so OBS can capture the full room as one composited feed.
+- Room state still comes from Gun, so hosts control the feed from a normal host tab while OBS uses the clean viewer URL.
 
 ### Provider Health and Recovery
 
@@ -384,7 +396,7 @@ npm install
 npm test
 ```
 
-The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, stats badges, clip bookmark export, import validation, offline room snapshots, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
+The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, stats badges, clip bookmark export, OBS browser-source mode, import validation, offline room snapshots, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
 
 ### Embed Security
 

@@ -140,6 +140,7 @@ test('keeps primary form controls labelled', () => {
         'weatherLon',
         'shareViewerLink',
         'shareHostLink',
+        'shareObsLink',
         'announcementInput',
         'importData',
         'labelInput',
@@ -172,6 +173,18 @@ test('keeps mobile header compact and chat toggle stateful', () => {
     assert.match(html, /\.grid-container\.layout-featured \.sidebar-stack \{\s+display: flex;\s+flex-direction: column;\s+overflow: visible;/);
     assert.match(html, /id="chatToggleBtn"[^>]+aria-expanded="true"/);
     assert.match(html, /chatToggleBtn'\)\.setAttribute\('aria-expanded', String\(chatExpanded\)\)/);
+});
+
+test('keeps OBS browser source mode wired', () => {
+    assert.match(html, /const obsSourceMode = params\.get\('obs'\) === '1' \|\| params\.get\('mode'\) === 'obs';/);
+    assert.match(html, /document\.body\.classList\.toggle\('obs-mode', obsSourceMode\)/);
+    assert.match(html, /body\.obs-mode \.top-bar,/);
+    assert.match(html, /body\.obs-mode \.control-bar,/);
+    assert.match(html, /body\.obs-mode \.chat-bar,/);
+    assert.match(html, /body\.obs-mode \.grid-container/);
+    assert.match(html, /id="shareObsLink"/);
+    assert.match(html, /data-i18n="obsLink"/);
+    assert.match(html, /document\.getElementById\('shareObsLink'\)\.value = `\$\{base\}\?room=\$\{roomId\}&obs=1`/);
 });
 
 test('keeps chat moderation tokens wired', () => {

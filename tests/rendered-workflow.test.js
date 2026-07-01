@@ -211,7 +211,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
 
     await host.waitForFunction(roomName => {
         const snapshot = JSON.parse(localStorage.getItem(`ms-room-cache-${roomName}`) || 'null');
-        return snapshot?.appVersion === '0.37.0'
+        return snapshot?.appVersion === '0.38.0'
             && snapshot?.cacheVersion === 1
             && snapshot?.config?.version === 16
             && snapshot?.config?.settings?.schedule?.enabled === true
@@ -292,7 +292,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     assert.equal(clipDownloads[0].filename, `${room}-clips.json`);
     assert.equal(clipDownloads[0].type, 'application/json');
     const exportedClips = JSON.parse(clipDownloads[0].content);
-    assert.equal(exportedClips.version, '0.37.0');
+    assert.equal(exportedClips.version, '0.38.0');
     assert.equal(exportedClips.room, room);
     assert.equal(exportedClips.clips[0].title, 'Opening moment');
     assert.equal(exportedClips.clips[0].shareUrl, clipState.shareUrl);
@@ -352,11 +352,36 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.click('button:has-text("Share")');
     await host.waitForSelector('#shareModal.show');
     assert.equal(await host.evaluate(() => document.activeElement.id), 'shareViewerLink');
+    const obsShareLink = await host.inputValue('#shareObsLink');
+    const obsShareUrl = new URL(obsShareLink);
+    assert.equal(obsShareUrl.searchParams.get('room'), room);
+    assert.equal(obsShareUrl.searchParams.get('obs'), '1');
     await host.keyboard.press('Tab');
     assert.equal(await host.evaluate(() => document.getElementById('shareModal').contains(document.activeElement)), true);
     await host.keyboard.press('Escape');
     await host.waitForFunction(() => document.getElementById('shareModal').getAttribute('aria-hidden') === 'true');
     assert.equal(await host.evaluate(() => document.activeElement.textContent.trim()), 'Share');
+
+    const obsContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const obsPage = await obsContext.newPage();
+    await obsPage.goto(`${baseUrl}/?room=${room}&obs=1`, { waitUntil: 'domcontentloaded' });
+    await obsPage.waitForSelector('#viewerPage.active');
+    await obsPage.waitForFunction(() => document.body.classList.contains('obs-mode'));
+    await obsPage.waitForSelector('.grid-item[data-provider="youtube"]');
+    const obsLayout = await obsPage.evaluate(() => ({
+        topBarDisplay: getComputedStyle(document.querySelector('.top-bar')).display,
+        controlBarDisplay: getComputedStyle(document.querySelector('.control-bar')).display,
+        chatDisplay: getComputedStyle(document.querySelector('.chat-bar')).display,
+        bodyOverflow: getComputedStyle(document.body).overflow,
+        gridHeight: Math.round(document.getElementById('gridContainer').getBoundingClientRect().height),
+        viewportHeight: window.innerHeight
+    }));
+    assert.equal(obsLayout.topBarDisplay, 'none');
+    assert.equal(obsLayout.controlBarDisplay, 'none');
+    assert.equal(obsLayout.chatDisplay, 'none');
+    assert.equal(obsLayout.bodyOverflow, 'hidden');
+    assert.equal(obsLayout.gridHeight, obsLayout.viewportHeight);
+    await obsContext.close();
 
     const futureSchedule = { enabled: true, startsAt: Date.now() + 60 * 60 * 1000, durationHours: 1 };
     await host.evaluate(schedule => roomRef.get('settings').get('schedule').put(schedule), futureSchedule);

@@ -635,6 +635,52 @@
             overflow: hidden;
         }
 
+        body.obs-mode {
+            background: #000;
+            overflow: hidden;
+        }
+
+        body.obs-mode .top-bar,
+        body.obs-mode .control-bar,
+        body.obs-mode .chat-bar,
+        body.obs-mode .settings-panel,
+        body.obs-mode .modal-overlay,
+        body.obs-mode .popout-panel,
+        body.obs-mode .stream-minimap,
+        body.obs-mode .reaction-layer,
+        body.obs-mode .announcement-bar,
+        body.obs-mode .incident-alert-bar,
+        body.obs-mode .schedule-banner {
+            display: none !important;
+        }
+
+        body.obs-mode .viewer-page.active,
+        body.obs-mode .main-content,
+        body.obs-mode .grid-container {
+            width: 100vw;
+            height: 100vh;
+            min-height: 100vh;
+        }
+
+        body.obs-mode .main-content,
+        body.obs-mode .grid-container {
+            overflow: hidden;
+        }
+
+        body.obs-mode .grid-item {
+            border-radius: 0;
+        }
+
+        body.obs-mode .grid-item .overlay,
+        body.obs-mode .stream-health {
+            display: none !important;
+        }
+
+        body.obs-mode .grid-item .label {
+            font-size: 13px;
+            padding: 22px 10px 9px;
+        }
+
         .grid-container.layout-featured {
             grid-template-columns: 1fr 280px;
         }
@@ -2045,6 +2091,11 @@
                 <input type="text" id="shareHostLink" readonly style="flex:1;min-width:0;padding:10px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:#f59e0b;font-size:12px;">
                 <button class="btn-secondary" onclick="copyShareLink('shareHostLink')" data-i18n="copy">Copy</button>
             </div>
+            <label for="shareObsLink" style="display:block;color:#93c5fd;font-size:13px;margin:15px 0 10px;"><strong data-i18n="obsLink">OBS Browser Source:</strong></label>
+            <div style="display:flex;gap:8px;">
+                <input type="text" id="shareObsLink" readonly style="flex:1;min-width:0;padding:10px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:#93c5fd;font-size:12px;">
+                <button class="btn-secondary" onclick="copyShareLink('shareObsLink')" data-i18n="copy">Copy</button>
+            </div>
             <div class="actions">
                 <button class="btn-secondary" onclick="closeModal('shareModal')" data-i18n="close">Close</button>
             </div>
@@ -2127,7 +2178,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.37.0';
+        const APP_VERSION = '0.38.0';
         const CONFIG_VERSION = 16;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
@@ -2408,6 +2459,7 @@
                 shareRoom: 'Share Room',
                 viewerLink: 'Viewer Link:',
                 hostLink: 'Host Link:',
+                obsLink: 'OBS Browser Source:',
                 close: 'Close',
                 editAnnouncement: 'Edit Announcement',
                 announcementHelp: 'This message appears at the top for all viewers. Leave blank to hide.',
@@ -2626,6 +2678,7 @@
         const params = new URLSearchParams(location.search);
         const roomId = params.get('room');
         const selectedClipId = params.get('clip') || '';
+        const obsSourceMode = params.get('obs') === '1' || params.get('mode') === 'obs';
         const hostKeyFromUrl = params.get('host') || '';
         let hostKey = hostKeyFromUrl || getStoredHostKey();
 
@@ -2969,6 +3022,7 @@
         initPersistenceMirrorControls();
         updateScheduleControls();
         updateStatsControls();
+        document.body.classList.toggle('obs-mode', obsSourceMode);
         document.addEventListener('keydown', handleModalKeydown);
         window.addEventListener('beforeunload', () => {
             flushOfflineRoomCache();
@@ -5156,6 +5210,7 @@
             const privateHostKey = hostKey || getStoredHostKey();
             document.getElementById('shareViewerLink').value = `${base}?room=${roomId}`;
             document.getElementById('shareHostLink').value = `${base}?room=${roomId}&host=${privateHostKey || ''}`;
+            document.getElementById('shareObsLink').value = `${base}?room=${roomId}&obs=1`;
             openModal('shareModal', '#shareViewerLink');
         }
         function copyShareLink(id) {
