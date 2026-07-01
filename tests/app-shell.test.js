@@ -29,6 +29,21 @@ test('exposes sync health and redacted diagnostics fields', () => {
     assert.match(html, /url\.searchParams\.set\('host', '\[redacted\]'\)/);
 });
 
+test('hashes room host passwords and strips private host URLs', () => {
+    assert.match(html, /const hostKeyFromUrl = params\.get\('host'\) \|\| '';/);
+    assert.match(html, /let hostKey = hostKeyFromUrl \|\| getStoredHostKey\(\);/);
+    assert.match(html, /function hashHostKey\(key\)/);
+    assert.match(html, /multistreamer-host-v1:\$\{roomId\}:\$\{key\}/);
+    assert.match(html, /function publishHostKeyHash\(hash\)/);
+    assert.match(html, /roomRef\.get\('meta'\)\.get\('hostKeyHash'\)\.put\(hash\)/);
+    assert.match(html, /roomRef\.get\('meta'\)\.get\('hostKey'\)\.put\(null\)/);
+    assert.match(html, /function stripHostKeyFromUrl\(\)/);
+    assert.match(html, /url\.searchParams\.delete\('host'\)/);
+    assert.match(html, /history\.replaceState\(history\.state, document\.title/);
+    assert.match(html, /localStorage\.setItem\(storageKey, key\)/);
+    assert.doesNotMatch(html, /get\('hostKey'\)\.put\(hostKey\)/);
+});
+
 test('keeps leader election wired', () => {
     assert.match(html, /const LEADER_ELECTION_CHECK_MS = 15000;/);
     assert.match(html, /const LEADER_TTL_MS = 45000;/);

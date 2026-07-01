@@ -5,7 +5,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 ## Planned Features
 
 ### Deployment & Persistence
-- Room passwords (hash) so viewer URL doesn't leak host access
 - Scheduled rooms: auto-activate at a time and auto-close after N hours
 
 ## Competitive Research

@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.30.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.31.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -28,6 +28,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **NWS Incident Alerts** - Fetch active National Weather Service alerts and pin the highest-priority alert as a synced ticker
 - **Stream Minimap** - Add per-stream geo-tags and show synced camera markers on a compact minimap
 - **Persistence Mirror** - Push/pull room snapshots to optional Supabase or Firebase REST backends
+- **Private Host Passwords** - Host links work once, then the password is stored locally and stripped from the browser URL while only a hash syncs to room metadata
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -64,6 +65,7 @@ https://sysadmindoc.github.io/Multistreamer/
    - **Host password**: Your secret key (auto-generated if left blank)
 3. Click **Create Room**
 4. Copy your **Host Link** (keep private!) and **Viewer Link** (share publicly!)
+5. After host access is verified, the browser removes `host=` from the address bar and keeps the password only in local storage for future host visits.
 
 ## Usage
 
@@ -73,6 +75,7 @@ Access your room with the host link:
 ```
 https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 ```
+The `host` value is a first-use password in the URL, not long-term room state. After a host opens the link, MultiStream stores the password in that browser, strips it from the visible URL, and writes only a SHA-256 hash to Gun room metadata. Existing rooms that still have a plaintext legacy `hostKey` are migrated to the hash format after the next successful host login.
 
 **Controls available:**
 | Control | Description |
@@ -122,7 +125,7 @@ Viewers cannot:
 | Parameter | Description | Example |
 |-----------|-------------|---------|
 | `room` | Room identifier (required for viewing) | `room=blizzard-2025` |
-| `host` | Host password (enables host controls) | `host=mySecretKey` |
+| `host` | First-use host password; stripped from the visible URL after verification and stored locally while only a hash syncs to room metadata | `host=mySecretKey` |
 
 **Examples:**
 ```
@@ -159,6 +162,13 @@ All these sync in real-time to viewers:
 - Grid gap & label visibility
 - Weather overlay provider & location
 - Pinned NWS incident alert text
+
+### Host Password Privacy
+
+- New rooms store host access as `meta.hostKeyHash`; the plaintext host password is never written to room metadata.
+- A host URL can still include `host=...` for handoff, but the app removes that query parameter after successful verification.
+- The host password is stored in the host browser under a room-specific local storage key so reloads and recent-room opens do not need a visible secret in the URL.
+- Legacy rooms with plaintext `meta.hostKey` continue to work; the first successful host login migrates them to `meta.hostKeyHash` and clears the plaintext value.
 
 ### Sync Health and Diagnostics
 

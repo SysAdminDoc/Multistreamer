@@ -94,6 +94,23 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.goto(`${baseUrl}/?room=${room}&host=${hostKey}`, { waitUntil: 'domcontentloaded' });
     await host.waitForSelector('#viewerPage.active');
     await host.waitForFunction(() => document.body.classList.contains('viewer-mode') === false);
+    await host.waitForFunction(() => !new URL(location.href).searchParams.has('host'));
+    const hostAuthState = await host.evaluate(async roomName => {
+        const once = node => new Promise(resolve => node.once(value => resolve(value)));
+        const meta = gun.get('ms4-' + roomName).get('meta');
+        return {
+            localKey: localStorage.getItem(`ms-host-key-${roomName}`),
+            hash: await once(meta.get('hostKeyHash')),
+            legacyKey: await once(meta.get('hostKey')),
+            search: location.search
+        };
+    }, room);
+    assert.equal(hostAuthState.localKey, hostKey);
+    assert.equal(hostAuthState.search, `?room=${room}`);
+    assert.equal(typeof hostAuthState.hash, 'string');
+    assert.equal(hostAuthState.hash.length, 64);
+    assert.notEqual(hostAuthState.hash, hostKey);
+    assert.equal(hostAuthState.legacyKey == null, true);
 
     await host.fill('#videoUrl', 'https://youtu.be/dQw4w9WgXcQ');
     await host.click('.control-bar button:has-text("Add")');
@@ -239,10 +256,12 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.click('#settingsPanel .settings-header button');
     await host.waitForFunction(() => !document.getElementById('settingsPanel').classList.contains('open'));
 
-    const viewer = await context.newPage();
+    const viewerContext = await browser.newContext();
+    const viewer = await viewerContext.newPage();
     await viewer.goto(`${baseUrl}/?room=${room}`, { waitUntil: 'domcontentloaded' });
     await viewer.waitForSelector('#viewerPage.active');
     await viewer.waitForFunction(() => document.body.classList.contains('viewer-mode'));
+    assert.equal(await viewer.evaluate(roomName => localStorage.getItem(`ms-host-key-${roomName}`)), null);
     assert.equal(await viewer.locator('.control-bar').isVisible(), false);
     await viewer.click('#reactionStrip button[aria-label="Send fire reaction"]');
     await viewer.waitForSelector('#reactionLayer .reaction-burst[data-reaction="fire"]');
@@ -323,12 +342,15 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     assert.equal(await viewer.getAttribute('#moderationNotice', 'aria-hidden'), 'false');
     assert.equal(await viewer.locator('#messageInput').isDisabled(), true);
 
+    await viewerContext.close();
     await context.close();
 
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const mobilePage = await mobile.newPage();
     await mobilePage.goto(`${baseUrl}/?room=${room}&host=${hostKey}`, { waitUntil: 'domcontentloaded' });
     await mobilePage.waitForSelector('#viewerPage.active');
+    await mobilePage.waitForFunction(() => document.body.classList.contains('viewer-mode') === false);
+    await mobilePage.waitForFunction(() => !new URL(location.href).searchParams.has('host'));
     const mobileLayout = await mobilePage.evaluate(() => ({
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         titleWidth: document.getElementById('roomTitle').getBoundingClientRect().width,

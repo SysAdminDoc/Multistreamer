@@ -1815,7 +1815,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.30.0';
+        const APP_VERSION = '0.31.0';
         const CONFIG_VERSION = 13;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
@@ -1956,6 +1956,8 @@
                 hostPasswordPlaceholder: 'Host password (keep this secret!)',
                 hostPasswordOptionalPlaceholder: 'Host password (optional)',
                 passwordHint: 'Leave password blank to generate a random one',
+                hostHashUnavailable: 'Host password hashing is unavailable in this browser context.',
+                hostAuthFailed: 'Host access could not be verified.',
                 createRoom: 'Create Room',
                 hostLinkPrivate: 'Host Link (private - for you)',
                 viewerLinkShare: 'Viewer Link (share this!)',
@@ -2243,7 +2245,8 @@
         // ========== URL PARAMS ==========
         const params = new URLSearchParams(location.search);
         const roomId = params.get('room');
-        const hostKey = params.get('host');
+        const hostKeyFromUrl = params.get('host') || '';
+        let hostKey = hostKeyFromUrl || getStoredHostKey();
 
         // ========== SETUP PAGE ==========
         let createdRoom = null;
@@ -2319,6 +2322,109 @@
             `).join('');
         }
 
+        function getHostAccessStorageKey() {
+            return roomId ? `ms-host-key-${roomId}` : '';
+        }
+
+        function getStoredHostKey() {
+            const storageKey = getHostAccessStorageKey();
+            return storageKey ? (localStorage.getItem(storageKey) || '') : '';
+        }
+
+        function persistHostAccessKey(key = hostKey) {
+            if (!key) return;
+            hostKey = key;
+            const storageKey = getHostAccessStorageKey();
+            if (storageKey) localStorage.setItem(storageKey, key);
+        }
+
+        function stripHostKeyFromUrl() {
+            if (!hostKeyFromUrl || !history.replaceState) return;
+            try {
+                const url = new URL(location.href);
+                if (!url.searchParams.has('host')) return;
+                url.searchParams.delete('host');
+                history.replaceState(history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
+            } catch (error) {
+                recordRuntimeError('host-url-redaction', error.message, { url: location.href });
+            }
+        }
+
+        async function hashHostKey(key) {
+            if (!key) return '';
+            if (!window.crypto?.subtle || typeof TextEncoder === 'undefined') throw new Error(t('hostHashUnavailable'));
+            const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`multistreamer-host-v1:${roomId}:${key}`));
+            return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+
+        function gunOnce(node) {
+            return new Promise(resolve => node.once(value => resolve(value)));
+        }
+
+        function publishHostKeyHash(hash) {
+            roomRef.get('meta').get('hostKeyHash').put(hash);
+            roomRef.get('meta').get('hostKey').put(null);
+        }
+
+        function grantHostAccess(saveRecent = false) {
+            isHost = true;
+            persistHostAccessKey();
+            stripHostKeyFromUrl();
+            document.body.classList.remove('viewer-mode');
+            writePresence();
+            publishLeaderState('host', 1);
+            setElectedHost(false);
+            if (saveRecent) saveRecentRoom(roomId, hostKey, '');
+        }
+
+        function setViewerWaitingState() {
+            document.getElementById('emptyTitle').textContent = t('waitingForHostTitle');
+            document.getElementById('emptyText').textContent = t('waitingForHostText');
+        }
+
+        function finishHostAccessResolution() {
+            if (hasHostControls()) startHostPlaybackSync();
+            else stopHostPlaybackSync();
+            updateHostUI();
+            render();
+        }
+
+        async function resolveHostAccess() {
+            try {
+                if (!hostKey) {
+                    setViewerWaitingState();
+                    return;
+                }
+
+                const storedHash = await gunOnce(roomRef.get('meta').get('hostKeyHash'));
+                if (typeof storedHash === 'string' && storedHash) {
+                    if (await hashHostKey(hostKey) === storedHash) grantHostAccess(Boolean(hostKeyFromUrl));
+                    else setViewerWaitingState();
+                    return;
+                }
+
+                const legacyKey = await gunOnce(roomRef.get('meta').get('hostKey'));
+                if (typeof legacyKey === 'string' && legacyKey) {
+                    if (legacyKey === hostKey) {
+                        publishHostKeyHash(await hashHostKey(hostKey));
+                        grantHostAccess(Boolean(hostKeyFromUrl));
+                    } else {
+                        setViewerWaitingState();
+                    }
+                    return;
+                }
+
+                publishHostKeyHash(await hashHostKey(hostKey));
+                grantHostAccess(true);
+            } catch (error) {
+                recordRuntimeError('host-auth', error.message, { roomId, url: location.href });
+                notify(t('hostAuthFailed'), 'error');
+                setViewerWaitingState();
+            } finally {
+                finishHostAccessResolution();
+            }
+        }
+
         // ========== PAGE INIT ==========
         setupRuntimeDiagnostics();
         applyLocalizedCopy();
@@ -2349,25 +2455,7 @@
             updateYouTubeChatMirrorStatus(t('youtubeMirrorIdle'));
             setupRelayHealth();
 
-            // Check host
-            roomRef.get('meta').get('hostKey').once(key => {
-                if (key && hostKey === key) {
-                    isHost = true;
-                    document.body.classList.remove('viewer-mode');
-                } else if (!key && hostKey) {
-                    // First host sets the key
-                    roomRef.get('meta').get('hostKey').put(hostKey);
-                    isHost = true;
-                    document.body.classList.remove('viewer-mode');
-                    saveRecentRoom(roomId, hostKey, '');
-                } else {
-                    document.getElementById('emptyTitle').textContent = t('waitingForHostTitle');
-                    document.getElementById('emptyText').textContent = t('waitingForHostText');
-                }
-                if (hasHostControls()) startHostPlaybackSync();
-                else stopHostPlaybackSync();
-                updateHostUI();
-            });
+            resolveHostAccess();
 
             // Listeners
             roomRef.get('meta').get('title').on(t => {
@@ -2645,6 +2733,11 @@
             }
 
             const current = leaderElection.current;
+            if (current?.role === 'host' && !isLeaderStateStale(current)) {
+                setElectedHost(false);
+                return;
+            }
+
             const currentActive = current?.sessionId && activeSessions.some(session => session.id === current.sessionId);
             if (current?.role === 'elected-host' && currentActive && !isLeaderStateStale(current)) {
                 if (current.sessionId === sessionId) publishLeaderState('elected-host', activeSessions.length, current.claimedAt || Date.now());
@@ -4087,8 +4180,9 @@
 
         function showShareModal() {
             const base = location.origin + location.pathname;
+            const privateHostKey = hostKey || getStoredHostKey();
             document.getElementById('shareViewerLink').value = `${base}?room=${roomId}`;
-            document.getElementById('shareHostLink').value = `${base}?room=${roomId}&host=${hostKey || ''}`;
+            document.getElementById('shareHostLink').value = `${base}?room=${roomId}&host=${privateHostKey || ''}`;
             openModal('shareModal', '#shareViewerLink');
         }
         function copyShareLink(id) {
