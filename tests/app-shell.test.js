@@ -121,6 +121,8 @@ test('keeps primary form controls labelled', () => {
         'customGridTemplate',
         'audioOnlyToggle',
         'clipTitleInput',
+        'statsOverlayToggle',
+        'statsRefreshSeconds',
         'scheduleStartsAt',
         'scheduleDurationHours',
         'slowModeSeconds',
@@ -296,11 +298,12 @@ test('keeps provider adapters and health recovery wired', () => {
     assert.match(html, /volume\(instance, volume\)/);
     assert.match(html, /class="stream-health"/);
     assert.match(html, /providerHealth: Array\.from\(mountedProviders\.entries\(\)\)/);
+    assert.match(html, /stats: \{/);
     assert.match(html, /dashJs: Boolean\(window\.dashjs\?\.MediaPlayer\)/);
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 15;/);
+    assert.match(html, /const CONFIG_VERSION = 16;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /function buildRoomConfig\(\)/);
@@ -311,9 +314,11 @@ test('keeps import config validation wired', () => {
     assert.match(html, /function validateGridSettings\(grid\)/);
     assert.match(html, /function validateScheduleSettings\(schedule\)/);
     assert.match(html, /function validateChatSettings\(chat\)/);
+    assert.match(html, /function validateStatsSettings\(stats\)/);
     assert.match(html, /if \(rawSettings\.grid !== undefined\) next\.grid = validateGridSettings\(rawSettings\.grid\)/);
     assert.match(html, /if \(rawSettings\.schedule !== undefined\) next\.schedule = validateScheduleSettings\(rawSettings\.schedule\)/);
     assert.match(html, /if \(rawSettings\.chat !== undefined\) next\.chat = validateChatSettings\(rawSettings\.chat\)/);
+    assert.match(html, /if \(rawSettings\.stats !== undefined\) next\.stats = validateStatsSettings\(rawSettings\.stats\)/);
     assert.match(html, /volume: validateImportVolume\(raw\.volume, raw\.muted\)/);
     assert.match(html, /latencyOffsetMs: validateLatencyOffsetMs\(raw\.latencyOffsetMs\)/);
     assert.match(html, /geo: validateImportGeo\(raw\.geo\)/);
@@ -344,8 +349,29 @@ test('keeps import config validation wired', () => {
     assert.match(html, /settingsDisplayAudioOnly: 'settings\.display\.audioOnly must be true or false\.'/);
     assert.match(html, /function applyImportedSettings\(importedSettings\)/);
     assert.match(html, /settingsChatSlowMode: 'settings\.chat\.slowModeSeconds must be an integer from 0 to 60\.'/);
+    assert.match(html, /settingsStatsRefreshSeconds: 'settings\.stats\.refreshSeconds must be an integer from 30 to 300\.'/);
     assert.match(html, /configImportedSkipped: 'Config imported\. Skipped \{count\} invalid \{streamWord\}\.'/);
     assert.match(html, /t\('configImportedSkipped', \{ count: result\.skippedStreams/);
+});
+
+test('keeps public stats overlay wired through room sync', () => {
+    assert.match(html, /const STATS_REFRESH_DEFAULT_SECONDS = 60;/);
+    assert.match(html, /const TWITCH_VIEWER_COUNT_API = 'https:\/\/decapi\.me\/twitch\/viewercount\/';/);
+    assert.match(html, /let settings = \{[\s\S]*stats: \{ enabled: false, refreshSeconds: STATS_REFRESH_DEFAULT_SECONDS \}/);
+    assert.match(html, /const streamStats = new Map\(\);/);
+    assert.match(html, /id="statsOverlayToggle"/);
+    assert.match(html, /id="statsRefreshSeconds"/);
+    assert.match(html, /roomRef\.get\('settings'\)\.get\('stats'\)\.on/);
+    assert.match(html, /roomRef\.get\('stats'\)\.map\(\)\.on/);
+    assert.match(html, /function applyStatsSettings\(next = \{\}, options = \{\}\)/);
+    assert.match(html, /function setStatsSetting\(key, value\)/);
+    assert.match(html, /function refreshStreamStats\(manual = false\)/);
+    assert.match(html, /function fetchYouTubeStreamStats\(stream\)/);
+    assert.match(html, /function fetchTwitchStreamStats\(stream\)/);
+    assert.match(html, /roomRef\.get\('stats'\)\.get\(stream\.id\)\.put\(result\)/);
+    assert.match(html, /data-stats-badge="\$\{escAttr\(id\)\}"/);
+    assert.match(html, /function updateStreamStatsBadges\(\)/);
+    assert.match(html, /statsRefreshHostOnly: 'Host access is required to refresh public stream stats\.'/);
 });
 
 test('keeps timeline clip bookmarks wired', () => {

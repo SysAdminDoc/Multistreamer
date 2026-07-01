@@ -738,6 +738,28 @@
 
         body.viewer-mode .grid-item .host-only { display: none; }
 
+        .stream-stats-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 3;
+            max-width: calc(100% - 16px);
+            padding: 4px 7px;
+            border: 1px solid rgba(74,222,128,0.42);
+            border-radius: 6px;
+            background: rgba(5,46,22,0.82);
+            color: #bbf7d0;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            backdrop-filter: blur(8px);
+        }
+
+        .stream-stats-badge[hidden] { display: none; }
+
         .stream-health {
             position: absolute;
             left: 8px;
@@ -866,6 +888,11 @@
             min-height: 118px;
             border: 1px solid var(--border-color);
             background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(255,255,255,0.03)), var(--bg-secondary);
+        }
+
+        .grid-container.audio-only-layout .stream-stats-badge {
+            top: 8px;
+            left: 10px;
         }
 
         .grid-container.audio-only-layout .grid-item::before {
@@ -1910,6 +1937,19 @@
                 <div class="clip-list" id="clipList" role="list" aria-live="polite"></div>
             </div>
             <div class="settings-section">
+                <h4 data-i18n="statsOverlay">Stats Overlay</h4>
+                <div class="setting-row">
+                    <label class="setting-label" for="statsOverlayToggle" data-i18n="statsViewerCounts">Viewer Counts</label>
+                    <input type="checkbox" id="statsOverlayToggle" onchange="setStatsSetting('enabled',this.checked)">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="statsRefreshSeconds" data-i18n="statsRefreshSeconds">Refresh Seconds</label>
+                    <input type="number" id="statsRefreshSeconds" min="30" max="300" step="15" value="60" onchange="setStatsSetting('refreshSeconds',this.value)">
+                </div>
+                <button class="btn-secondary" onclick="refreshStreamStats(true)" style="width:100%;margin-top:8px;" data-i18n="refreshStats">Refresh Stats</button>
+                <p id="statsStatus" data-i18n="statsIdle">Stats overlay idle.</p>
+            </div>
+            <div class="settings-section">
                 <h4 data-i18n="weather">Weather</h4>
                 <div class="setting-row">
                     <label class="setting-label" for="weatherProvider" data-i18n="overlayProvider">Overlay Provider</label>
@@ -2087,8 +2127,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.36.0';
-        const CONFIG_VERSION = 15;
+        const APP_VERSION = '0.37.0';
+        const CONFIG_VERSION = 16;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const MODERATION_KICK_MS = 10 * 60 * 1000;
@@ -2130,6 +2170,11 @@
         const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
         const CLIP_TITLE_MAX_LENGTH = 80;
         const CLIP_STREAM_LABEL_MAX_LENGTH = 80;
+        const STATS_REFRESH_DEFAULT_SECONDS = 60;
+        const STATS_REFRESH_MIN_SECONDS = 30;
+        const STATS_REFRESH_MAX_SECONDS = 300;
+        const STREAM_STATS_TTL_MS = 3 * 60 * 1000;
+        const TWITCH_VIEWER_COUNT_API = 'https://decapi.me/twitch/viewercount/';
 
         // ========== GLOBAL STATE ==========
         let gun = null;
@@ -2139,7 +2184,7 @@
         let isHost = false;
         let electedHost = false;
         let streams = [];
-        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, schedule: { enabled: false, startsAt: 0, durationHours: 1 }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, incident: { enabled: false, text: '', event: '', severity: '', headline: '', area: '', updatedAt: 0, expiresAt: '' }, display: { gridGap: 2, labels: 'hover', audioOnly: false, theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
+        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, schedule: { enabled: false, startsAt: 0, durationHours: 1 }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, incident: { enabled: false, text: '', event: '', severity: '', headline: '', area: '', updatedAt: 0, expiresAt: '' }, display: { gridGap: 2, labels: 'hover', audioOnly: false, theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 }, stats: { enabled: false, refreshSeconds: STATS_REFRESH_DEFAULT_SECONDS } };
         let chatExpanded = true;
         let username = localStorage.getItem('ms-user') || '';
         let persistenceMirror = {
@@ -2155,6 +2200,7 @@
         const msgEls = new Map();
         const chatMessages = new Map();
         const clipBookmarks = new Map();
+        const streamStats = new Map();
         const seenReactions = new Set();
         let chatSendTimes = [];
         const youtubeChatMirror = {
@@ -2177,6 +2223,7 @@
         let popoutProvider = null;
         let offlineRoomCacheTimer = null;
         let selectedClipAnnounced = false;
+        let streamStatsTimer = null;
         const relayHealth = {
             state: 'connecting',
             statusText: 'Connecting',
@@ -2489,6 +2536,18 @@
                 clipNativeTime: 'media {seconds}s',
                 clipLinkLoaded: 'Clip link loaded: {title}',
                 copyClipLink: 'Copy Link',
+                statsOverlay: 'Stats Overlay',
+                statsViewerCounts: 'Viewer Counts',
+                statsRefreshSeconds: 'Refresh Seconds',
+                refreshStats: 'Refresh Stats',
+                statsIdle: 'Stats overlay idle.',
+                statsDisabled: 'Stats overlay disabled.',
+                statsLoading: 'Refreshing stream stats...',
+                statsUpdated: 'Stats updated for {count} {streamWord}.',
+                statsNoData: 'No public viewer-count data available.',
+                statsHostOnly: 'Host access is required to change stats overlay settings.',
+                statsRefreshHostOnly: 'Host access is required to refresh public stream stats.',
+                statsBadgeTitle: '{count} watching via {provider}',
                 remove: 'Remove',
                 unsetMainFor: 'Unset main stream for {label}',
                 setMainFor: 'Set main stream for {label}',
@@ -2533,6 +2592,9 @@
                 settingsChatSlowMode: 'settings.chat.slowModeSeconds must be an integer from 0 to 60.',
                 settingsChatRateLimitCount: 'settings.chat.rateLimitCount must be an integer from 1 to 20.',
                 settingsChatRateLimitSeconds: 'settings.chat.rateLimitSeconds must be an integer from 5 to 300.',
+                settingsStatsObject: 'settings.stats must be an object.',
+                settingsStatsEnabled: 'settings.stats.enabled must be true or false.',
+                settingsStatsRefreshSeconds: 'settings.stats.refreshSeconds must be an integer from 30 to 300.',
                 settingsGridObject: 'settings.grid must be an object.',
                 settingsGridPreset: 'settings.grid.preset must be auto, 1+2, 2+3, 3+1, or custom.',
                 settingsGridTemplateInvalid: 'Custom grid columns must be a valid grid-template-columns value under 80 characters.',
@@ -2856,6 +2918,7 @@
                 applyOfflineDisplaySettings(importedSettings.display);
             }
             if (importedSettings.chat) applyChatSettings(importedSettings.chat);
+            if (importedSettings.stats) applyStatsSettings(importedSettings.stats, { renderRoom: false });
             updateLayoutBtns();
         }
 
@@ -2905,11 +2968,13 @@
         applyLocalizedCopy();
         initPersistenceMirrorControls();
         updateScheduleControls();
+        updateStatsControls();
         document.addEventListener('keydown', handleModalKeydown);
         window.addEventListener('beforeunload', () => {
             flushOfflineRoomCache();
             stopHostPlaybackSync();
             stopYouTubeChatMirror();
+            stopStreamStatsRefresh();
         });
 
         if (roomId) {
@@ -2959,6 +3024,8 @@
                     if (popoutProvider?.streamId === id) closePopout();
                     streams = streams.filter(s => s.id !== id && s.gunKey !== id);
                     seenStreams.delete(id);
+                    streamStats.delete(id);
+                    if (hasHostControls()) roomRef.get('stats').get(id).put(null);
                     render();
                 } else {
                     const stream = Sources.normalizeStreamRecord(data, id);
@@ -3021,6 +3088,7 @@
             roomRef.get('settings').get('chat').get('slowModeSeconds').on(v => { if (v !== undefined && v !== null) applyChatSettings({ slowModeSeconds: v }); });
             roomRef.get('settings').get('chat').get('rateLimitCount').on(v => { if (v !== undefined && v !== null) applyChatSettings({ rateLimitCount: v }); });
             roomRef.get('settings').get('chat').get('rateLimitSeconds').on(v => { if (v !== undefined && v !== null) applyChatSettings({ rateLimitSeconds: v }); });
+            roomRef.get('settings').get('stats').on(v => { if (v) applyStatsSettings(v); });
             roomRef.get('sync').get('clock').on(handleHostClockSync);
             roomRef.get('sync').get('scrub').on(handleHostScrubSync);
             roomRef.get('sync').get('leader').on(handleLeaderState);
@@ -3034,6 +3102,15 @@
                     if (normalized) clipBookmarks.set(normalized.id, normalized);
                 }
                 renderClipTimeline();
+            });
+            roomRef.get('stats').map().on((record, id) => {
+                if (!record) {
+                    streamStats.delete(id);
+                } else {
+                    const normalized = normalizeStreamStatsRecord({ ...record, streamId: record.streamId || id });
+                    if (normalized) streamStats.set(normalized.streamId, normalized);
+                }
+                updateStreamStatsBadges();
             });
 
             writePresence();
@@ -3062,6 +3139,8 @@
             document.querySelectorAll('.host-only-inline').forEach(el => el.style.display = controls ? '' : 'none');
             refreshChatModerationControls();
             renderClipTimeline();
+            if (settings.stats.enabled && controls) scheduleStreamStatsRefresh(streamStats.size === 0);
+            else stopStreamStatsRefresh();
         }
 
         function hasHostControls() {
@@ -3668,6 +3747,228 @@
             }
         }
 
+        function normalizeStatsRefreshSeconds(value, fallback = STATS_REFRESH_DEFAULT_SECONDS) {
+            const seconds = Number(value);
+            if (!Number.isInteger(seconds)) return fallback;
+            return Math.min(STATS_REFRESH_MAX_SECONDS, Math.max(STATS_REFRESH_MIN_SECONDS, seconds));
+        }
+
+        function normalizeStatsSettings(stats = {}) {
+            if (!stats || typeof stats !== 'object' || Array.isArray(stats)) return { enabled: false, refreshSeconds: STATS_REFRESH_DEFAULT_SECONDS };
+            return {
+                enabled: Boolean(stats.enabled),
+                refreshSeconds: normalizeStatsRefreshSeconds(stats.refreshSeconds, settings.stats?.refreshSeconds || STATS_REFRESH_DEFAULT_SECONDS)
+            };
+        }
+
+        function applyStatsSettings(next = {}, options = {}) {
+            const previousEnabled = Boolean(settings.stats?.enabled);
+            settings.stats = normalizeStatsSettings({ ...settings.stats, ...next });
+            updateStatsControls();
+            if (options.renderRoom !== false && previousEnabled !== settings.stats.enabled) render();
+            else updateStreamStatsBadges();
+
+            if (settings.stats.enabled && hasHostControls()) {
+                scheduleStreamStatsRefresh(previousEnabled !== true || streamStats.size === 0);
+            } else {
+                stopStreamStatsRefresh();
+                if (!settings.stats.enabled) {
+                    streamStats.clear();
+                    updateStreamStatsBadges();
+                    updateStatsStatus(t('statsDisabled'));
+                }
+            }
+            queueOfflineRoomCacheWrite();
+        }
+
+        function updateStatsControls() {
+            const normalized = normalizeStatsSettings(settings.stats);
+            const toggle = document.getElementById('statsOverlayToggle');
+            const refresh = document.getElementById('statsRefreshSeconds');
+            if (toggle) toggle.checked = normalized.enabled;
+            if (refresh) refresh.value = normalized.refreshSeconds;
+            if (!normalized.enabled) updateStatsStatus(t('statsDisabled'));
+        }
+
+        function setStatsSetting(key, value) {
+            if (!hasHostControls()) {
+                updateStatsControls();
+                return notify(t('statsHostOnly'), 'error');
+            }
+            const next = {
+                ...settings.stats,
+                [key]: key === 'enabled' ? Boolean(value) : Number(value)
+            };
+            roomRef.get('settings').get('stats').put(normalizeStatsSettings(next));
+        }
+
+        function scheduleStreamStatsRefresh(immediate = false) {
+            stopStreamStatsRefresh();
+            if (!settings.stats.enabled || !hasHostControls()) return;
+            if (immediate) refreshStreamStats(false);
+            streamStatsTimer = setInterval(() => refreshStreamStats(false), settings.stats.refreshSeconds * 1000);
+        }
+
+        function stopStreamStatsRefresh() {
+            if (!streamStatsTimer) return;
+            clearInterval(streamStatsTimer);
+            streamStatsTimer = null;
+        }
+
+        async function refreshStreamStats(manual = false) {
+            if (!settings.stats.enabled) {
+                updateStatsStatus(t('statsDisabled'));
+                if (manual) notify(t('statsDisabled'));
+                return;
+            }
+            if (!hasHostControls()) {
+                updateStatsStatus(t('statsRefreshHostOnly'), 'error');
+                if (manual) notify(t('statsRefreshHostOnly'), 'error');
+                return;
+            }
+
+            const supported = streams.filter(isStatsSupportedStream);
+            if (!supported.length) {
+                streamStats.clear();
+                if (roomRef) streams.forEach(stream => roomRef.get('stats').get(stream.id).put(null));
+                updateStreamStatsBadges();
+                updateStatsStatus(t('statsNoData'), 'error');
+                if (manual) notify(t('statsNoData'), 'error');
+                return;
+            }
+
+            updateStatsStatus(t('statsLoading'));
+            const results = await Promise.all(supported.map(fetchStreamStatsForStream));
+            let updated = 0;
+            const liveIds = new Set(streams.map(stream => stream.id));
+            results.forEach((result, index) => {
+                const stream = supported[index];
+                if (result && Number.isFinite(result.count)) {
+                    streamStats.set(stream.id, result);
+                    roomRef.get('stats').get(stream.id).put(result);
+                    updated++;
+                } else {
+                    streamStats.delete(stream.id);
+                    roomRef.get('stats').get(stream.id).put(null);
+                }
+            });
+            Array.from(streamStats.keys()).forEach(id => { if (!liveIds.has(id)) streamStats.delete(id); });
+            updateStreamStatsBadges();
+
+            const message = updated ? t('statsUpdated', { count: updated, streamWord: updated === 1 ? 'stream' : 'streams' }) : t('statsNoData');
+            updateStatsStatus(message, updated ? 'info' : 'error');
+            if (manual) notify(message, updated ? 'info' : 'error');
+        }
+
+        function isStatsSupportedStream(stream) {
+            const type = stream.type || 'youtube';
+            return type === 'youtube' || (type === 'twitch' && (!stream.sourceKind || stream.sourceKind === 'channel'));
+        }
+
+        async function fetchStreamStatsForStream(stream) {
+            try {
+                const type = stream.type || 'youtube';
+                if (type === 'youtube') return await fetchYouTubeStreamStats(stream);
+                if (type === 'twitch') return await fetchTwitchStreamStats(stream);
+            } catch (error) {
+                recordRuntimeError('stream-stats', error?.message || String(error), { streamId: stream.id, provider: stream.type || 'youtube' });
+            }
+            return null;
+        }
+
+        function normalizeStreamStatsRecord(record) {
+            if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+            const streamId = cleanClipText(record.streamId, 120);
+            const count = Number(record.count);
+            const fetchedAt = Number(record.fetchedAt);
+            if (!streamId || !Number.isFinite(count) || count < 0 || !Number.isFinite(fetchedAt) || fetchedAt <= 0) return null;
+            return {
+                streamId,
+                provider: cleanClipText(record.provider, 24) || 'unknown',
+                providerLabel: cleanClipText(record.providerLabel, 32) || cleanClipText(record.provider, 24) || 'Public API',
+                count: Math.round(count),
+                fetchedAt: Math.round(fetchedAt)
+            };
+        }
+
+        async function fetchYouTubeStreamStats(stream) {
+            const apiKey = youtubeChatMirror.apiKey || document.getElementById('youtubeApiKey')?.value.trim() || '';
+            if (!apiKey) return null;
+            const videoId = stream.sourceId || stream.id;
+            const url = `${YOUTUBE_API_BASE}/videos?part=liveStreamingDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(apiKey)}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`videos.stats ${response.status}`);
+            const data = await response.json();
+            const count = Number(data?.items?.[0]?.liveStreamingDetails?.concurrentViewers);
+            if (!Number.isFinite(count)) return null;
+            return {
+                streamId: stream.id,
+                provider: 'youtube',
+                providerLabel: 'YouTube',
+                count,
+                fetchedAt: Date.now()
+            };
+        }
+
+        async function fetchTwitchStreamStats(stream) {
+            const channel = stream.sourceId || stream.id;
+            if (!channel) return null;
+            const response = await fetch(`${TWITCH_VIEWER_COUNT_API}${encodeURIComponent(channel)}`);
+            if (!response.ok) throw new Error(`twitch.stats ${response.status}`);
+            const text = await response.text();
+            const match = text.replace(/,/g, '').match(/\d+/);
+            if (!match) return null;
+            return {
+                streamId: stream.id,
+                provider: 'twitch',
+                providerLabel: 'Twitch',
+                count: Number(match[0]),
+                fetchedAt: Date.now()
+            };
+        }
+
+        function updateStreamStatsBadges() {
+            document.querySelectorAll('[data-stats-badge]').forEach(badge => {
+                const stats = getVisibleStreamStats(badge.getAttribute('data-stats-badge'));
+                if (!stats) {
+                    badge.hidden = true;
+                    badge.textContent = '';
+                    badge.removeAttribute('title');
+                    return;
+                }
+                const count = formatViewerCount(stats.count);
+                badge.hidden = false;
+                badge.textContent = `${count} ${t('watching')}`;
+                badge.setAttribute('title', t('statsBadgeTitle', { count, provider: stats.providerLabel }));
+            });
+        }
+
+        function getVisibleStreamStats(streamId) {
+            if (!settings.stats.enabled) return null;
+            const stats = streamStats.get(streamId);
+            if (!stats || !Number.isFinite(stats.count)) return null;
+            if (Date.now() - stats.fetchedAt > STREAM_STATS_TTL_MS) return null;
+            return stats;
+        }
+
+        function formatViewerCount(count) {
+            const value = Math.max(0, Math.round(Number(count) || 0));
+            if (value >= 1000000) return `${trimFixed(value / 1000000, value < 10000000 ? 1 : 0)}M`;
+            if (value >= 1000) return `${trimFixed(value / 1000, value < 10000 ? 1 : 0)}K`;
+            return String(value);
+        }
+
+        function trimFixed(value, digits) {
+            return value.toFixed(digits).replace(/\.0$/, '');
+        }
+
+        function updateStatsStatus(message, type = 'info') {
+            const status = document.getElementById('statsStatus');
+            if (!status) return;
+            status.textContent = message;
+            status.dataset.state = type;
+        }
+
         function normalizeChatSetting(key, value, fallback) {
             const ranges = {
                 slowModeSeconds: { min: 0, max: 60 },
@@ -4223,6 +4524,7 @@
                 container.style.gridAutoRows = 'minmax(118px, auto)';
                 container.innerHTML = sorted.map((s, index) => renderItem(s, labelMode, index)).join('');
                 mountProviderAdapters();
+                updateStreamStatsBadges();
                 return;
             }
 
@@ -4234,6 +4536,7 @@
                 container.style.gridAutoRows = '';
                 container.innerHTML = `${renderItem(sorted[0], labelMode)}<div class="sidebar-stack">${sorted.slice(1).map(s => renderItem(s, labelMode)).join('')}</div>`;
                 mountProviderAdapters();
+                updateStreamStatsBadges();
             } else {
                 const gridPlan = getGridPlan(sorted.length);
                 container.style.gridTemplateColumns = gridPlan.columns;
@@ -4241,6 +4544,7 @@
                 container.style.gridAutoRows = gridPlan.autoRows;
                 container.innerHTML = sorted.map((s, index) => renderItem(s, labelMode, index, gridPlan)).join('');
                 mountProviderAdapters();
+                updateStreamStatsBadges();
             }
         }
 
@@ -4378,8 +4682,9 @@
             }
             const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="${escAttr(t('reloadStream', { label: label || embed.label || id }))}">${t('reload')}</button></div>`;
             const volumeControl = `<label class="sr-only" for="volume-${escAttr(id)}">${esc(t('volumeFor', { label: label || embed.label || id }))}</label><input type="range" class="volume-slider" id="volume-${escAttr(id)}" min="0" max="100" step="5" value="${volume}" oninput="setStreamVolume('${id}',this.value)" aria-label="${escAttr(t('volumeFor', { label: label || embed.label || id }))}" title="${escAttr(t('volumeFor', { label: label || embed.label || id }))}">`;
+            const statsHtml = settings.stats.enabled ? `<div class="stream-stats-badge" data-stats-badge="${escAttr(id)}" hidden></div>` : '';
 
-            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls">${volumeControl}<button onclick="openPopout('${id}')" aria-label="${escAttr(t('popoutFor', { label: label || embed.label || id }))}">${t('popout')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="editStreamGeo('${id}')" aria-label="${escAttr(t('editLocationFor', { label: label || embed.label || id }))}">${t('geo')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}>${statsHtml}<div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls">${volumeControl}<button onclick="openPopout('${id}')" aria-label="${escAttr(t('popoutFor', { label: label || embed.label || id }))}">${t('popout')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="editStreamGeo('${id}')" aria-label="${escAttr(t('editLocationFor', { label: label || embed.label || id }))}">${t('geo')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
 
         function destroyProviderAdapters() {
@@ -5280,6 +5585,7 @@
             if (rawSettings.schedule !== undefined) next.schedule = validateScheduleSettings(rawSettings.schedule);
             if (rawSettings.display !== undefined) next.display = validateDisplaySettings(rawSettings.display);
             if (rawSettings.chat !== undefined) next.chat = validateChatSettings(rawSettings.chat);
+            if (rawSettings.stats !== undefined) next.stats = validateStatsSettings(rawSettings.stats);
             return next;
         }
 
@@ -5374,6 +5680,21 @@
             return next;
         }
 
+        function validateStatsSettings(stats) {
+            if (!stats || typeof stats !== 'object' || Array.isArray(stats)) throw new Error(t('settingsStatsObject'));
+            const next = {};
+            if (stats.enabled !== undefined) {
+                if (typeof stats.enabled !== 'boolean') throw new Error(t('settingsStatsEnabled'));
+                next.enabled = stats.enabled;
+            }
+            if (stats.refreshSeconds !== undefined) {
+                const refreshSeconds = Number(stats.refreshSeconds);
+                if (!Number.isInteger(refreshSeconds) || refreshSeconds < STATS_REFRESH_MIN_SECONDS || refreshSeconds > STATS_REFRESH_MAX_SECONDS) throw new Error(t('settingsStatsRefreshSeconds'));
+                next.refreshSeconds = refreshSeconds;
+            }
+            return normalizeStatsSettings({ ...settings.stats, ...next });
+        }
+
         function applyImportedSettings(importedSettings) {
             if (importedSettings.layout) roomRef.get('settings').get('layout').put(importedSettings.layout);
             if (importedSettings.featuredId) roomRef.get('settings').get('featuredId').put(importedSettings.featuredId);
@@ -5389,6 +5710,7 @@
             if (importedSettings.chat) {
                 Object.entries(importedSettings.chat).forEach(([key, value]) => roomRef.get('settings').get('chat').get(key).put(value));
             }
+            if (importedSettings.stats) roomRef.get('settings').get('stats').put(importedSettings.stats);
         }
 
         function buildDiagnostics() {
@@ -5448,7 +5770,17 @@
                     providerHealth: Array.from(mountedProviders.entries()).map(([id, entry]) => ({
                         id,
                         ...entry.adapter.health(entry.instance)
-                    }))
+                    })),
+                    stats: {
+                        enabled: settings.stats.enabled,
+                        refreshSeconds: settings.stats.refreshSeconds,
+                        records: Array.from(streamStats.values()).map(stats => ({
+                            streamId: stats.streamId,
+                            provider: stats.provider,
+                            count: stats.count,
+                            fetchedAt: new Date(stats.fetchedAt).toISOString()
+                        }))
+                    }
                 },
                 recentErrors: recentErrors.slice(-10)
             };

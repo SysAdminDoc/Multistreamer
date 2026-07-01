@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.36.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.37.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -34,6 +34,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Scheduled Rooms** - Hosts can set an opening time and duration so public viewers see scheduled/closed states automatically
 - **Offline PWA Cache** - Installable app shell with per-room last-known stream/settings snapshots for reconnects and offline reloads
 - **Timeline Clip Bookmarks** - Hosts can bookmark key room moments, sync them to viewers, copy `?clip=` links, and export clip JSON
+- **Stats Overlay** - Optional host-refreshed public viewer-count badges for supported YouTube and Twitch streams
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -95,6 +96,7 @@ The `host` value is a first-use password in the URL, not long-term room state. A
 | Mute/Unmute All | Set all stream volumes to 0 or 100 |
 | Audio-only Mode | Hide video panels and use compact stream cards with volume sliders |
 | Clip Bookmark | Save the featured or first stream as a timeline moment with a shareable clip link |
+| Stats Overlay | Toggle public viewer-count badges and set the host refresh interval |
 | Weather | Add a Windy, Zoom Earth, Ventusky, or LightningMaps overlay panel |
 | Fetch NWS Alerts | Pin the highest-priority active NWS alert for the configured weather coordinates |
 | Persistence Mirror | Save local Supabase/Firebase REST settings and push/pull room snapshots |
@@ -173,6 +175,7 @@ All these sync in real-time to viewers:
 - Grid gap & label visibility
 - Weather overlay provider & location
 - Pinned NWS incident alert text
+- Stats overlay enabled state and refresh interval
 
 ### Host Password Privacy
 
@@ -232,6 +235,13 @@ All these sync in real-time to viewers:
 - Export Clips downloads a JSON list with room id, bookmark titles, wall-clock timestamps, stream ids, stream labels, media time when available, and share URLs.
 - Native HLS/DASH bookmarks include the readable media timestamp; iframe providers still get room-moment bookmarks because browsers do not expose their internal media time.
 
+### Stats Overlay
+
+- Hosts can enable synced viewer-count badges from Settings and set a 30-300 second refresh interval.
+- The active host or elected host polls public stats sources and writes normalized counts to room state so viewers do not need API credentials.
+- YouTube live viewer counts use the same locally saved YouTube Data API key as the LiveChat mirror.
+- Twitch channel viewer counts use a no-auth public viewer-count endpoint; VODs and unsupported providers simply omit the badge.
+
 ### Provider Health and Recovery
 
 - YouTube, Twitch, Rumble, HLS, DASH, and allowlisted iframe embeds mount through small provider adapters with `mount`, `destroy`, `mute`, `health`, and `reload` hooks.
@@ -290,7 +300,7 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 15,
+  "version": 16,
   "room": "my-room",
   "streams": [
     { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "volume": 0, "label": "Main Camera", "latencyOffsetMs": 0, "geo": { "lat": 40.7128, "lon": -74.006 } },
@@ -308,6 +318,7 @@ Save your room configuration as JSON:
     "weather": { "enabled": true, "provider": "windy", "lat": 40.7128, "lon": -74.006 },
     "incident": { "enabled": true, "event": "Flood Warning", "severity": "Severe", "text": "Severe Flood Warning | Flood Warning issued for the area | Areas: Example County | Until Jan 1, 12:00 PM", "updatedAt": 1893456000000, "expiresAt": "2030-01-01T12:00:00-05:00" },
     "chat": { "slowModeSeconds": 5, "rateLimitCount": 5, "rateLimitSeconds": 30 },
+    "stats": { "enabled": true, "refreshSeconds": 60 },
     "display": { "gridGap": 2, "labels": "hover", "audioOnly": false, "theme": "dark", "accent": "#00d4ff" }
   }
 }
@@ -327,6 +338,7 @@ Imported configs are validated before they change the room:
 - Grid presets and custom CSS grid columns are validated before sync.
 - Room schedule timestamps and durations are range-checked before sync.
 - Chat slow-mode and rate-limit settings are range-checked before sync.
+- Stats overlay enabled state and refresh interval are range-checked before sync.
 - Incident alert text and timestamps are normalized before sync.
 - Layout, featured stream, weather provider/coordinates, display labels, audio-only mode, theme, grid gap, and accent colors are range-checked before sync.
 
@@ -372,7 +384,7 @@ npm install
 npm test
 ```
 
-The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, clip bookmark export, import validation, offline room snapshots, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
+The test suite covers parser contracts plus a Playwright-rendered workflow for host add/remove, viewer-mode controls, stats badges, clip bookmark export, import validation, offline room snapshots, export downloads, modal focus behavior, and 390px mobile header layout. External YouTube playback is stubbed in the rendered test so local results do not depend on provider availability.
 
 ### Embed Security
 
