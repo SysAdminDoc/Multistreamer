@@ -99,6 +99,8 @@ test('keeps primary form controls labelled', () => {
         'announcementInput',
         'importData',
         'labelInput',
+        'geoLatInput',
+        'geoLonInput',
         'latencyOffsetInput'
     ].forEach(id => {
         const hasLabel = new RegExp(`<label[^>]+for="${id}"`).test(html);
@@ -108,7 +110,7 @@ test('keeps primary form controls labelled', () => {
 });
 
 test('keeps dialogs semantic and keyboard-managed', () => {
-    ['shareModal', 'announcementModal', 'importModal', 'labelModal', 'latencyOffsetModal'].forEach(id => {
+    ['shareModal', 'announcementModal', 'importModal', 'labelModal', 'latencyOffsetModal', 'geoModal'].forEach(id => {
         const pattern = new RegExp(`id="${id}"[^>]+role="dialog"[^>]+aria-modal="true"[^>]+aria-labelledby=`);
         assert.match(html, pattern);
     });
@@ -253,17 +255,19 @@ test('keeps provider adapters and health recovery wired', () => {
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 12;/);
+    assert.match(html, /const CONFIG_VERSION = 13;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /function validateLatencyOffsetMs\(value\)/);
     assert.match(html, /function validateImportVolume\(value, muted\)/);
+    assert.match(html, /function validateImportGeo\(value\)/);
     assert.match(html, /function validateGridSettings\(grid\)/);
     assert.match(html, /function validateChatSettings\(chat\)/);
     assert.match(html, /if \(rawSettings\.grid !== undefined\) next\.grid = validateGridSettings\(rawSettings\.grid\)/);
     assert.match(html, /if \(rawSettings\.chat !== undefined\) next\.chat = validateChatSettings\(rawSettings\.chat\)/);
     assert.match(html, /volume: validateImportVolume\(raw\.volume, raw\.muted\)/);
     assert.match(html, /latencyOffsetMs: validateLatencyOffsetMs\(raw\.latencyOffsetMs\)/);
+    assert.match(html, /geo: validateImportGeo\(raw\.geo\)/);
     assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);
     assert.match(html, /throw new Error\(t\('configVersionFuture', \{ version, supported: CONFIG_VERSION \}\)\)/);
     assert.match(html, /function validateWeatherSettings\(weather\)/);

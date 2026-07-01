@@ -32,7 +32,10 @@ test('parses Twitch channel URLs into stable room records', () => {
         muted: true,
         volume: 0,
         label: '',
-        latencyOffsetMs: 0
+        latencyOffsetMs: 0,
+        geo: null,
+        geoLat: null,
+        geoLon: null
     });
 });
 
@@ -89,9 +92,13 @@ test('normalizes legacy YouTube records without type fields', () => {
     assert.equal(stream.volume, 100);
     assert.equal(stream.label, 'Main');
     assert.equal(stream.latencyOffsetMs, 0);
+    assert.equal(stream.geo, null);
     assert.equal(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', latencyOffsetMs: 45000 }, 'dQw4w9WgXcQ').latencyOffsetMs, 30000);
     assert.equal(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', volume: 55 }, 'dQw4w9WgXcQ').volume, 55);
     assert.equal(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', volume: 150 }, 'dQw4w9WgXcQ').volume, 100);
+    assert.deepEqual(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', geo: { lat: 41.123456, lon: -72.987654 } }, 'dQw4w9WgXcQ').geo, { lat: 41.1235, lon: -72.9877 });
+    assert.deepEqual(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', geoLat: 39.7456, geoLon: -97.0892 }, 'dQw4w9WgXcQ').geo, { lat: 39.7456, lon: -97.0892 });
+    assert.equal(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', geo: { lat: 120, lon: -72.5 } }, 'dQw4w9WgXcQ').geo, null);
 });
 
 test('builds Twitch embed and chat URLs with a parent domain', () => {

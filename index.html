@@ -814,6 +814,96 @@
             font-weight: 700;
         }
 
+        .stream-minimap {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 120;
+            display: none;
+            width: min(240px, calc(100vw - 24px));
+            border: 1px solid rgba(255,255,255,0.16);
+            border-radius: 6px;
+            background: rgba(10,10,15,0.88);
+            box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .stream-minimap.show { display: block; }
+
+        .stream-minimap-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 7px 9px;
+            background: rgba(255,255,255,0.06);
+            color: var(--text-primary);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .stream-minimap-count {
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .stream-minimap-canvas {
+            position: relative;
+            height: 128px;
+            overflow: hidden;
+            background:
+                linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px),
+                #07111f;
+            background-size: 25% 33.333%, 25% 33.333%, auto;
+        }
+
+        .stream-minimap-equator,
+        .stream-minimap-prime {
+            position: absolute;
+            background: rgba(255,255,255,0.14);
+            pointer-events: none;
+        }
+
+        .stream-minimap-equator {
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 1px;
+        }
+
+        .stream-minimap-prime {
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 1px;
+        }
+
+        .stream-map-marker {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            transform: translate(-50%, -50%);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0,212,255,0.22), 0 2px 8px rgba(0,0,0,0.45);
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .stream-map-marker:hover,
+        .stream-map-marker:focus-visible {
+            transform: translate(-50%, -50%) scale(1.15);
+            outline: none;
+        }
+
+        .grid-item.map-focus {
+            box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 1px rgba(255,255,255,0.35);
+        }
+
         .empty-state {
             display: flex;
             flex-direction: column;
@@ -1280,6 +1370,12 @@
             .input-group { min-width: 100%; max-width: 100%; }
             .settings-panel { width: 100%; right: -100%; }
             .grid-container.layout-featured { grid-template-columns: 1fr; }
+            .stream-minimap {
+                top: 8px;
+                right: 8px;
+                width: min(210px, calc(100vw - 16px));
+            }
+            .stream-minimap-canvas { height: 104px; }
             .stream-embed.with-chat {
                 grid-template-columns: 1fr;
                 grid-template-rows: minmax(0, 1fr) 170px;
@@ -1426,6 +1522,16 @@
                 </div>
             </div>
             <div class="reaction-layer" id="reactionLayer" aria-hidden="true"></div>
+            <div class="stream-minimap" id="streamMinimap" aria-label="Stream minimap" data-i18n-aria-label="streamMinimap">
+                <div class="stream-minimap-header">
+                    <span data-i18n="streamMinimap">Stream Map</span>
+                    <span class="stream-minimap-count" id="streamMinimapCount"></span>
+                </div>
+                <div class="stream-minimap-canvas" id="streamMinimapCanvas">
+                    <span class="stream-minimap-equator" aria-hidden="true"></span>
+                    <span class="stream-minimap-prime" aria-hidden="true"></span>
+                </div>
+            </div>
 
             <!-- Chat -->
             <div class="chat-bar" id="chatBar">
@@ -1665,13 +1771,29 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="geoModal" role="dialog" aria-modal="true" aria-labelledby="geoModalTitle" aria-hidden="true" tabindex="-1" onclick="if(event.target===this)closeModal('geoModal')">
+        <div class="modal">
+            <h3 id="geoModalTitle" data-i18n="editStreamLocation">Edit Stream Location</h3>
+            <label class="sr-only" for="geoLatInput" data-i18n="latitude">Latitude</label>
+            <input type="number" id="geoLatInput" min="-90" max="90" step="0.0001" placeholder="40.7128" data-i18n-placeholder="geoLatPlaceholder" style="width:100%;padding:12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:var(--text-primary);margin-bottom:10px;">
+            <label class="sr-only" for="geoLonInput" data-i18n="longitude">Longitude</label>
+            <input type="number" id="geoLonInput" min="-180" max="180" step="0.0001" placeholder="-74.0060" data-i18n-placeholder="geoLonPlaceholder" style="width:100%;padding:12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:5px;color:var(--text-primary);">
+            <input type="hidden" id="geoStreamId">
+            <div class="actions">
+                <button class="btn-secondary" onclick="clearStreamGeo()" data-i18n="clearLocation">Clear Location</button>
+                <button class="btn-secondary" onclick="closeModal('geoModal')" data-i18n="cancel">Cancel</button>
+                <button class="btn-primary" onclick="saveStreamGeo()" data-i18n="save">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ========== GUN RELAY SERVERS ==========
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.27.0';
-        const CONFIG_VERSION = 12;
+        const APP_VERSION = '0.28.0';
+        const CONFIG_VERSION = 13;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const MODERATION_KICK_MS = 10 * 60 * 1000;
@@ -1925,6 +2047,17 @@
                 editStreamLabel: 'Edit Stream Label',
                 streamLabel: 'Stream label',
                 customLabelPlaceholder: 'Custom label...',
+                editStreamLocation: 'Edit Stream Location',
+                clearLocation: 'Clear Location',
+                geoLatPlaceholder: '40.7128',
+                geoLonPlaceholder: '-74.0060',
+                geo: 'Geo',
+                editLocationFor: 'Edit location for {label}',
+                streamMinimap: 'Stream Map',
+                streamMapMarkerFor: '{label} at {lat}, {lon}',
+                streamGeoInvalid: 'Stream location must use latitude -90 to 90 and longitude -180 to 180.',
+                streamGeoSaved: 'Stream location saved.',
+                streamGeoCleared: 'Stream location cleared.',
                 editLatencyOffset: 'Edit Latency Offset',
                 latencyOffsetSeconds: 'Latency offset seconds',
                 latencyOffsetPlaceholder: '0',
@@ -2226,6 +2359,7 @@
                             if (s.volume !== stream.volume) { s.volume = stream.volume; changed = true; }
                             if (s.label !== stream.label) { s.label = stream.label; changed = true; }
                             if (s.latencyOffsetMs !== stream.latencyOffsetMs) { s.latencyOffsetMs = stream.latencyOffsetMs; changed = true; }
+                            if (JSON.stringify(s.geo || null) !== JSON.stringify(stream.geo || null)) { s.geo = stream.geo; changed = true; }
                             if (changed) render();
                         }
                     }
@@ -3181,6 +3315,63 @@
             closeModal('labelModal');
         }
 
+        function editStreamGeo(id) {
+            const stream = streams.find(x => x.id === id);
+            document.getElementById('geoStreamId').value = id;
+            document.getElementById('geoLatInput').value = stream?.geo ? stream.geo.lat : '';
+            document.getElementById('geoLonInput').value = stream?.geo ? stream.geo.lon : '';
+            openModal('geoModal', '#geoLatInput');
+        }
+
+        function saveStreamGeo() {
+            const id = document.getElementById('geoStreamId').value;
+            const geo = normalizeStreamGeo({
+                lat: document.getElementById('geoLatInput').value,
+                lon: document.getElementById('geoLonInput').value
+            });
+            if (!geo) return notify(t('streamGeoInvalid'), 'error');
+            const stream = streams.find(x => x.id === id);
+            if (stream) {
+                stream.geo = geo;
+                renderStreamMinimap();
+            }
+            if (hasHostControls() && id) {
+                roomRef.get('streams').get(id).get('geoLat').put(geo.lat);
+                roomRef.get('streams').get(id).get('geoLon').put(geo.lon);
+                roomRef.get('streams').get(id).get('geo').put(null);
+                notify(t('streamGeoSaved'));
+            }
+            closeModal('geoModal');
+        }
+
+        function clearStreamGeo() {
+            const id = document.getElementById('geoStreamId').value;
+            const stream = streams.find(x => x.id === id);
+            if (stream) {
+                stream.geo = null;
+                renderStreamMinimap();
+            }
+            if (hasHostControls() && id) {
+                roomRef.get('streams').get(id).get('geoLat').put(null);
+                roomRef.get('streams').get(id).get('geoLon').put(null);
+                roomRef.get('streams').get(id).get('geo').put(null);
+                notify(t('streamGeoCleared'));
+            }
+            closeModal('geoModal');
+        }
+
+        function normalizeStreamGeo(value) {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+            const lat = Number(value.lat);
+            const lon = Number(value.lon);
+            if (!Number.isFinite(lat) || lat < -90 || lat > 90) return null;
+            if (!Number.isFinite(lon) || lon < -180 || lon > 180) return null;
+            return {
+                lat: Math.round(lat * 10000) / 10000,
+                lon: Math.round(lon * 10000) / 10000
+            };
+        }
+
         function editLatencyOffset(id) {
             const offsetMs = getLatencyOffsetMs(id);
             document.getElementById('latencyOffsetInput').value = offsetMs ? String(offsetMs / 1000) : '0';
@@ -3209,6 +3400,7 @@
             const items = [...streams];
             if (settings.weather.enabled) items.push({ id: '__weather__', type: 'weather' });
             destroyProviderAdapters();
+            renderStreamMinimap();
 
             if (!items.length) {
                 container.className = 'grid-container';
@@ -3242,6 +3434,52 @@
                 container.innerHTML = sorted.map((s, index) => renderItem(s, labelMode, index, gridPlan)).join('');
                 mountProviderAdapters();
             }
+        }
+
+        function renderStreamMinimap() {
+            const panel = document.getElementById('streamMinimap');
+            const canvas = document.getElementById('streamMinimapCanvas');
+            const count = document.getElementById('streamMinimapCount');
+            if (!panel || !canvas || !count) return;
+            canvas.querySelectorAll('.stream-map-marker').forEach(marker => marker.remove());
+            const geoStreams = streams
+                .map(stream => ({ stream, geo: normalizeStreamGeo(stream.geo) }))
+                .filter(item => item.geo);
+            panel.classList.toggle('show', geoStreams.length > 0);
+            count.textContent = geoStreams.length ? String(geoStreams.length) : '';
+            geoStreams.forEach(({ stream, geo }) => {
+                const point = projectStreamGeo(geo);
+                const marker = document.createElement('button');
+                marker.type = 'button';
+                marker.className = 'stream-map-marker';
+                marker.style.left = `${point.x}%`;
+                marker.style.top = `${point.y}%`;
+                const label = stream.label || stream.sourceId || stream.id;
+                const title = t('streamMapMarkerFor', { label, lat: formatGeoDisplay(geo.lat), lon: formatGeoDisplay(geo.lon) });
+                marker.setAttribute('aria-label', title);
+                marker.setAttribute('title', title);
+                marker.addEventListener('click', () => focusStreamFromMap(stream.id));
+                canvas.appendChild(marker);
+            });
+        }
+
+        function projectStreamGeo(geo) {
+            return {
+                x: Math.max(0, Math.min(100, ((geo.lon + 180) / 360) * 100)),
+                y: Math.max(0, Math.min(100, ((90 - geo.lat) / 180) * 100))
+            };
+        }
+
+        function formatGeoDisplay(value) {
+            return Number(value).toFixed(4);
+        }
+
+        function focusStreamFromMap(id) {
+            const tile = document.querySelector(`.grid-item[data-stream-id="${CSS.escape(id)}"]`);
+            if (!tile) return;
+            tile.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+            tile.classList.add('map-focus');
+            setTimeout(() => tile.classList.remove('map-focus'), 1400);
         }
 
         function getGridPlan(count) {
@@ -3314,7 +3552,8 @@
             const hasChat = !!embed.chatUrl;
             const streamClass = `grid-item ${embed.type}-source${hasChat ? ' has-chat' : ''}`;
             const offsetBadge = latencyOffsetMs ? `<span class="latency-offset-badge">${esc(formatLatencyOffset(latencyOffsetMs))}</span>` : '';
-            const labelHtml = `${label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label)}${offsetBadge}`;
+            const geoBadge = normalizeStreamGeo(item.geo) ? `<span class="latency-offset-badge">${t('geo')}</span>` : '';
+            const labelHtml = `${label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label)}${offsetBadge}${geoBadge}`;
             const controlLabel = escAttr(label || embed.label || id);
             const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}" ${frameAttrs({ title: embed.chatTitle, sandbox: embed.chatSandbox, referrerPolicy: embed.chatReferrerPolicy, loading: embed.chatLoading })}></iframe>` : '';
             let mediaFrame = `<iframe class="video-frame" data-provider="${escAttr(embed.type)}" data-stream-id="${escAttr(id)}" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
@@ -3326,7 +3565,7 @@
             const healthHtml = `<div class="stream-health" role="status" aria-live="polite"><span class="stream-health-text"></span><button type="button" onclick="reloadStream('${id}')" aria-label="${escAttr(t('reloadStream', { label: label || embed.label || id }))}">${t('reload')}</button></div>`;
             const volumeControl = `<label class="sr-only" for="volume-${escAttr(id)}">${esc(t('volumeFor', { label: label || embed.label || id }))}</label><input type="range" class="volume-slider" id="volume-${escAttr(id)}" min="0" max="100" step="5" value="${volume}" oninput="setStreamVolume('${id}',this.value)" aria-label="${escAttr(t('volumeFor', { label: label || embed.label || id }))}" title="${escAttr(t('volumeFor', { label: label || embed.label || id }))}">`;
 
-            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls">${volumeControl}<button onclick="openPopout('${id}')" aria-label="${escAttr(t('popoutFor', { label: label || embed.label || id }))}">${t('popout')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
+            return `<div class="${streamClass}" data-stream-id="${escAttr(id)}" data-provider="${escAttr(embed.type)}" data-health="ready"${itemStyle}><div class="stream-embed ${hasChat ? 'with-chat' : ''}">${mediaFrame}${chatFrame}</div>${healthHtml}<div class="overlay"><div class="controls">${volumeControl}<button onclick="openPopout('${id}')" aria-label="${escAttr(t('popoutFor', { label: label || embed.label || id }))}">${t('popout')}</button>${hasHostControls() ? `<button class="host-only ${isFeatured ? 'active' : ''}" onclick="setFeatured('${id}')" aria-label="${escAttr(t(isFeatured ? 'unsetMainFor' : 'setMainFor', { label: label || embed.label || id }))}">${isFeatured ? t('main') : t('setMain')}</button><button class="host-only" onclick="editLabel('${id}')" aria-label="${escAttr(t('editLabelFor', { label: label || embed.label || id }))}">${t('label')}</button><button class="host-only" onclick="editLatencyOffset('${id}')" aria-label="${escAttr(t('editOffsetFor', { label: label || embed.label || id }))}">${t('offset')}</button><button class="host-only" onclick="editStreamGeo('${id}')" aria-label="${escAttr(t('editLocationFor', { label: label || embed.label || id }))}">${t('geo')}</button><button class="host-only" onclick="removeStream('${id}')" aria-label="${escAttr(t('removeStream', { label: label || embed.label || id }))}">${t('remove')}</button>` : ''}</div></div><div class="label ${labelClass}">${labelHtml}</div></div>`;
         }
 
         function destroyProviderAdapters() {
@@ -3811,7 +4050,7 @@
         }
 
         function exportConfig() {
-            const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, volume: validateVolume(s.volume) ?? (s.muted ? 0 : 100), label: s.label, latencyOffsetMs: getLatencyOffsetMs(s.id) })), settings };
+            const config = { version: CONFIG_VERSION, room: roomId, streams: streams.map(s => ({ id: s.id, type: s.type || 'youtube', sourceId: s.sourceId || s.id, sourceKind: s.sourceKind || 'video', muted: s.muted, volume: validateVolume(s.volume) ?? (s.muted ? 0 : 100), label: s.label, latencyOffsetMs: getLatencyOffsetMs(s.id), geo: normalizeStreamGeo(s.geo) })), settings };
             downloadBlob(`${roomId}.json`, 'application/json', JSON.stringify(config, null, 2));
         }
 
@@ -3832,7 +4071,7 @@
                 const result = validateImportConfig(data);
                 streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
                 result.streams.forEach((stream, index) => {
-                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, volume: stream.volume, label: stream.label, latencyOffsetMs: stream.latencyOffsetMs });
+                    roomRef.get('streams').get(stream.id).put({ id: stream.id, type: stream.type, sourceId: stream.sourceId, sourceKind: stream.sourceKind, addedAt: Date.now() + index, muted: stream.muted, volume: stream.volume, label: stream.label, latencyOffsetMs: stream.latencyOffsetMs, geo: null, geoLat: stream.geo?.lat ?? null, geoLon: stream.geo?.lon ?? null });
                 });
                 applyImportedSettings(result.settings);
                 closeModal('importModal');
@@ -3867,7 +4106,8 @@
                     muted: stream.muted,
                     volume: validateImportVolume(raw.volume, raw.muted),
                     label: typeof raw.label === 'string' ? raw.label.slice(0, 80) : '',
-                    latencyOffsetMs: validateLatencyOffsetMs(raw.latencyOffsetMs)
+                    latencyOffsetMs: validateLatencyOffsetMs(raw.latencyOffsetMs),
+                    geo: validateImportGeo(raw.geo)
                 });
             });
             if (!streamsOut.length && data.streams.length) throw new Error(t('configNoValidStreams'));
@@ -3884,6 +4124,13 @@
             const offset = Number(value);
             if (!Number.isFinite(offset) || offset < -30000 || offset > 30000) throw new Error(t('latencyOffsetInvalid'));
             return Math.round(offset);
+        }
+
+        function validateImportGeo(value) {
+            if (value === undefined || value === null || value === '') return null;
+            const geo = normalizeStreamGeo(value);
+            if (!geo) throw new Error(t('streamGeoInvalid'));
+            return geo;
         }
 
         function validateImportVolume(value, muted) {

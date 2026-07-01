@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.27.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.28.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -26,6 +26,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **YouTube LiveChat Mirror** - Hosts can locally poll YouTube LiveChat and merge those messages into room chat
 - **Weather Overlay Providers** - Add synced Windy, Zoom Earth, Ventusky, or LightningMaps overlays by location
 - **NWS Incident Alerts** - Fetch active National Weather Service alerts and pin the highest-priority alert as a synced ticker
+- **Stream Minimap** - Add per-stream geo-tags and show synced camera markers on a compact minimap
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -79,6 +80,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 | Set Main | Make a video the featured/large video |
 | Label | Give streams custom names |
 | Offset | Add a per-stream latency offset for native HLS/DASH sync correction |
+| Geo | Add a per-stream latitude/longitude marker for the minimap |
 | Pop Out | Open one stream in a floating local picture-in-picture panel |
 | Volume Slider | Mix each stream from 0-100; host changes sync to viewers |
 | Mute/Unmute All | Set all stream volumes to 0 or 100 |
@@ -147,6 +149,7 @@ All these sync in real-time to viewers:
 - Streams (add/remove/order)
 - Mute states
 - Stream volume levels
+- Stream geo-tags for minimap markers
 - Layout mode & featured video
 - Grid preset and custom grid columns
 - Custom stream labels
@@ -237,10 +240,10 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 12,
+  "version": 13,
   "room": "my-room",
   "streams": [
-    { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "volume": 0, "label": "Main Camera", "latencyOffsetMs": 0 },
+    { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "volume": 0, "label": "Main Camera", "latencyOffsetMs": 0, "geo": { "lat": 40.7128, "lon": -74.006 } },
     { "id": "twitch-stormwatch", "type": "twitch", "sourceId": "stormwatch", "sourceKind": "channel", "muted": true, "label": "Storm Watch" },
     { "id": "rumble-v1io41", "type": "rumble", "sourceId": "v1io41", "sourceKind": "embed", "muted": true, "label": "Rumble Clip" },
     { "id": "hls-mwizu8", "type": "hls", "sourceId": "https://example.com/live/camera.m3u8", "sourceKind": "playlist", "muted": true, "label": "HLS Camera" },
@@ -267,6 +270,7 @@ Imported configs are validated before they change the room:
 - Invalid stream records are skipped and reported after import.
 - Stream volumes are range-checked from 0 to 100.
 - Per-stream latency offsets are range-checked to +/-30 seconds.
+- Per-stream geo-tags are range-checked to latitude -90..90 and longitude -180..180.
 - Grid presets and custom CSS grid columns are validated before sync.
 - Chat slow-mode and rate-limit settings are range-checked before sync.
 - Incident alert text and timestamps are normalized before sync.

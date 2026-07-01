@@ -4,9 +4,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 
 ## Planned Features
 
-### Weather / Overlays
-- Camera markers on a small minimap tied to each stream's geo-tag
-
 ### Deployment & Persistence
 - Optional self-hosted Gun relay deployment guide with Docker
 - Firebase / Supabase alternative backend for persistence guarantees

@@ -326,6 +326,7 @@
                             : type + '-' + normalizedSourceId);
 
         const volume = normalizeVolume(record.volume, record.muted);
+        const hasFlatGeo = record.geoLat !== undefined || record.geoLon !== undefined;
 
         return {
             id,
@@ -337,7 +338,8 @@
             muted: volume <= 0,
             volume,
             label: record.label || '',
-            latencyOffsetMs: normalizeLatencyOffsetMs(record.latencyOffsetMs)
+            latencyOffsetMs: normalizeLatencyOffsetMs(record.latencyOffsetMs),
+            geo: hasFlatGeo ? normalizeGeoTag({ lat: record.geoLat, lon: record.geoLon }) : normalizeGeoTag(record.geo)
         };
     }
 
@@ -354,6 +356,18 @@
         return Math.max(0, Math.min(MAX_VOLUME, Math.round(numeric)));
     }
 
+    function normalizeGeoTag(value) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        const lat = Number(value.lat);
+        const lon = Number(value.lon);
+        if (!Number.isFinite(lat) || lat < -90 || lat > 90) return null;
+        if (!Number.isFinite(lon) || lon < -180 || lon > 180) return null;
+        return {
+            lat: Math.round(lat * 10000) / 10000,
+            lon: Math.round(lon * 10000) / 10000
+        };
+    }
+
     function streamToGunRecord(source, now) {
         return {
             id: source.id,
@@ -364,7 +378,10 @@
             muted: true,
             volume: 0,
             label: '',
-            latencyOffsetMs: 0
+            latencyOffsetMs: 0,
+            geo: null,
+            geoLat: null,
+            geoLon: null
         };
     }
 

@@ -125,10 +125,10 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('newer than supported')));
 
     await host.fill('#importData', JSON.stringify({
-        version: 12,
+        version: 13,
         room,
         streams: [
-            { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, volume: 0, label: 'Workflow QA', latencyOffsetMs: 0 },
+            { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, volume: 0, label: 'Workflow QA', latencyOffsetMs: 0, geo: { lat: 41.25, lon: -72.5 } },
             { id: 'bad-hls', type: 'hls', sourceId: 'not-a-url', sourceKind: 'playlist' }
         ],
         settings: {
@@ -145,6 +145,15 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Skipped 1 invalid stream')));
     assert.equal(await host.locator('.grid-item[data-stream-id="bad-hls"]').count(), 0);
     await host.waitForSelector('iframe[src*="ventusky.com"]');
+    await host.waitForSelector('#streamMinimap.show .stream-map-marker[title*="Workflow QA"]');
+    await host.click('.grid-item[data-provider="youtube"] button:has-text("Geo")');
+    await host.waitForSelector('#geoModal.show');
+    assert.equal(await host.evaluate(() => document.activeElement.id), 'geoLatInput');
+    await host.fill('#geoLatInput', '39.7456');
+    await host.fill('#geoLonInput', '-97.0892');
+    await host.click('#geoModal .btn-primary');
+    await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Stream location saved')));
+    await host.waitForSelector('#streamMinimap .stream-map-marker[title*="39.7456"]');
     await host.click('button:has-text("Fetch NWS Alerts")');
     await host.waitForSelector('#incidentAlertBar.show');
     assert.match(await host.textContent('#incidentAlertText'), /Flood Warning issued for QA County/);
@@ -186,7 +195,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 12);
+    assert.equal(exported.version, 13);
     assert.deepEqual(exported.settings.grid, { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' });
     assert.deepEqual(exported.settings.weather, { enabled: true, provider: 'ventusky', lat: 41.25, lon: -72.5 });
     assert.equal(exported.settings.incident.enabled, true);
@@ -195,6 +204,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     const exportedWorkflowStream = exported.streams.find(stream => stream.id === 'dQw4w9WgXcQ');
     assert.equal(exportedWorkflowStream.latencyOffsetMs, 2500);
     assert.equal(exportedWorkflowStream.volume, 60);
+    assert.deepEqual(exportedWorkflowStream.geo, { lat: 39.7456, lon: -97.0892 });
 
     await host.click('button:has-text("Share")');
     await host.waitForSelector('#shareModal.show');
