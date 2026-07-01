@@ -156,7 +156,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
 
     const activeScheduleStart = Date.now() - 60_000;
     await host.fill('#importData', JSON.stringify({
-        version: 14,
+        version: 15,
         room,
         streams: [
             { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, volume: 0, label: 'Workflow QA', latencyOffsetMs: 0, geo: { lat: 41.25, lon: -72.5 } },
@@ -170,7 +170,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
             schedule: { enabled: true, startsAt: activeScheduleStart, durationHours: 1 },
             weather: { enabled: true, provider: 'ventusky', lat: 41.25, lon: -72.5 },
             chat: { slowModeSeconds: 5, rateLimitCount: 3, rateLimitSeconds: 30 },
-            display: { gridGap: 4, labels: 'always', theme: 'amoled', accent: '#00d4ff' }
+            display: { gridGap: 4, labels: 'always', audioOnly: false, theme: 'amoled', accent: '#00d4ff' }
         }
     }));
     await host.click('#importModal .btn-primary');
@@ -199,15 +199,15 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.click('button:has-text("Push Snapshot")');
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Room snapshot pushed')));
     assert.equal(persistedSnapshot.room_id, room);
-    assert.equal(persistedSnapshot.config.version, 14);
+    assert.equal(persistedSnapshot.config.version, 15);
     assert.equal(persistedSnapshot.config.settings.schedule.enabled, true);
     assert.equal(persistedSnapshot.config.streams[0].geo.lat, 39.7456);
 
     await host.waitForFunction(roomName => {
         const snapshot = JSON.parse(localStorage.getItem(`ms-room-cache-${roomName}`) || 'null');
-        return snapshot?.appVersion === '0.34.0'
+        return snapshot?.appVersion === '0.35.0'
             && snapshot?.cacheVersion === 1
-            && snapshot?.config?.version === 14
+            && snapshot?.config?.version === 15
             && snapshot?.config?.settings?.schedule?.enabled === true
             && snapshot?.config?.streams?.some(stream => stream.id === 'dQw4w9WgXcQ');
     }, room);
@@ -215,6 +215,30 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     assert.equal(offlineSnapshot.meta.title, room);
     assert.equal(offlineSnapshot.config.settings.grid.preset, 'custom');
     assert.equal(offlineSnapshot.config.streams.length >= 2, true);
+
+    await host.check('#audioOnlyToggle');
+    await host.waitForSelector('#gridContainer.audio-only-layout');
+    await host.waitForFunction(() => settings.display.audioOnly === true);
+    const audioOnlyLayout = await host.evaluate(() => {
+        const embed = document.querySelector('#gridContainer.audio-only-layout .stream-embed');
+        const slider = document.querySelector('#gridContainer.audio-only-layout .volume-slider');
+        return {
+            checked: document.getElementById('audioOnlyToggle').checked,
+            streamTiles: document.querySelectorAll('#gridContainer.audio-only-layout .grid-item[data-stream-id]').length,
+            weatherTiles: document.querySelectorAll('#gridContainer.audio-only-layout .grid-item[data-provider="weather"]').length,
+            embedOpacity: getComputedStyle(embed).opacity,
+            embedWidth: embed.getBoundingClientRect().width,
+            sliderWidth: slider.getBoundingClientRect().width
+        };
+    });
+    assert.equal(audioOnlyLayout.checked, true);
+    assert.equal(audioOnlyLayout.streamTiles >= 2, true);
+    assert.equal(audioOnlyLayout.weatherTiles, 0);
+    assert.equal(audioOnlyLayout.embedOpacity, '0');
+    assert.ok(audioOnlyLayout.embedWidth <= 2);
+    assert.ok(audioOnlyLayout.sliderWidth >= 140);
+    await host.uncheck('#audioOnlyToggle');
+    await host.waitForFunction(() => settings.display.audioOnly === false && !document.getElementById('gridContainer').classList.contains('audio-only-layout'));
 
     await host.click('.grid-item[data-provider="youtube"] button:has-text("Offset")');
     await host.waitForSelector('#latencyOffsetModal.show');
@@ -252,7 +276,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 14);
+    assert.equal(exported.version, 15);
     assert.deepEqual(exported.settings.grid, { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' });
     assert.equal(exported.settings.schedule.enabled, true);
     assert.equal(exported.settings.schedule.startsAt, activeScheduleStart);
@@ -261,6 +285,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     assert.equal(exported.settings.incident.enabled, true);
     assert.equal(exported.settings.incident.event, 'Flood Warning');
     assert.deepEqual(exported.settings.chat, { slowModeSeconds: 5, rateLimitCount: 3, rateLimitSeconds: 30 });
+    assert.equal(exported.settings.display.audioOnly, false);
     const exportedWorkflowStream = exported.streams.find(stream => stream.id === 'dQw4w9WgXcQ');
     assert.equal(exportedWorkflowStream.latencyOffsetMs, 2500);
     assert.equal(exportedWorkflowStream.volume, 60);

@@ -43,7 +43,7 @@ test('keeps offline PWA shell and room cache wired', () => {
     assert.match(html, /`ms-room-cache-\$\{roomId\}`/);
     assert.match(html, /validateImportConfig\(config\)/);
     assert.match(html, /buildRoomConfig\(\)/);
-    assert.match(sw, /const CACHE_NAME = 'multistreamer-v0\.34\.0'/);
+    assert.match(sw, /const CACHE_NAME = 'multistreamer-v0\.35\.0'/);
     assert.match(sw, /manifest\.webmanifest/);
     assert.match(sw, /vendor\/gun-0\.2020\.1241\.min\.js/);
     assert.match(sw, /self\.addEventListener\('fetch'/);
@@ -119,6 +119,7 @@ test('keeps primary form controls labelled', () => {
         'gridGapSlider',
         'gridPresetSelect',
         'customGridTemplate',
+        'audioOnlyToggle',
         'scheduleStartsAt',
         'scheduleDurationHours',
         'slowModeSeconds',
@@ -298,7 +299,7 @@ test('keeps provider adapters and health recovery wired', () => {
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 14;/);
+    assert.match(html, /const CONFIG_VERSION = 15;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /function buildRoomConfig\(\)/);
@@ -333,6 +334,13 @@ test('keeps import config validation wired', () => {
     assert.match(html, /settingsIncidentText: 'settings\.incident\.text must be a string\.'/);
     assert.match(html, /settingsWeatherProvider: 'settings\.weather\.provider must be windy, zoomEarth, ventusky, or lightningmaps\.'/);
     assert.match(html, /function validateDisplaySettings\(display\)/);
+    assert.match(html, /settings\.display\.audioOnly/);
+    assert.match(html, /id="audioOnlyToggle"/);
+    assert.match(html, /roomRef\.get\('settings'\)\.get\('display'\)\.get\('audioOnly'\)\.on/);
+    assert.match(html, /function isAudioOnlyMode\(\)/);
+    assert.match(html, /audio-only-layout/);
+    assert.match(html, /if \(display\.audioOnly !== undefined\)/);
+    assert.match(html, /settingsDisplayAudioOnly: 'settings\.display\.audioOnly must be true or false\.'/);
     assert.match(html, /function applyImportedSettings\(importedSettings\)/);
     assert.match(html, /settingsChatSlowMode: 'settings\.chat\.slowModeSeconds must be an integer from 0 to 60\.'/);
     assert.match(html, /configImportedSkipped: 'Config imported\. Skipped \{count\} invalid \{streamWord\}\.'/);

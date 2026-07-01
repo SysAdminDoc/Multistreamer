@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.34.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.35.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -19,6 +19,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Manual Grid Presets** - Sync auto, 1+2, 2+3, 3+1, or custom CSS grid column layouts
 - **Pop-Out Streams** - Open any stream in a floating local picture-in-picture panel while keeping the main grid visible
 - **Audio Mix Sliders** - Adjust each stream from 0-100 instead of only toggling mute
+- **Audio-Only Mode** - Switch the room into a compact synced mixer that hides video surfaces while keeping streams mounted
 - **Real-Time Sync** - All viewers see the same streams, layout, and settings instantly
 - **Sync Health** - Relay status, retry recovery, stale-viewer filtering, and copyable diagnostics
 - **Leader Election** - If the real host disappears, active viewers deterministically elect a temporary host
@@ -91,6 +92,7 @@ The `host` value is a first-use password in the URL, not long-term room state. A
 | Pop Out | Open one stream in a floating local picture-in-picture panel |
 | Volume Slider | Mix each stream from 0-100; host changes sync to viewers |
 | Mute/Unmute All | Set all stream volumes to 0 or 100 |
+| Audio-only Mode | Hide video panels and use compact stream cards with volume sliders |
 | Weather | Add a Windy, Zoom Earth, Ventusky, or LightningMaps overlay panel |
 | Fetch NWS Alerts | Pin the highest-priority active NWS alert for the configured weather coordinates |
 | Persistence Mirror | Save local Supabase/Firebase REST settings and push/pull room snapshots |
@@ -162,6 +164,7 @@ All these sync in real-time to viewers:
 - Stream geo-tags for minimap markers
 - Layout mode & featured video
 - Grid preset and custom grid columns
+- Audio-only display mode
 - Custom stream labels
 - Theme & accent color
 - Grid gap & label visibility
@@ -212,6 +215,12 @@ All these sync in real-time to viewers:
 - Pop-out playback is local to the current browser tab; it does not change the synced grid layout or force other viewers to pop the stream out.
 - HLS and DASH pop-outs use native video controls and inherit the stream volume/mute state when opened.
 - Closing the panel destroys the mounted player so it does not keep playing in the background.
+
+### Audio-Only Mode
+
+- Hosts can toggle Audio-only Mode from synced Display settings.
+- The room switches to compact audio cards, hides weather/video/chat surfaces, and keeps each provider mounted so active streams can continue playing.
+- HLS/DASH streams use real browser volume control; iframe providers keep the same state-level volume behavior as normal grid mode.
 
 ### Provider Health and Recovery
 
@@ -271,7 +280,7 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 14,
+  "version": 15,
   "room": "my-room",
   "streams": [
     { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "volume": 0, "label": "Main Camera", "latencyOffsetMs": 0, "geo": { "lat": 40.7128, "lon": -74.006 } },
@@ -289,7 +298,7 @@ Save your room configuration as JSON:
     "weather": { "enabled": true, "provider": "windy", "lat": 40.7128, "lon": -74.006 },
     "incident": { "enabled": true, "event": "Flood Warning", "severity": "Severe", "text": "Severe Flood Warning | Flood Warning issued for the area | Areas: Example County | Until Jan 1, 12:00 PM", "updatedAt": 1893456000000, "expiresAt": "2030-01-01T12:00:00-05:00" },
     "chat": { "slowModeSeconds": 5, "rateLimitCount": 5, "rateLimitSeconds": 30 },
-    "display": { "gridGap": 2, "labels": "hover", "theme": "dark", "accent": "#00d4ff" }
+    "display": { "gridGap": 2, "labels": "hover", "audioOnly": false, "theme": "dark", "accent": "#00d4ff" }
   }
 }
 ```
@@ -307,7 +316,7 @@ Imported configs are validated before they change the room:
 - Room schedule timestamps and durations are range-checked before sync.
 - Chat slow-mode and rate-limit settings are range-checked before sync.
 - Incident alert text and timestamps are normalized before sync.
-- Layout, featured stream, weather provider/coordinates, display labels, theme, grid gap, and accent colors are range-checked before sync.
+- Layout, featured stream, weather provider/coordinates, display labels, audio-only mode, theme, grid gap, and accent colors are range-checked before sync.
 
 ### Localization
 

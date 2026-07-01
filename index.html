@@ -853,6 +853,114 @@
             font-weight: 700;
         }
 
+        .grid-container.audio-only-layout {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-auto-rows: minmax(118px, auto);
+            align-content: start;
+            background: var(--bg-primary);
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .grid-container.audio-only-layout .grid-item {
+            min-height: 118px;
+            border: 1px solid var(--border-color);
+            background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(255,255,255,0.03)), var(--bg-secondary);
+        }
+
+        .grid-container.audio-only-layout .grid-item::before {
+            content: "";
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 3;
+            width: 34px;
+            height: 18px;
+            border: 1px solid rgba(0,212,255,0.35);
+            border-radius: 4px;
+            background: linear-gradient(90deg, rgba(0,212,255,0.9) 0 4px, transparent 4px 8px, rgba(0,212,255,0.55) 8px 13px, transparent 13px 17px, rgba(0,212,255,0.75) 17px 22px, transparent 22px 26px, rgba(0,212,255,0.4) 26px 30px);
+            pointer-events: none;
+        }
+
+        .grid-container.audio-only-layout .grid-item::after {
+            content: "";
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            height: 16px;
+            border-radius: 4px;
+            background: repeating-linear-gradient(90deg, rgba(0,212,255,0.16) 0 6px, rgba(255,255,255,0.04) 6px 12px);
+            opacity: 0.75;
+            pointer-events: none;
+        }
+
+        .grid-container.audio-only-layout .stream-embed {
+            position: absolute;
+            left: 8px;
+            bottom: 8px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .grid-container.audio-only-layout .stream-embed.with-chat {
+            display: block;
+        }
+
+        .grid-container.audio-only-layout .stream-embed iframe,
+        .grid-container.audio-only-layout .stream-embed video {
+            width: 1px;
+            height: 1px;
+        }
+
+        .grid-container.audio-only-layout .stream-embed .chat-frame {
+            display: none;
+        }
+
+        .grid-container.audio-only-layout .overlay {
+            position: relative;
+            z-index: 2;
+            inset: auto;
+            padding: 42px 12px 34px;
+            background: none;
+            opacity: 1;
+            display: block;
+        }
+
+        .grid-container.audio-only-layout .controls {
+            align-items: center;
+            gap: 8px;
+        }
+
+        .grid-container.audio-only-layout .volume-slider {
+            flex: 1 1 150px;
+            min-width: 150px;
+            width: auto;
+        }
+
+        .grid-container.audio-only-layout .stream-health {
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+        }
+
+        .grid-container.audio-only-layout .label {
+            top: 12px;
+            bottom: auto;
+            padding: 0 74px 0 12px;
+            background: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .grid-container.audio-only-layout .label.hover-only {
+            opacity: 1;
+        }
+
         .stream-minimap {
             position: absolute;
             top: 12px;
@@ -1719,6 +1827,10 @@
                     </select>
                 </div>
                 <div class="setting-row">
+                    <label class="setting-label" for="audioOnlyToggle" data-i18n="audioOnlyMode">Audio-only Mode</label>
+                    <input type="checkbox" id="audioOnlyToggle" onchange="setSetting('audioOnly',this.checked)">
+                </div>
+                <div class="setting-row">
                     <label class="setting-label" for="themeSelect" data-i18n="theme">Theme</label>
                     <select id="themeSelect" onchange="setSetting('theme',this.value)">
                         <option value="dark" data-i18n="themeDark">Dark</option>
@@ -1909,8 +2021,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.34.0';
-        const CONFIG_VERSION = 14;
+        const APP_VERSION = '0.35.0';
+        const CONFIG_VERSION = 15;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const MODERATION_KICK_MS = 10 * 60 * 1000;
@@ -1959,7 +2071,7 @@
         let isHost = false;
         let electedHost = false;
         let streams = [];
-        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, schedule: { enabled: false, startsAt: 0, durationHours: 1 }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, incident: { enabled: false, text: '', event: '', severity: '', headline: '', area: '', updatedAt: 0, expiresAt: '' }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
+        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, schedule: { enabled: false, startsAt: 0, durationHours: 1 }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, incident: { enabled: false, text: '', event: '', severity: '', headline: '', area: '', updatedAt: 0, expiresAt: '' }, display: { gridGap: 2, labels: 'hover', audioOnly: false, theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
         let chatExpanded = true;
         let username = localStorage.getItem('ms-user') || '';
         let persistenceMirror = {
@@ -2290,6 +2402,8 @@
                 popout: 'Pop Out',
                 volume: 'Volume',
                 volumeFor: 'Volume for {label}',
+                audioOnlyMode: 'Audio-only Mode',
+                audioOnlyBadge: 'Audio',
                 remove: 'Remove',
                 unsetMainFor: 'Unset main stream for {label}',
                 setMainFor: 'Set main stream for {label}',
@@ -2327,6 +2441,7 @@
                 settingsDisplayObject: 'settings.display must be an object.',
                 settingsDisplayGridGap: 'settings.display.gridGap must be an integer from 0 to 10.',
                 settingsDisplayLabels: 'settings.display.labels must be hover, always, or never.',
+                settingsDisplayAudioOnly: 'settings.display.audioOnly must be true or false.',
                 settingsDisplayTheme: 'settings.display.theme must be dark, midnight, or amoled.',
                 settingsDisplayAccent: 'settings.display.accent must be a hex color like #00d4ff.',
                 settingsChatObject: 'settings.chat must be an object.',
@@ -2669,6 +2784,10 @@
                 settings.display.labels = display.labels;
                 document.getElementById('labelsSelect').value = display.labels;
             }
+            if (display.audioOnly !== undefined) {
+                settings.display.audioOnly = Boolean(display.audioOnly);
+                document.getElementById('audioOnlyToggle').checked = settings.display.audioOnly;
+            }
             if (display.theme) {
                 settings.display.theme = display.theme;
                 document.getElementById('themeSelect').value = display.theme;
@@ -2810,6 +2929,7 @@
 
             roomRef.get('settings').get('display').get('gridGap').on(v => { if (typeof v === 'number') applyDisplay({ gridGap: v }); });
             roomRef.get('settings').get('display').get('labels').on(v => { if (v) applyDisplay({ labels: v }); });
+            roomRef.get('settings').get('display').get('audioOnly').on(v => { if (v !== undefined && v !== null) applyDisplay({ audioOnly: Boolean(v) }); });
             roomRef.get('settings').get('display').get('theme').on(v => { if (v) applyDisplay({ theme: v }); });
             roomRef.get('settings').get('display').get('accent').on(v => { if (v) applyDisplay({ accent: v }); });
             roomRef.get('settings').get('chat').get('slowModeSeconds').on(v => { if (v !== undefined && v !== null) applyChatSettings({ slowModeSeconds: v }); });
@@ -3417,6 +3537,11 @@
                 document.getElementById('labelsSelect').value = d.labels;
                 render();
             }
+            if (d.audioOnly !== undefined) {
+                settings.display.audioOnly = Boolean(d.audioOnly);
+                document.getElementById('audioOnlyToggle').checked = settings.display.audioOnly;
+                render();
+            }
             if (d.theme) {
                 settings.display.theme = d.theme;
                 document.getElementById('themeSelect').value = d.theme;
@@ -3845,7 +3970,7 @@
             streams.forEach(s => roomRef.get('streams').get(s.id).put(null));
             notify(t('allStreamsCleared'));
         }
-        function setSetting(key, val) { if (hasHostControls()) roomRef.get('settings').get('display').get(key).put(key === 'gridGap' ? parseInt(val) : val); }
+        function setSetting(key, val) { if (hasHostControls()) roomRef.get('settings').get('display').get(key).put(key === 'gridGap' ? parseInt(val) : key === 'audioOnly' ? Boolean(val) : val); }
         function setChatSetting(key, value) {
             if (!hasHostControls()) return;
             const next = normalizeChatSetting(key, Number(value), settings.chat[key]);
@@ -3956,10 +4081,15 @@
             return emptyStateHtml(t('scheduleViewerStarts', { time: formatScheduleTime(windowState.startsAt) }), t('scheduleStarts', { time: formatScheduleTime(windowState.startsAt), end: formatScheduleTime(windowState.closesAt) }));
         }
 
+        function isAudioOnlyMode() {
+            return Boolean(settings.display.audioOnly);
+        }
+
         function render() {
             const container = document.getElementById('gridContainer');
             const items = [...streams];
-            if (settings.weather.enabled) items.push({ id: '__weather__', type: 'weather' });
+            const audioOnly = isAudioOnlyMode();
+            if (settings.weather.enabled && !audioOnly) items.push({ id: '__weather__', type: 'weather' });
             destroyProviderAdapters();
             renderScheduleBanner();
             queueOfflineRoomCacheWrite();
@@ -3989,6 +4119,16 @@
 
             let sorted = [...items];
             if (layout === 'featured' && featuredId) sorted.sort((a, b) => a.id === featuredId ? -1 : b.id === featuredId ? 1 : 0);
+
+            if (audioOnly) {
+                container.className = 'grid-container audio-only-layout';
+                container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(260px, 1fr))';
+                container.style.gridTemplateRows = '';
+                container.style.gridAutoRows = 'minmax(118px, auto)';
+                container.innerHTML = sorted.map((s, index) => renderItem(s, labelMode, index)).join('');
+                mountProviderAdapters();
+                return;
+            }
 
             container.className = `grid-container layout-${layout}`;
 
@@ -4130,7 +4270,8 @@
             const streamClass = `grid-item ${embed.type}-source${hasChat ? ' has-chat' : ''}`;
             const offsetBadge = latencyOffsetMs ? `<span class="latency-offset-badge">${esc(formatLatencyOffset(latencyOffsetMs))}</span>` : '';
             const geoBadge = normalizeStreamGeo(item.geo) ? `<span class="latency-offset-badge">${t('geo')}</span>` : '';
-            const labelHtml = `${label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label)}${offsetBadge}${geoBadge}`;
+            const audioBadge = isAudioOnlyMode() ? `<span class="latency-offset-badge">${t('audioOnlyBadge')}</span>` : '';
+            const labelHtml = `${label ? `<span class="custom-label">${esc(label)}</span>` : esc(embed.label)}${audioBadge}${offsetBadge}${geoBadge}`;
             const controlLabel = escAttr(label || embed.label || id);
             const chatFrame = hasChat ? `<iframe class="chat-frame" src="${escAttr(embed.chatUrl)}" ${frameAttrs({ title: embed.chatTitle, sandbox: embed.chatSandbox, referrerPolicy: embed.chatReferrerPolicy, loading: embed.chatLoading })}></iframe>` : '';
             let mediaFrame = `<iframe class="video-frame" data-provider="${escAttr(embed.type)}" data-stream-id="${escAttr(id)}" src="${escAttr(embed.videoUrl)}" ${frameAttrs(embed)}></iframe>`;
@@ -4951,6 +5092,10 @@
             if (display.labels !== undefined) {
                 if (!['hover', 'always', 'never'].includes(display.labels)) throw new Error(t('settingsDisplayLabels'));
                 next.labels = display.labels;
+            }
+            if (display.audioOnly !== undefined) {
+                if (typeof display.audioOnly !== 'boolean') throw new Error(t('settingsDisplayAudioOnly'));
+                next.audioOnly = display.audioOnly;
             }
             if (display.theme !== undefined) {
                 if (!['dark', 'midnight', 'amoled'].includes(display.theme)) throw new Error(t('settingsDisplayTheme'));
