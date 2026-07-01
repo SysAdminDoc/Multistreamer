@@ -499,6 +499,44 @@
             .incident-alert-scroll span { animation: none; }
         }
 
+        .schedule-banner {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 18px;
+            background: rgba(14, 165, 233, 0.12);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.22);
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .schedule-banner.show { display: flex; }
+
+        .schedule-banner[data-state="scheduled"] {
+            background: rgba(245, 158, 11, 0.12);
+            border-bottom-color: rgba(245, 158, 11, 0.24);
+        }
+
+        .schedule-banner[data-state="closed"] {
+            background: rgba(239, 68, 68, 0.12);
+            border-bottom-color: rgba(239, 68, 68, 0.24);
+        }
+
+        .schedule-badge {
+            flex: 0 0 auto;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent);
+            font-weight: 700;
+            letter-spacing: 0;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+
+        .schedule-banner[data-state="scheduled"] .schedule-badge { color: #f59e0b; }
+        .schedule-banner[data-state="closed"] .schedule-badge { color: #ef4444; }
+
         /* Control Bar (Host) */
         .control-bar {
             background: var(--bg-tertiary);
@@ -1489,6 +1527,11 @@
             <button class="edit-btn host-only-inline" onclick="clearIncidentAlert()" data-i18n="clear">Clear</button>
         </div>
 
+        <div class="schedule-banner" id="scheduleBanner" role="status" aria-live="polite" aria-hidden="true">
+            <span class="schedule-badge" id="scheduleBadge" data-i18n="scheduleBadge">Schedule</span>
+            <span id="scheduleText"></span>
+        </div>
+
         <!-- Control Bar (Host Only) -->
         <div class="control-bar">
             <div class="input-group">
@@ -1592,6 +1635,17 @@
                     <span class="setting-label" data-i18n="announcement">Announcement</span>
                     <button class="btn-secondary" onclick="editAnnouncement()" style="padding:5px 10px;font-size:12px;" data-i18n="edit">Edit</button>
                 </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="scheduleStartsAt" data-i18n="scheduleStartsAt">Starts At</label>
+                    <input type="datetime-local" id="scheduleStartsAt">
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label" for="scheduleDurationHours" data-i18n="scheduleDurationHours">Duration Hours</label>
+                    <input type="number" id="scheduleDurationHours" min="0.25" max="168" step="0.25" value="1">
+                </div>
+                <button class="btn-primary" onclick="saveScheduleSettings()" style="width:100%;margin-top:8px;" data-i18n="saveSchedule">Save Schedule</button>
+                <button class="btn-secondary" onclick="clearScheduleSettings()" style="width:100%;margin-top:8px;" data-i18n="clearSchedule">Clear Schedule</button>
+                <p id="scheduleStatus" data-i18n="scheduleIdle">No room schedule set.</p>
             </div>
             <div class="settings-section">
                 <h4 data-i18n="displaySynced">Display (Synced)</h4>
@@ -1815,8 +1869,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.31.0';
-        const CONFIG_VERSION = 13;
+        const APP_VERSION = '0.32.0';
+        const CONFIG_VERSION = 14;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const MODERATION_KICK_MS = 10 * 60 * 1000;
@@ -1835,6 +1889,7 @@
         const SCRUB_SEEK_TOLERANCE_SECONDS = 0.5;
         const SCRUB_EVENT_LIMIT = 20;
         const REACTION_EVENT_TTL_MS = 15000;
+        const SCHEDULE_TICK_MS = 30000;
         const REACTION_TYPES = {
             cheer: { labelKey: 'reactionCheer', glyph: '&#128079;' },
             heart: { labelKey: 'reactionHeart', glyph: '&#10084;' },
@@ -1862,7 +1917,7 @@
         let isHost = false;
         let electedHost = false;
         let streams = [];
-        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, incident: { enabled: false, text: '', event: '', severity: '', headline: '', area: '', updatedAt: 0, expiresAt: '' }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
+        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, schedule: { enabled: false, startsAt: 0, durationHours: 1 }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, incident: { enabled: false, text: '', event: '', severity: '', headline: '', area: '', updatedAt: 0, expiresAt: '' }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
         let chatExpanded = true;
         let username = localStorage.getItem('ms-user') || '';
         let persistenceMirror = {
@@ -1895,6 +1950,7 @@
         let activeModalId = null;
         let modalReturnFocus = null;
         let hostPlaybackSyncTimer = null;
+        let currentScheduleState = 'open';
         let popoutProvider = null;
         const relayHealth = {
             state: 'connecting',
@@ -2012,6 +2068,22 @@
                 moderationBannedText: 'The host banned this browser from the room.',
                 room: 'Room',
                 announcement: 'Announcement',
+                scheduleBadge: 'Schedule',
+                scheduleStartsAt: 'Starts At',
+                scheduleDurationHours: 'Duration Hours',
+                saveSchedule: 'Save Schedule',
+                clearSchedule: 'Clear Schedule',
+                scheduleIdle: 'No room schedule set.',
+                scheduleSaved: 'Room schedule saved.',
+                scheduleCleared: 'Room schedule cleared.',
+                scheduleInvalidStart: 'Choose a valid start date and time.',
+                scheduleInvalidDuration: 'Duration must be between 0.25 and 168 hours.',
+                scheduleStarts: 'Room opens {time} and closes {end}.',
+                scheduleActiveUntil: 'Room is live until {time}.',
+                scheduleClosed: 'Room closed at {time}.',
+                scheduleViewerStarts: 'This room opens {time}.',
+                scheduleViewerClosed: 'This room is closed.',
+                scheduleChatBlocked: 'Chat and reactions are available when the room is live.',
                 displaySynced: 'Display (Synced)',
                 gridGap: 'Grid Gap',
                 gridPreset: 'Grid Preset',
@@ -2203,6 +2275,9 @@
                 settingsWeatherProvider: 'settings.weather.provider must be windy, zoomEarth, ventusky, or lightningmaps.',
                 settingsWeatherLat: 'settings.weather.lat must be between -90 and 90.',
                 settingsWeatherLon: 'settings.weather.lon must be between -180 and 180.',
+                settingsScheduleObject: 'settings.schedule must be an object.',
+                settingsScheduleStartsAt: 'settings.schedule.startsAt must be a timestamp.',
+                settingsScheduleDurationHours: 'settings.schedule.durationHours must be between 0.25 and 168.',
                 settingsIncidentObject: 'settings.incident must be an object.',
                 settingsIncidentText: 'settings.incident.text must be a string.',
                 settingsIncidentTimestamp: 'settings.incident.updatedAt must be a number.',
@@ -2429,6 +2504,7 @@
         setupRuntimeDiagnostics();
         applyLocalizedCopy();
         initPersistenceMirrorControls();
+        updateScheduleControls();
         document.addEventListener('keydown', handleModalKeydown);
         window.addEventListener('beforeunload', () => {
             stopHostPlaybackSync();
@@ -2511,6 +2587,11 @@
             roomRef.get('settings').get('featuredId').on(v => { settings.featuredId = v || null; render(); });
             roomRef.get('settings').get('grid').get('preset').on(v => { if (v) applyGridSettings({ preset: v }); });
             roomRef.get('settings').get('grid').get('customTemplate').on(v => { applyGridSettings({ customTemplate: typeof v === 'string' ? v : '' }); });
+            roomRef.get('settings').get('schedule').on(s => {
+                settings.schedule = normalizeScheduleSettings(s);
+                updateScheduleControls();
+                updateScheduleState(true);
+            });
             roomRef.get('settings').get('weather').on(w => {
                 if (w) {
                     settings.weather = normalizeWeatherState(w);
@@ -2547,6 +2628,8 @@
             setInterval(countViewers, 15000);
             checkLeaderElection();
             setInterval(checkLeaderElection, LEADER_ELECTION_CHECK_MS);
+            updateScheduleState(true);
+            setInterval(updateScheduleState, SCHEDULE_TICK_MS);
 
             chatRef.get('messages').map().on((msg, id) => {
                 if (msg?.timestamp && msg.timestamp > Date.now() - 2*60*60*1000) renderMsg({ ...msg, id });
@@ -3177,6 +3260,129 @@
             return number;
         }
 
+        function normalizeScheduleSettings(schedule = {}) {
+            if (!schedule || typeof schedule !== 'object' || Array.isArray(schedule)) return { enabled: false, startsAt: 0, durationHours: 1 };
+            const startsAt = Number(schedule.startsAt);
+            const durationHours = Number(schedule.durationHours);
+            const validStart = Number.isFinite(startsAt) && startsAt > 0;
+            const validDuration = Number.isFinite(durationHours) && durationHours >= 0.25 && durationHours <= 168;
+            return {
+                enabled: Boolean(schedule.enabled && validStart && validDuration),
+                startsAt: validStart ? Math.round(startsAt) : 0,
+                durationHours: validDuration ? Number(durationHours.toFixed(2)) : 1
+            };
+        }
+
+        function getScheduleWindow(schedule = settings.schedule, now = Date.now()) {
+            const normalized = normalizeScheduleSettings(schedule);
+            if (!normalized.enabled) return { state: 'open', startsAt: 0, closesAt: 0, durationHours: normalized.durationHours };
+            const closesAt = normalized.startsAt + Math.round(normalized.durationHours * 60 * 60 * 1000);
+            const state = now < normalized.startsAt ? 'scheduled' : now >= closesAt ? 'closed' : 'open';
+            return { state, startsAt: normalized.startsAt, closesAt, durationHours: normalized.durationHours };
+        }
+
+        function isRoomScheduleBlocked() {
+            return !hasHostControls() && getScheduleWindow().state !== 'open';
+        }
+
+        function updateScheduleState(force = false) {
+            const nextState = getScheduleWindow().state;
+            const changed = nextState !== currentScheduleState;
+            currentScheduleState = nextState;
+            renderScheduleBanner();
+            updateScheduleStatus();
+            if (force || changed) render();
+        }
+
+        function renderScheduleBanner() {
+            const banner = document.getElementById('scheduleBanner');
+            const text = document.getElementById('scheduleText');
+            const badge = document.getElementById('scheduleBadge');
+            if (!banner || !text || !badge) return;
+            const schedule = normalizeScheduleSettings(settings.schedule);
+            const windowState = getScheduleWindow(schedule);
+            const show = schedule.enabled;
+            banner.classList.toggle('show', show);
+            banner.setAttribute('aria-hidden', String(!show));
+            banner.dataset.state = windowState.state;
+            badge.textContent = t('scheduleBadge');
+            if (!show) {
+                text.textContent = '';
+            } else if (windowState.state === 'scheduled') {
+                text.textContent = t('scheduleStarts', { time: formatScheduleTime(windowState.startsAt), end: formatScheduleTime(windowState.closesAt) });
+            } else if (windowState.state === 'closed') {
+                text.textContent = t('scheduleClosed', { time: formatScheduleTime(windowState.closesAt) });
+            } else {
+                text.textContent = t('scheduleActiveUntil', { time: formatScheduleTime(windowState.closesAt) });
+            }
+        }
+
+        function updateScheduleControls() {
+            const schedule = normalizeScheduleSettings(settings.schedule);
+            const startsAt = document.getElementById('scheduleStartsAt');
+            const duration = document.getElementById('scheduleDurationHours');
+            if (startsAt) startsAt.value = schedule.startsAt ? toDatetimeLocalValue(schedule.startsAt) : '';
+            if (duration) duration.value = schedule.durationHours || 1;
+            updateScheduleStatus();
+        }
+
+        function updateScheduleStatus(message = '') {
+            const status = document.getElementById('scheduleStatus');
+            if (!status) return;
+            if (message) {
+                status.textContent = message;
+                return;
+            }
+            const schedule = normalizeScheduleSettings(settings.schedule);
+            const windowState = getScheduleWindow(schedule);
+            if (!schedule.enabled) status.textContent = t('scheduleIdle');
+            else if (windowState.state === 'scheduled') status.textContent = t('scheduleStarts', { time: formatScheduleTime(windowState.startsAt), end: formatScheduleTime(windowState.closesAt) });
+            else if (windowState.state === 'closed') status.textContent = t('scheduleClosed', { time: formatScheduleTime(windowState.closesAt) });
+            else status.textContent = t('scheduleActiveUntil', { time: formatScheduleTime(windowState.closesAt) });
+        }
+
+        function saveScheduleSettings() {
+            if (!hasHostControls()) return notify(t('hostAccessRequired'), 'error');
+            const startsAt = parseDatetimeLocal(document.getElementById('scheduleStartsAt').value);
+            const durationHours = Number(document.getElementById('scheduleDurationHours').value);
+            if (!Number.isFinite(startsAt) || startsAt <= 0) return notify(t('scheduleInvalidStart'), 'error');
+            if (!Number.isFinite(durationHours) || durationHours < 0.25 || durationHours > 168) return notify(t('scheduleInvalidDuration'), 'error');
+            const next = normalizeScheduleSettings({ enabled: true, startsAt, durationHours });
+            roomRef.get('settings').get('schedule').put(next);
+            settings.schedule = next;
+            updateScheduleState(true);
+            notify(t('scheduleSaved'));
+        }
+
+        function clearScheduleSettings() {
+            if (!hasHostControls()) return notify(t('hostAccessRequired'), 'error');
+            const next = { enabled: false, startsAt: 0, durationHours: 1 };
+            roomRef.get('settings').get('schedule').put(next);
+            settings.schedule = next;
+            updateScheduleControls();
+            updateScheduleState(true);
+            notify(t('scheduleCleared'));
+        }
+
+        function parseDatetimeLocal(value) {
+            if (!value) return NaN;
+            const timestamp = new Date(value).getTime();
+            return Number.isFinite(timestamp) ? timestamp : NaN;
+        }
+
+        function toDatetimeLocalValue(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            if (Number.isNaN(date.getTime())) return '';
+            const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+            return local.toISOString().slice(0, 16);
+        }
+
+        function formatScheduleTime(timestamp) {
+            if (!timestamp) return '';
+            return new Date(timestamp).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
+        }
+
         function applyGridSettings(next) {
             const grid = settings.grid || { preset: 'auto', customTemplate: '' };
             if (next.preset && GRID_PRESETS.has(next.preset)) grid.preset = next.preset;
@@ -3541,11 +3747,31 @@
         }
 
         // ========== RENDER ==========
+        function emptyStateHtml(title, text) {
+            return `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/></svg><h2>${esc(title)}</h2><p>${esc(text)}</p></div>`;
+        }
+
+        function scheduleBlockedEmptyStateHtml() {
+            const windowState = getScheduleWindow();
+            if (windowState.state === 'closed') return emptyStateHtml(t('scheduleViewerClosed'), t('scheduleClosed', { time: formatScheduleTime(windowState.closesAt) }));
+            return emptyStateHtml(t('scheduleViewerStarts', { time: formatScheduleTime(windowState.startsAt) }), t('scheduleStarts', { time: formatScheduleTime(windowState.startsAt), end: formatScheduleTime(windowState.closesAt) }));
+        }
+
         function render() {
             const container = document.getElementById('gridContainer');
             const items = [...streams];
             if (settings.weather.enabled) items.push({ id: '__weather__', type: 'weather' });
             destroyProviderAdapters();
+            renderScheduleBanner();
+            if (isRoomScheduleBlocked()) {
+                container.className = 'grid-container';
+                container.style.gridTemplateColumns = '1fr';
+                container.style.gridTemplateRows = '';
+                container.style.gridAutoRows = '';
+                container.innerHTML = scheduleBlockedEmptyStateHtml();
+                renderStreamMinimap();
+                return;
+            }
             renderStreamMinimap();
 
             if (!items.length) {
@@ -3553,7 +3779,7 @@
                 container.style.gridTemplateColumns = '1fr';
                 container.style.gridTemplateRows = '';
                 container.style.gridAutoRows = '';
-                container.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M10 9l4 2-4 2V9z"/></svg><h2>${hasHostControls() ? t('noStreamsTitle') : t('waitingForHostTitle')}</h2><p>${hasHostControls() ? t('noStreamsText') : t('waitingForHostText')}</p></div>`;
+                container.innerHTML = emptyStateHtml(hasHostControls() ? t('noStreamsTitle') : t('waitingForHostTitle'), hasHostControls() ? t('noStreamsText') : t('waitingForHostText'));
                 return;
             }
 
@@ -3588,6 +3814,11 @@
             const count = document.getElementById('streamMinimapCount');
             if (!panel || !canvas || !count) return;
             canvas.querySelectorAll('.stream-map-marker').forEach(marker => marker.remove());
+            if (isRoomScheduleBlocked()) {
+                panel.classList.remove('show');
+                count.textContent = '';
+                return;
+            }
             const geoStreams = streams
                 .map(stream => ({ stream, geo: normalizeStreamGeo(stream.geo) }))
                 .filter(item => item.geo);
@@ -4460,6 +4691,7 @@
             if (rawSettings.weather !== undefined) next.weather = validateWeatherSettings(rawSettings.weather);
             if (rawSettings.incident !== undefined) next.incident = validateIncidentSettings(rawSettings.incident);
             if (rawSettings.grid !== undefined) next.grid = validateGridSettings(rawSettings.grid);
+            if (rawSettings.schedule !== undefined) next.schedule = validateScheduleSettings(rawSettings.schedule);
             if (rawSettings.display !== undefined) next.display = validateDisplaySettings(rawSettings.display);
             if (rawSettings.chat !== undefined) next.chat = validateChatSettings(rawSettings.chat);
             return next;
@@ -4496,6 +4728,16 @@
             if (incident.text !== undefined && typeof incident.text !== 'string') throw new Error(t('settingsIncidentText'));
             if (incident.updatedAt !== undefined && incident.updatedAt !== null && !Number.isFinite(Number(incident.updatedAt))) throw new Error(t('settingsIncidentTimestamp'));
             return normalizeIncidentAlert(incident);
+        }
+
+        function validateScheduleSettings(schedule) {
+            if (!schedule || typeof schedule !== 'object' || Array.isArray(schedule)) throw new Error(t('settingsScheduleObject'));
+            if (!schedule.enabled) return { enabled: false, startsAt: 0, durationHours: 1 };
+            const startsAt = Number(schedule.startsAt);
+            const durationHours = Number(schedule.durationHours);
+            if (!Number.isFinite(startsAt) || startsAt <= 0) throw new Error(t('settingsScheduleStartsAt'));
+            if (!Number.isFinite(durationHours) || durationHours < 0.25 || durationHours > 168) throw new Error(t('settingsScheduleDurationHours'));
+            return normalizeScheduleSettings({ enabled: true, startsAt, durationHours });
         }
 
         function validateDisplaySettings(display) {
@@ -4550,6 +4792,7 @@
             }
             if (importedSettings.weather) roomRef.get('settings').get('weather').put(importedSettings.weather);
             if (importedSettings.incident) roomRef.get('settings').get('incident').put(importedSettings.incident);
+            if (importedSettings.schedule) roomRef.get('settings').get('schedule').put(importedSettings.schedule);
             if (importedSettings.display) {
                 Object.entries(importedSettings.display).forEach(([key, value]) => roomRef.get('settings').get('display').get(key).put(value));
             }
@@ -4821,6 +5064,7 @@
 
         function sendReaction(kind) {
             if (isModerationBlocked()) return notify(t('reactionBlocked'), 'error');
+            if (isRoomScheduleBlocked()) return notify(t('scheduleChatBlocked'), 'error');
             const type = REACTION_TYPES[kind];
             if (!type || !chatRef) return;
             const id = `${sessionId}-rx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -5044,6 +5288,7 @@
 
         function sendMessage() {
             if (isModerationBlocked()) return notify(t('moderationBlocked'), 'error');
+            if (isRoomScheduleBlocked()) return notify(t('scheduleChatBlocked'), 'error');
             const text = document.getElementById('messageInput').value.trim();
             if (!text || !username) return;
             const gate = checkChatSendAllowed();

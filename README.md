@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.31.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.32.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -29,6 +29,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Stream Minimap** - Add per-stream geo-tags and show synced camera markers on a compact minimap
 - **Persistence Mirror** - Push/pull room snapshots to optional Supabase or Firebase REST backends
 - **Private Host Passwords** - Host links work once, then the password is stored locally and stripped from the browser URL while only a hash syncs to room metadata
+- **Scheduled Rooms** - Hosts can set an opening time and duration so public viewers see scheduled/closed states automatically
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -91,6 +92,7 @@ The `host` value is a first-use password in the URL, not long-term room state. A
 | Weather | Add a Windy, Zoom Earth, Ventusky, or LightningMaps overlay panel |
 | Fetch NWS Alerts | Pin the highest-priority active NWS alert for the configured weather coordinates |
 | Persistence Mirror | Save local Supabase/Firebase REST settings and push/pull room snapshots |
+| Schedule | Set a synced start time and duration for public room access |
 | Settings | Customize theme, colors, layout |
 | Share | Get viewer/host links |
 | Diagnostics | Copy room, relay, browser, and stream health data with host keys redacted |
@@ -151,6 +153,7 @@ https://yoursite.github.io/?room=storm-watch&host=abc123
 
 All these sync in real-time to viewers:
 - Room title & announcement
+- Room schedule start time and duration
 - Streams (add/remove/order)
 - Mute states
 - Stream volume levels
@@ -169,6 +172,13 @@ All these sync in real-time to viewers:
 - A host URL can still include `host=...` for handoff, but the app removes that query parameter after successful verification.
 - The host password is stored in the host browser under a room-specific local storage key so reloads and recent-room opens do not need a visible secret in the URL.
 - Legacy rooms with plaintext `meta.hostKey` continue to work; the first successful host login migrates them to `meta.hostKeyHash` and clears the plaintext value.
+
+### Scheduled Rooms
+
+- Hosts can set a start date/time and duration from Settings.
+- Hosts keep controls before, during, and after the window so they can prep streams or reopen a room.
+- Public viewers see a scheduled holding state before the start time and a closed state after the duration ends.
+- Public chat and reactions are blocked until the room is live.
 
 ### Sync Health and Diagnostics
 
@@ -252,7 +262,7 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 13,
+  "version": 14,
   "room": "my-room",
   "streams": [
     { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "volume": 0, "label": "Main Camera", "latencyOffsetMs": 0, "geo": { "lat": 40.7128, "lon": -74.006 } },
@@ -266,6 +276,7 @@ Save your room configuration as JSON:
     "layout": "featured",
     "featuredId": "dQw4w9WgXcQ",
     "grid": { "preset": "custom", "customTemplate": "minmax(0, 2fr) minmax(220px, 1fr)" },
+    "schedule": { "enabled": true, "startsAt": 1893452400000, "durationHours": 3 },
     "weather": { "enabled": true, "provider": "windy", "lat": 40.7128, "lon": -74.006 },
     "incident": { "enabled": true, "event": "Flood Warning", "severity": "Severe", "text": "Severe Flood Warning | Flood Warning issued for the area | Areas: Example County | Until Jan 1, 12:00 PM", "updatedAt": 1893456000000, "expiresAt": "2030-01-01T12:00:00-05:00" },
     "chat": { "slowModeSeconds": 5, "rateLimitCount": 5, "rateLimitSeconds": 30 },
@@ -284,6 +295,7 @@ Imported configs are validated before they change the room:
 - Per-stream latency offsets are range-checked to +/-30 seconds.
 - Per-stream geo-tags are range-checked to latitude -90..90 and longitude -180..180.
 - Grid presets and custom CSS grid columns are validated before sync.
+- Room schedule timestamps and durations are range-checked before sync.
 - Chat slow-mode and rate-limit settings are range-checked before sync.
 - Incident alert text and timestamps are normalized before sync.
 - Layout, featured stream, weather provider/coordinates, display labels, theme, grid gap, and accent colors are range-checked before sync.

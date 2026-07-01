@@ -154,8 +154,9 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.click('#importModal .btn-primary');
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('newer than supported')));
 
+    const activeScheduleStart = Date.now() - 60_000;
     await host.fill('#importData', JSON.stringify({
-        version: 13,
+        version: 14,
         room,
         streams: [
             { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, volume: 0, label: 'Workflow QA', latencyOffsetMs: 0, geo: { lat: 41.25, lon: -72.5 } },
@@ -165,6 +166,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
             layout: 'grid',
             featuredId: 'dQw4w9WgXcQ',
             grid: { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' },
+            schedule: { enabled: true, startsAt: activeScheduleStart, durationHours: 1 },
             weather: { enabled: true, provider: 'ventusky', lat: 41.25, lon: -72.5 },
             chat: { slowModeSeconds: 5, rateLimitCount: 3, rateLimitSeconds: 30 },
             display: { gridGap: 4, labels: 'always', theme: 'amoled', accent: '#00d4ff' }
@@ -172,6 +174,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     }));
     await host.click('#importModal .btn-primary');
     await host.waitForSelector('.grid-item[data-provider="youtube"]');
+    await host.waitForSelector('#scheduleBanner.show[data-state="open"]');
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Skipped 1 invalid stream')));
     assert.equal(await host.locator('.grid-item[data-stream-id="bad-hls"]').count(), 0);
     await host.waitForSelector('iframe[src*="ventusky.com"]');
@@ -195,7 +198,8 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.click('button:has-text("Push Snapshot")');
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Room snapshot pushed')));
     assert.equal(persistedSnapshot.room_id, room);
-    assert.equal(persistedSnapshot.config.version, 13);
+    assert.equal(persistedSnapshot.config.version, 14);
+    assert.equal(persistedSnapshot.config.settings.schedule.enabled, true);
     assert.equal(persistedSnapshot.config.streams[0].geo.lat, 39.7456);
 
     await host.click('.grid-item[data-provider="youtube"] button:has-text("Offset")');
@@ -234,8 +238,11 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     ]);
     assert.equal(download.suggestedFilename(), `${room}.json`);
     const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-    assert.equal(exported.version, 13);
+    assert.equal(exported.version, 14);
     assert.deepEqual(exported.settings.grid, { preset: 'custom', customTemplate: 'minmax(0, 2fr) minmax(220px, 1fr)' });
+    assert.equal(exported.settings.schedule.enabled, true);
+    assert.equal(exported.settings.schedule.startsAt, activeScheduleStart);
+    assert.equal(exported.settings.schedule.durationHours, 1);
     assert.deepEqual(exported.settings.weather, { enabled: true, provider: 'ventusky', lat: 41.25, lon: -72.5 });
     assert.equal(exported.settings.incident.enabled, true);
     assert.equal(exported.settings.incident.event, 'Flood Warning');
@@ -253,6 +260,32 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.keyboard.press('Escape');
     await host.waitForFunction(() => document.getElementById('shareModal').getAttribute('aria-hidden') === 'true');
     assert.equal(await host.evaluate(() => document.activeElement.textContent.trim()), 'Share');
+
+    const futureSchedule = { enabled: true, startsAt: Date.now() + 60 * 60 * 1000, durationHours: 1 };
+    await host.evaluate(schedule => roomRef.get('settings').get('schedule').put(schedule), futureSchedule);
+    await host.waitForSelector('#scheduleBanner.show[data-state="scheduled"]');
+    const scheduledContext = await browser.newContext();
+    const scheduledViewer = await scheduledContext.newPage();
+    await scheduledViewer.goto(`${baseUrl}/?room=${room}`, { waitUntil: 'domcontentloaded' });
+    await scheduledViewer.waitForSelector('#scheduleBanner.show[data-state="scheduled"]');
+    assert.match(await scheduledViewer.textContent('.empty-state'), /This room opens/);
+    assert.equal(await scheduledViewer.locator('.grid-item[data-provider="youtube"]').count(), 0);
+    await scheduledViewer.click('#reactionStrip button[aria-label="Send fire reaction"]');
+    await scheduledViewer.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('available when the room is live')));
+    await scheduledContext.close();
+
+    const closedSchedule = { enabled: true, startsAt: Date.now() - 2 * 60 * 60 * 1000, durationHours: 0.25 };
+    await host.evaluate(schedule => roomRef.get('settings').get('schedule').put(schedule), closedSchedule);
+    await host.waitForSelector('#scheduleBanner.show[data-state="closed"]');
+    const closedContext = await browser.newContext();
+    const closedViewer = await closedContext.newPage();
+    await closedViewer.goto(`${baseUrl}/?room=${room}`, { waitUntil: 'domcontentloaded' });
+    await closedViewer.waitForSelector('#scheduleBanner.show[data-state="closed"]');
+    assert.match(await closedViewer.textContent('.empty-state'), /This room is closed/);
+    await closedContext.close();
+
+    await host.evaluate(() => roomRef.get('settings').get('schedule').put({ enabled: false, startsAt: 0, durationHours: 1 }));
+    await host.waitForFunction(() => !document.getElementById('scheduleBanner').classList.contains('show'));
     await host.click('#settingsPanel .settings-header button');
     await host.waitForFunction(() => !document.getElementById('settingsPanel').classList.contains('open'));
 

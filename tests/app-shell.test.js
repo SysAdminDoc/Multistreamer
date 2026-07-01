@@ -99,6 +99,8 @@ test('keeps primary form controls labelled', () => {
         'gridGapSlider',
         'gridPresetSelect',
         'customGridTemplate',
+        'scheduleStartsAt',
+        'scheduleDurationHours',
         'slowModeSeconds',
         'rateLimitCount',
         'rateLimitSeconds',
@@ -273,7 +275,7 @@ test('keeps provider adapters and health recovery wired', () => {
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 13;/);
+    assert.match(html, /const CONFIG_VERSION = 14;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /function buildRoomConfig\(\)/);
@@ -282,8 +284,10 @@ test('keeps import config validation wired', () => {
     assert.match(html, /function validateImportVolume\(value, muted\)/);
     assert.match(html, /function validateImportGeo\(value\)/);
     assert.match(html, /function validateGridSettings\(grid\)/);
+    assert.match(html, /function validateScheduleSettings\(schedule\)/);
     assert.match(html, /function validateChatSettings\(chat\)/);
     assert.match(html, /if \(rawSettings\.grid !== undefined\) next\.grid = validateGridSettings\(rawSettings\.grid\)/);
+    assert.match(html, /if \(rawSettings\.schedule !== undefined\) next\.schedule = validateScheduleSettings\(rawSettings\.schedule\)/);
     assert.match(html, /if \(rawSettings\.chat !== undefined\) next\.chat = validateChatSettings\(rawSettings\.chat\)/);
     assert.match(html, /volume: validateImportVolume\(raw\.volume, raw\.muted\)/);
     assert.match(html, /latencyOffsetMs: validateLatencyOffsetMs\(raw\.latencyOffsetMs\)/);
@@ -297,6 +301,12 @@ test('keeps import config validation wired', () => {
     assert.match(html, /const NWS_API_BASE = 'https:\/\/api\.weather\.gov';/);
     assert.match(html, /function refreshNwsAlerts\(\)/);
     assert.match(html, /function buildIncidentAlertFromNws\(features\)/);
+    assert.match(html, /function normalizeScheduleSettings\(schedule = \{\}\)/);
+    assert.match(html, /function getScheduleWindow\(schedule = settings\.schedule, now = Date\.now\(\)\)/);
+    assert.match(html, /function isRoomScheduleBlocked\(\)/);
+    assert.match(html, /function saveScheduleSettings\(\)/);
+    assert.match(html, /function clearScheduleSettings\(\)/);
+    assert.match(html, /settingsScheduleDurationHours: 'settings\.schedule\.durationHours must be between 0\.25 and 168\.'/);
     assert.match(html, /settingsIncidentText: 'settings\.incident\.text must be a string\.'/);
     assert.match(html, /settingsWeatherProvider: 'settings\.weather\.provider must be windy, zoomEarth, ventusky, or lightningmaps\.'/);
     assert.match(html, /function validateDisplaySettings\(display\)/);
