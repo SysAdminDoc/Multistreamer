@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.28.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.29.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -336,16 +336,35 @@ The test suite covers parser contracts plus a Playwright-rendered workflow for h
 
 ## Self-Hosting Gun Relay (Optional)
 
-For better reliability, you can run your own Gun relay:
+For better reliability, run the included Dockerized Gun relay on a small VPS, LAN host, or reverse-proxied home server.
 
 ```bash
-npm install gun
-npx gun
+cd relay
+docker compose up -d --build
 ```
 
-Then update the Gun initialization in the HTML:
+The container exposes the relay at:
+
+```text
+http://localhost:8765/gun
+```
+
+For public rooms, put the container behind HTTPS and update `GUN_RELAYS` in `index.html` before deploying the static site:
+
 ```javascript
-const gun = Gun(['https://your-relay-server.com/gun']);
+const GUN_RELAYS = [
+  'https://your-relay.example.com/gun',
+  'https://gun.o8.is/gun'
+];
+```
+
+Operational commands:
+
+```bash
+cd relay
+docker compose ps
+docker compose logs -f
+docker compose pull && docker compose up -d --build
 ```
 
 ## Use Cases
