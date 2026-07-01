@@ -2,8 +2,6 @@
 
 Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/viewer state via Gun.js. Roadmap targets platform reach, more robust sync, and event-tracking-specific features.
 
-## Planned Features
-
 ## Competitive Research
 - **MultiTwitch.tv** — simplest reference UX, low friction; borrow the URL-based room pattern.
 - **LiveStreamPool** — better multi-source integration (mixed platforms in one grid).
@@ -11,7 +9,6 @@ Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/
 - **Watch2Gether** — playlist queue + chat + sync; closer to watch-party angle.
 
 ## Nice-to-Haves
-- Mobile-optimized 1-column scroll with floating featured
 - Offline-first PWA with cached Gun.js data
 - Audio-only mode (strips video, just mixes audio streams — radio scanner style)
 - Timeline / clip mode: bookmark timestamps, export shareable links to key moments

@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.32.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.33.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -15,6 +15,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Multi-Video Grid** - Watch multiple YouTube, Twitch, Rumble, HLS, DASH, and allowlisted iframe embeds in a responsive Brady Bunch-style grid
 - **Twitch Chat Sidecar** - Twitch channels render with embedded live chat beside the player
 - **Featured Layout** - Highlight one main video with smaller sidebar streams
+- **Mobile Featured Scroll** - On phones, featured rooms become a one-column scroll with the main stream pinned at the top
 - **Manual Grid Presets** - Sync auto, 1+2, 2+3, 3+1, or custom CSS grid column layouts
 - **Pop-Out Streams** - Open any stream in a floating local picture-in-picture panel while keeping the main grid visible
 - **Audio Mix Sliders** - Adjust each stream from 0-100 instead of only toggling mute
@@ -217,6 +218,7 @@ All these sync in real-time to viewers:
 - Primary forms, settings, chat inputs, generated links, and modal fields have labels or ARIA names.
 - Share, announcement, import, and label dialogs expose modal semantics, trap focus, close with Escape, and restore focus to the opener.
 - The mobile top bar gives the room title its own row and keeps sync diagnostics, viewer count, and status controls within the 390px field viewport.
+- Featured mobile rooms use a one-column scroll surface; the featured stream stays sticky at the top while secondary streams continue below it.
 
 ### Supported Stream Sources
 

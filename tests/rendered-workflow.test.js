@@ -160,6 +160,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
         room,
         streams: [
             { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, volume: 0, label: 'Workflow QA', latencyOffsetMs: 0, geo: { lat: 41.25, lon: -72.5 } },
+            { id: '9bZkp7q19f0', type: 'youtube', sourceId: '9bZkp7q19f0', sourceKind: 'video', muted: true, volume: 0, label: 'Mobile Secondary', latencyOffsetMs: 0 },
             { id: 'bad-hls', type: 'hls', sourceId: 'not-a-url', sourceKind: 'playlist' }
         ],
         settings: {
@@ -209,8 +210,8 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.click('#latencyOffsetModal .btn-primary');
     await host.waitForFunction(() => Array.from(document.querySelectorAll('#toastRegion .toast')).some(t => t.textContent.includes('Latency offset saved')));
     await host.waitForFunction(() => document.querySelector('.latency-offset-badge')?.textContent === '+2.5s');
-    await host.locator('.grid-item[data-provider="youtube"] .volume-slider').fill('60');
-    await host.waitForFunction(() => document.querySelector('.grid-item[data-provider="youtube"] .volume-slider')?.value === '60');
+    await host.locator('.grid-item[data-stream-id="dQw4w9WgXcQ"] .volume-slider').fill('60');
+    await host.waitForFunction(() => document.querySelector('.grid-item[data-stream-id="dQw4w9WgXcQ"] .volume-slider')?.value === '60');
     const liveChatId = await host.evaluate(async () => {
         const originalFetch = window.fetch;
         youtubeChatMirror.apiKey = 'test-key';
@@ -384,15 +385,38 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await mobilePage.waitForSelector('#viewerPage.active');
     await mobilePage.waitForFunction(() => document.body.classList.contains('viewer-mode') === false);
     await mobilePage.waitForFunction(() => !new URL(location.href).searchParams.has('host'));
+    await mobilePage.evaluate(() => {
+        settings.layout = 'featured';
+        settings.featuredId = 'dQw4w9WgXcQ';
+        settings.weather = { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 };
+        streams = [
+            { id: 'dQw4w9WgXcQ', type: 'youtube', sourceId: 'dQw4w9WgXcQ', sourceKind: 'video', muted: true, volume: 0, label: 'Mobile Primary', addedAt: 1 },
+            { id: '9bZkp7q19f0', type: 'youtube', sourceId: '9bZkp7q19f0', sourceKind: 'video', muted: true, volume: 0, label: 'Mobile Secondary', addedAt: 2 }
+        ];
+        render();
+    });
+    await mobilePage.waitForSelector('#gridContainer.layout-featured .sidebar-stack');
     const mobileLayout = await mobilePage.evaluate(() => ({
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         titleWidth: document.getElementById('roomTitle').getBoundingClientRect().width,
         statusRight: document.querySelector('.top-status').getBoundingClientRect().right,
-        viewportWidth: window.innerWidth
+        viewportWidth: window.innerWidth,
+        mainOverflowY: getComputedStyle(document.querySelector('.main-content')).overflowY,
+        gridDisplay: getComputedStyle(document.getElementById('gridContainer')).display,
+        featuredPosition: getComputedStyle(document.querySelector('#gridContainer.layout-featured > .grid-item')).position,
+        featuredTop: getComputedStyle(document.querySelector('#gridContainer.layout-featured > .grid-item')).top,
+        sidebarDisplay: getComputedStyle(document.querySelector('#gridContainer.layout-featured .sidebar-stack')).display,
+        sidebarBelowFeatured: document.querySelector('#gridContainer.layout-featured .sidebar-stack').getBoundingClientRect().top >= document.querySelector('#gridContainer.layout-featured > .grid-item').getBoundingClientRect().bottom - 1
     }));
     assert.equal(mobileLayout.overflow, 0);
     assert.ok(mobileLayout.titleWidth > 120);
     assert.ok(mobileLayout.statusRight <= mobileLayout.viewportWidth);
+    assert.equal(mobileLayout.mainOverflowY, 'auto');
+    assert.equal(mobileLayout.gridDisplay, 'flex');
+    assert.equal(mobileLayout.featuredPosition, 'sticky');
+    assert.equal(mobileLayout.featuredTop, '0px');
+    assert.equal(mobileLayout.sidebarDisplay, 'flex');
+    assert.equal(mobileLayout.sidebarBelowFeatured, true);
     await mobile.close();
 });
 

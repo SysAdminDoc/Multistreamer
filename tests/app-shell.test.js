@@ -143,6 +143,9 @@ test('keeps dialogs semantic and keyboard-managed', () => {
 test('keeps mobile header compact and chat toggle stateful', () => {
     assert.match(html, /\.top-bar \{\s+display: grid;/);
     assert.match(html, /grid-template-columns: minmax\(0, 1fr\);/);
+    assert.match(html, /\.main-content \{\s+overflow-x: hidden;\s+overflow-y: auto;/);
+    assert.match(html, /\.grid-container\.layout-featured > \.grid-item:first-child \{\s+position: sticky;/);
+    assert.match(html, /\.grid-container\.layout-featured \.sidebar-stack \{\s+display: flex;\s+flex-direction: column;\s+overflow: visible;/);
     assert.match(html, /id="chatToggleBtn"[^>]+aria-expanded="true"/);
     assert.match(html, /chatToggleBtn'\)\.setAttribute\('aria-expanded', String\(chatExpanded\)\)/);
 });

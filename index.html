@@ -1407,7 +1407,46 @@
             .room-title-input { width: 150px; }
             .input-group { min-width: 100%; max-width: 100%; }
             .settings-panel { width: 100%; right: -100%; }
-            .grid-container.layout-featured { grid-template-columns: 1fr; }
+            .main-content {
+                overflow-x: hidden;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+            }
+            .grid-container {
+                flex: 0 0 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                overflow: visible;
+            }
+            .grid-container > .grid-item {
+                min-height: 210px;
+                aspect-ratio: 16 / 9;
+            }
+            .grid-container.layout-featured {
+                display: flex;
+                grid-template-columns: 1fr;
+                grid-template-rows: none;
+                grid-auto-rows: auto;
+            }
+            .grid-container.layout-featured > .grid-item:first-child {
+                position: sticky;
+                top: 0;
+                z-index: 90;
+                min-height: 220px;
+                max-height: min(46vh, 360px);
+                box-shadow: 0 14px 32px rgba(0,0,0,0.48);
+            }
+            .grid-container.layout-featured .sidebar-stack {
+                display: flex;
+                flex-direction: column;
+                overflow: visible;
+            }
+            .grid-container.layout-featured .sidebar-stack .grid-item {
+                height: auto;
+                min-height: 190px;
+                aspect-ratio: 16 / 9;
+            }
             .stream-minimap {
                 top: 8px;
                 right: 8px;
@@ -1869,7 +1908,7 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.32.0';
+        const APP_VERSION = '0.33.0';
         const CONFIG_VERSION = 14;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
