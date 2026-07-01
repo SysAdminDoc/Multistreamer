@@ -253,7 +253,7 @@ test('keeps provider adapters and health recovery wired', () => {
 });
 
 test('keeps import config validation wired', () => {
-    assert.match(html, /const CONFIG_VERSION = 11;/);
+    assert.match(html, /const CONFIG_VERSION = 12;/);
     assert.match(html, /version: CONFIG_VERSION/);
     assert.match(html, /function validateImportConfig\(data\)/);
     assert.match(html, /function validateLatencyOffsetMs\(value\)/);
@@ -267,8 +267,13 @@ test('keeps import config validation wired', () => {
     assert.match(html, /configVersionFuture: 'Config version \{version\} is newer than supported version \{supported\}/);
     assert.match(html, /throw new Error\(t\('configVersionFuture', \{ version, supported: CONFIG_VERSION \}\)\)/);
     assert.match(html, /function validateWeatherSettings\(weather\)/);
+    assert.match(html, /function validateIncidentSettings\(incident\)/);
     assert.match(html, /const WEATHER_PROVIDERS = \{/);
     assert.match(html, /function buildWeatherOverlayUrl\(weather\)/);
+    assert.match(html, /const NWS_API_BASE = 'https:\/\/api\.weather\.gov';/);
+    assert.match(html, /function refreshNwsAlerts\(\)/);
+    assert.match(html, /function buildIncidentAlertFromNws\(features\)/);
+    assert.match(html, /settingsIncidentText: 'settings\.incident\.text must be a string\.'/);
     assert.match(html, /settingsWeatherProvider: 'settings\.weather\.provider must be windy, zoomEarth, ventusky, or lightningmaps\.'/);
     assert.match(html, /function validateDisplaySettings\(display\)/);
     assert.match(html, /function applyImportedSettings\(importedSettings\)/);

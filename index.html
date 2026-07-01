@@ -437,6 +437,68 @@
             cursor: pointer;
         }
 
+        .incident-alert-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            min-height: 34px;
+            overflow: hidden;
+            background: linear-gradient(90deg, rgba(239,68,68,0.22), rgba(245,158,11,0.18));
+            border-bottom: 1px solid rgba(245,158,11,0.45);
+            color: #fff7ed;
+            font-size: 13px;
+        }
+
+        .incident-alert-bar.show { display: flex; }
+
+        .incident-alert-badge {
+            flex: 0 0 auto;
+            margin-left: 12px;
+            padding: 3px 7px;
+            border-radius: 4px;
+            background: #dc2626;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0;
+            text-transform: uppercase;
+        }
+
+        .incident-alert-scroll {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .incident-alert-scroll span {
+            display: inline-block;
+            min-width: 100%;
+            padding-right: 48px;
+            animation: incident-scroll 32s linear infinite;
+        }
+
+        .incident-alert-bar .edit-btn {
+            flex: 0 0 auto;
+            margin-right: 10px;
+            padding: 2px 8px;
+            font-size: 11px;
+            background: rgba(255,255,255,0.16);
+            border: 1px solid rgba(255,255,255,0.22);
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        @keyframes incident-scroll {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .incident-alert-scroll span { animation: none; }
+        }
+
         /* Control Bar (Host) */
         .control-bar {
             background: var(--bg-tertiary);
@@ -1325,6 +1387,12 @@
             <button class="edit-btn host-only-inline" onclick="editAnnouncement()" data-i18n="edit">Edit</button>
         </div>
 
+        <div class="incident-alert-bar" id="incidentAlertBar" role="status" aria-live="polite" aria-hidden="true">
+            <span class="incident-alert-badge" data-i18n="nwsAlertBadge">NWS</span>
+            <div class="incident-alert-scroll"><span id="incidentAlertText"></span></div>
+            <button class="edit-btn host-only-inline" onclick="clearIncidentAlert()" data-i18n="clear">Clear</button>
+        </div>
+
         <!-- Control Bar (Host Only) -->
         <div class="control-bar">
             <div class="input-group">
@@ -1485,6 +1553,12 @@
                 <button class="btn-primary" onclick="applyWeather()" style="width:100%;margin-top:8px;" data-i18n="applyShowWeather">Apply & Show Weather</button>
             </div>
             <div class="settings-section">
+                <h4 data-i18n="incidentOverlay">Incident Overlay</h4>
+                <button class="btn-primary" onclick="refreshNwsAlerts()" style="width:100%;margin-top:8px;" data-i18n="fetchNwsAlerts">Fetch NWS Alerts</button>
+                <button class="btn-secondary" onclick="clearIncidentAlert()" style="width:100%;margin-top:8px;" data-i18n="clearIncidentAlert">Clear Alert</button>
+                <p id="nwsAlertStatus" data-i18n="nwsAlertIdle">No NWS alert loaded.</p>
+            </div>
+            <div class="settings-section">
                 <h4 data-i18n="chatSynced">Chat (Synced)</h4>
                 <div class="setting-row">
                     <label class="setting-label" for="slowModeSeconds" data-i18n="slowModeSeconds">Slow Mode Seconds</label>
@@ -1596,8 +1670,8 @@
         const GUN_RELAYS = [
             'https://gun.o8.is/gun'
         ];
-        const APP_VERSION = '0.26.0';
-        const CONFIG_VERSION = 11;
+        const APP_VERSION = '0.27.0';
+        const CONFIG_VERSION = 12;
         const PRESENCE_TTL_MS = 60000;
         const PRESENCE_HEARTBEAT_MS = 30000;
         const MODERATION_KICK_MS = 10 * 60 * 1000;
@@ -1629,6 +1703,10 @@
             lightningmaps: { labelKey: 'overlayProviderLightningMaps', titleKey: 'weatherOverlayLightningMapsTitle' }
         };
         const WEATHER_PROVIDER_KEYS = new Set(Object.keys(WEATHER_PROVIDERS));
+        const NWS_API_BASE = 'https://api.weather.gov';
+        const INCIDENT_ALERT_MAX_LENGTH = 700;
+        const INCIDENT_SEVERITY_RANK = { Extreme: 0, Severe: 1, Moderate: 2, Minor: 3, Unknown: 4 };
+        const INCIDENT_URGENCY_RANK = { Immediate: 0, Expected: 1, Future: 2, Past: 3, Unknown: 4 };
         const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
         // ========== GLOBAL STATE ==========
@@ -1639,7 +1717,7 @@
         let isHost = false;
         let electedHost = false;
         let streams = [];
-        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
+        let settings = { layout: 'grid', featuredId: null, grid: { preset: 'auto', customTemplate: '' }, weather: { enabled: false, provider: 'windy', lat: 40.7128, lon: -74.006 }, incident: { enabled: false, text: '', event: '', severity: '', headline: '', area: '', updatedAt: 0, expiresAt: '' }, display: { gridGap: 2, labels: 'hover', theme: 'dark', accent: '#00d4ff' }, chat: { slowModeSeconds: 5, rateLimitCount: 5, rateLimitSeconds: 30 } };
         let chatExpanded = true;
         let username = localStorage.getItem('ms-user') || '';
         let sessionId = localStorage.getItem('ms-sid') || ('s' + Math.random().toString(36).substr(2, 9));
@@ -1869,6 +1947,17 @@
                 weatherOverlayVentuskyTitle: 'Ventusky precipitation overlay',
                 weatherOverlayLightningMapsTitle: 'LightningMaps live overlay',
                 removeWeatherRadar: 'Remove weather overlay',
+                incidentOverlay: 'Incident Overlay',
+                nwsAlertBadge: 'NWS',
+                fetchNwsAlerts: 'Fetch NWS Alerts',
+                clearIncidentAlert: 'Clear Alert',
+                nwsAlertIdle: 'No NWS alert loaded.',
+                nwsAlertHostOnly: 'Host access is required to manage NWS alerts.',
+                nwsAlertLoading: 'Fetching NWS alerts...',
+                nwsAlertPinned: 'NWS alert pinned.',
+                nwsAlertCleared: 'NWS alert cleared.',
+                nwsAlertNone: 'No active NWS alerts for this point.',
+                nwsAlertError: 'NWS alert fetch failed: {message}',
                 hlsUnsupportedTitle: 'HLS Unsupported',
                 hlsUnsupportedText: 'This browser cannot play HLS.',
                 hlsSourceMissing: 'HLS source missing',
@@ -1927,6 +2016,9 @@
                 settingsWeatherProvider: 'settings.weather.provider must be windy, zoomEarth, ventusky, or lightningmaps.',
                 settingsWeatherLat: 'settings.weather.lat must be between -90 and 90.',
                 settingsWeatherLon: 'settings.weather.lon must be between -180 and 180.',
+                settingsIncidentObject: 'settings.incident must be an object.',
+                settingsIncidentText: 'settings.incident.text must be a string.',
+                settingsIncidentTimestamp: 'settings.incident.updatedAt must be a number.',
                 settingsDisplayObject: 'settings.display must be an object.',
                 settingsDisplayGridGap: 'settings.display.gridGap must be an integer from 0 to 10.',
                 settingsDisplayLabels: 'settings.display.labels must be hover, always, or never.',
@@ -2152,6 +2244,12 @@
                     document.getElementById('weatherLon').value = settings.weather.lon;
                     document.getElementById('weatherBtn')?.classList.toggle('btn-active', settings.weather.enabled);
                     render();
+                }
+            });
+            roomRef.get('settings').get('incident').on(i => {
+                if (i) {
+                    settings.incident = normalizeIncidentAlert(i);
+                    renderIncidentAlert();
                 }
             });
 
@@ -2899,6 +2997,149 @@
 
         function getWeatherOverlayTitle(provider) {
             return t(WEATHER_PROVIDERS[normalizeWeatherProvider(provider)].titleKey);
+        }
+
+        function normalizeIncidentAlert(incident = {}) {
+            const text = cleanIncidentText(incident.text);
+            const updatedAt = Number(incident.updatedAt);
+            return {
+                enabled: Boolean(incident.enabled && text),
+                text,
+                event: cleanIncidentText(incident.event).slice(0, 90),
+                severity: cleanIncidentText(incident.severity).slice(0, 30),
+                headline: cleanIncidentText(incident.headline).slice(0, 180),
+                area: cleanIncidentText(incident.area).slice(0, 180),
+                updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
+                expiresAt: cleanIncidentText(incident.expiresAt).slice(0, 40)
+            };
+        }
+
+        function cleanIncidentText(value) {
+            return String(value || '').replace(/\s+/g, ' ').trim().slice(0, INCIDENT_ALERT_MAX_LENGTH);
+        }
+
+        function renderIncidentAlert() {
+            const incident = normalizeIncidentAlert(settings.incident);
+            const bar = document.getElementById('incidentAlertBar');
+            const text = document.getElementById('incidentAlertText');
+            const show = incident.enabled && incident.text;
+            bar.classList.toggle('show', show);
+            bar.setAttribute('aria-hidden', String(!show));
+            text.textContent = show ? `${incident.text}   ${incident.text}` : '';
+        }
+
+        function updateNwsAlertStatus(message, type = 'info') {
+            const status = document.getElementById('nwsAlertStatus');
+            if (!status) return;
+            status.textContent = message;
+            status.dataset.state = type;
+        }
+
+        function buildNwsAlertUrl(weather) {
+            const safe = normalizeWeatherState(weather);
+            const lat = formatWeatherCoordinate(safe.lat, 40.7128, -90, 90);
+            const lon = formatWeatherCoordinate(safe.lon, -74.006, -180, 180);
+            const url = new URL('/alerts/active', NWS_API_BASE);
+            url.searchParams.set('point', `${lat},${lon}`);
+            return url.toString();
+        }
+
+        async function refreshNwsAlerts() {
+            if (!hasHostControls()) return notify(t('nwsAlertHostOnly'), 'error');
+            updateNwsAlertStatus(t('nwsAlertLoading'));
+            try {
+                const response = await fetch(buildNwsAlertUrl(settings.weather), {
+                    headers: { Accept: 'application/geo+json' }
+                });
+                if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+                const data = await response.json();
+                const alert = buildIncidentAlertFromNws(data.features || []);
+                if (!alert) {
+                    writeIncidentAlert({ enabled: false, text: '' });
+                    updateNwsAlertStatus(t('nwsAlertNone'));
+                    notify(t('nwsAlertNone'));
+                    return;
+                }
+                writeIncidentAlert(alert);
+                updateNwsAlertStatus(t('nwsAlertPinned'));
+                notify(t('nwsAlertPinned'));
+            } catch (error) {
+                const message = error?.message || 'network error';
+                updateNwsAlertStatus(t('nwsAlertError', { message }), 'error');
+                notify(t('nwsAlertError', { message }), 'error');
+            }
+        }
+
+        function writeIncidentAlert(incident) {
+            const next = normalizeIncidentAlert(incident);
+            settings.incident = next;
+            renderIncidentAlert();
+            roomRef.get('settings').get('incident').put(next);
+        }
+
+        function clearIncidentAlert() {
+            if (!hasHostControls()) return notify(t('nwsAlertHostOnly'), 'error');
+            writeIncidentAlert({ enabled: false, text: '' });
+            updateNwsAlertStatus(t('nwsAlertCleared'));
+            notify(t('nwsAlertCleared'));
+        }
+
+        function buildIncidentAlertFromNws(features) {
+            const chosen = [...features]
+                .map(feature => feature?.properties)
+                .filter(properties => properties?.event)
+                .sort(compareNwsAlerts)[0];
+            if (!chosen) return null;
+            const text = formatNwsAlertText(chosen);
+            if (!text) return null;
+            return normalizeIncidentAlert({
+                enabled: true,
+                text,
+                event: chosen.event,
+                severity: chosen.severity,
+                headline: chosen.headline,
+                area: chosen.areaDesc,
+                updatedAt: Date.now(),
+                expiresAt: chosen.expires || ''
+            });
+        }
+
+        function compareNwsAlerts(a, b) {
+            const severity = (INCIDENT_SEVERITY_RANK[a.severity] ?? INCIDENT_SEVERITY_RANK.Unknown) - (INCIDENT_SEVERITY_RANK[b.severity] ?? INCIDENT_SEVERITY_RANK.Unknown);
+            if (severity) return severity;
+            const urgency = (INCIDENT_URGENCY_RANK[a.urgency] ?? INCIDENT_URGENCY_RANK.Unknown) - (INCIDENT_URGENCY_RANK[b.urgency] ?? INCIDENT_URGENCY_RANK.Unknown);
+            if (urgency) return urgency;
+            return Date.parse(a.expires || '') - Date.parse(b.expires || '');
+        }
+
+        function formatNwsAlertText(properties) {
+            const event = cleanIncidentText(properties.event);
+            const severity = cleanIncidentText(properties.severity);
+            const headline = cleanIncidentText(properties.headline);
+            const area = cleanIncidentText(properties.areaDesc);
+            const instruction = cleanIncidentText(properties.instruction || properties.description).slice(0, 240);
+            const expires = formatNwsAlertTime(properties.expires);
+            const label = [severity, event].filter(Boolean).join(' ');
+            return compactIncidentParts([label, headline, area ? `Areas: ${area}` : '', expires ? `Until ${expires}` : '', instruction]).join(' | ').slice(0, INCIDENT_ALERT_MAX_LENGTH);
+        }
+
+        function compactIncidentParts(parts) {
+            const seen = new Set();
+            return parts
+                .map(cleanIncidentText)
+                .filter(Boolean)
+                .filter(part => {
+                    const key = part.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+        }
+
+        function formatNwsAlertTime(value) {
+            const time = Date.parse(value || '');
+            if (!Number.isFinite(time)) return '';
+            return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(time));
         }
 
         function toggleWeather() {
@@ -3665,6 +3906,7 @@
                 next.featuredId = rawSettings.featuredId;
             }
             if (rawSettings.weather !== undefined) next.weather = validateWeatherSettings(rawSettings.weather);
+            if (rawSettings.incident !== undefined) next.incident = validateIncidentSettings(rawSettings.incident);
             if (rawSettings.grid !== undefined) next.grid = validateGridSettings(rawSettings.grid);
             if (rawSettings.display !== undefined) next.display = validateDisplaySettings(rawSettings.display);
             if (rawSettings.chat !== undefined) next.chat = validateChatSettings(rawSettings.chat);
@@ -3695,6 +3937,13 @@
             if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error(t('settingsWeatherLat'));
             if (!Number.isFinite(lon) || lon < -180 || lon > 180) throw new Error(t('settingsWeatherLon'));
             return { enabled: Boolean(weather.enabled), provider, lat, lon };
+        }
+
+        function validateIncidentSettings(incident) {
+            if (!incident || typeof incident !== 'object' || Array.isArray(incident)) throw new Error(t('settingsIncidentObject'));
+            if (incident.text !== undefined && typeof incident.text !== 'string') throw new Error(t('settingsIncidentText'));
+            if (incident.updatedAt !== undefined && incident.updatedAt !== null && !Number.isFinite(Number(incident.updatedAt))) throw new Error(t('settingsIncidentTimestamp'));
+            return normalizeIncidentAlert(incident);
         }
 
         function validateDisplaySettings(display) {
@@ -3748,6 +3997,7 @@
                 Object.entries(importedSettings.grid).forEach(([key, value]) => roomRef.get('settings').get('grid').get(key).put(value));
             }
             if (importedSettings.weather) roomRef.get('settings').get('weather').put(importedSettings.weather);
+            if (importedSettings.incident) roomRef.get('settings').get('incident').put(importedSettings.incident);
             if (importedSettings.display) {
                 Object.entries(importedSettings.display).forEach(([key, value]) => roomRef.get('settings').get('display').get(key).put(value));
             }

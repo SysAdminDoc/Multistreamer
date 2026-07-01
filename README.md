@@ -2,7 +2,7 @@
 
 A self-hosted, real-time multi-video streaming viewer with chat, perfect for watch parties, storm tracking, event monitoring, and more.
 
-![MultiStream](https://img.shields.io/badge/version-v0.26.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
+![MultiStream](https://img.shields.io/badge/version-v0.27.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![No Backend](https://img.shields.io/badge/backend-none-orange)
 
 <img width="1914" height="909" alt="2026-01-25 14_48_41-MultiStream Viewer - Chromium" src="https://github.com/user-attachments/assets/1d417314-5c49-48f6-8cee-d6328b4f04a3" />
 
@@ -25,6 +25,7 @@ https://sysadmindoc.github.io/Multistreamer/
 - **Chat Rate Controls** - Synced slow-mode and per-user message windows reduce spam during busy rooms
 - **YouTube LiveChat Mirror** - Hosts can locally poll YouTube LiveChat and merge those messages into room chat
 - **Weather Overlay Providers** - Add synced Windy, Zoom Earth, Ventusky, or LightningMaps overlays by location
+- **NWS Incident Alerts** - Fetch active National Weather Service alerts and pin the highest-priority alert as a synced ticker
 - **Ephemeral Reactions** - Viewers can send synced cheer, heart, fire, and wow reactions that float over the stream grid
 - **Chat Export** - Download visible chat history as JSON or TXT without exposing moderation tokens
 - **Native Playback Sync** - Host-clock calibrated HLS/DASH playback nudges viewers toward a shared rolling live-buffer delay, mirrors host scrubs, and supports per-stream offsets
@@ -82,6 +83,7 @@ https://yoursite.github.io/?room=my-room&host=yourSecretPassword
 | Volume Slider | Mix each stream from 0-100; host changes sync to viewers |
 | Mute/Unmute All | Set all stream volumes to 0 or 100 |
 | Weather | Add a Windy, Zoom Earth, Ventusky, or LightningMaps overlay panel |
+| Fetch NWS Alerts | Pin the highest-priority active NWS alert for the configured weather coordinates |
 | Settings | Customize theme, colors, layout |
 | Share | Get viewer/host links |
 | Diagnostics | Copy room, relay, browser, and stream health data with host keys redacted |
@@ -151,6 +153,7 @@ All these sync in real-time to viewers:
 - Theme & accent color
 - Grid gap & label visibility
 - Weather overlay provider & location
+- Pinned NWS incident alert text
 
 ### Sync Health and Diagnostics
 
@@ -220,6 +223,7 @@ All these sync in real-time to viewers:
 
 - Choose Windy radar, Zoom Earth radar, Ventusky precipitation, or LightningMaps live overlays
 - Configurable lat/lon coordinates
+- Fetch active NWS alerts for the same coordinates and pin the highest-priority alert as a scrolling incident strip
 - Great for storm tracking!
 
 ### Themes
@@ -233,7 +237,7 @@ All these sync in real-time to viewers:
 Save your room configuration as JSON:
 ```json
 {
-  "version": 11,
+  "version": 12,
   "room": "my-room",
   "streams": [
     { "id": "dQw4w9WgXcQ", "type": "youtube", "sourceId": "dQw4w9WgXcQ", "sourceKind": "video", "muted": true, "volume": 0, "label": "Main Camera", "latencyOffsetMs": 0 },
@@ -248,6 +252,7 @@ Save your room configuration as JSON:
     "featuredId": "dQw4w9WgXcQ",
     "grid": { "preset": "custom", "customTemplate": "minmax(0, 2fr) minmax(220px, 1fr)" },
     "weather": { "enabled": true, "provider": "windy", "lat": 40.7128, "lon": -74.006 },
+    "incident": { "enabled": true, "event": "Flood Warning", "severity": "Severe", "text": "Severe Flood Warning | Flood Warning issued for the area | Areas: Example County | Until Jan 1, 12:00 PM", "updatedAt": 1893456000000, "expiresAt": "2030-01-01T12:00:00-05:00" },
     "chat": { "slowModeSeconds": 5, "rateLimitCount": 5, "rateLimitSeconds": 30 },
     "display": { "gridGap": 2, "labels": "hover", "theme": "dark", "accent": "#00d4ff" }
   }
@@ -264,6 +269,7 @@ Imported configs are validated before they change the room:
 - Per-stream latency offsets are range-checked to +/-30 seconds.
 - Grid presets and custom CSS grid columns are validated before sync.
 - Chat slow-mode and rate-limit settings are range-checked before sync.
+- Incident alert text and timestamps are normalized before sync.
 - Layout, featured stream, weather provider/coordinates, display labels, theme, grid gap, and accent colors are range-checked before sync.
 
 ### Localization
@@ -299,6 +305,7 @@ For local Twitch testing, serve the folder from `localhost` instead of opening `
 - [hls.js](https://github.com/video-dev/hls.js/) - HLS playback in browsers without native HLS support (vendored locally)
 - [dash.js](https://github.com/Dash-Industry-Forum/dash.js/) - MPEG-DASH manifest playback with low-latency live settings (vendored locally)
 - [Windy.com](https://windy.com/), [Zoom Earth](https://zoom.earth/), [Ventusky](https://www.ventusky.com/), and [LightningMaps](https://www.lightningmaps.org/) - Weather, radar, and lightning overlays
+- [National Weather Service API](https://www.weather.gov/documentation/services-web-api) - Active alert data
 
 ### Local Testing
 
