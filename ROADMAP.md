@@ -1,38 +1,5 @@
 # Roadmap
 
-Static web app for multi-video YouTube/Twitch grid viewing with P2P-synced host/viewer state via Gun.js. Roadmap targets platform reach, more robust sync, and event-tracking-specific features.
+Actionable work only. Historical and completed roadmap material is archived in CHANGELOG.md; blocked work is kept in Roadmap_Blocked.md.
 
-## Competitive Research
-- **MultiTwitch.tv** — simplest reference UX, low friction; borrow the URL-based room pattern.
-- **LiveStreamPool** — better multi-source integration (mixed platforms in one grid).
-- **Blackmagic ATEM / vMix** — studio-grade multi-source mixing; borrow "Program/Preview" metaphor for featured.
-- **Watch2Gether** — playlist queue + chat + sync; closer to watch-party angle.
-
-## Nice-to-Haves
-Current roadmap complete.
-
-## Open-Source Research (Round 2)
-
-### Related OSS Projects
-- https://github.com/LordKnish/StreamGrid — cross-platform (Win/macOS/Linux) drag-drop grid, supports YouTube/Twitch/RTSP/HLS/MPEG-DASH/local files
-- https://github.com/pjmagee/multi-stream-viewer — Blazor WebAssembly, Twitch + YouTube + Kick
-- https://github.com/Worsttrumpet/MultiStream-Grid — browser multistream viewer, Twitch/Kick/YouTube
-- https://github.com/ilanzgx/multistream — Electron desktop, integrated chat per stream
-- https://github.com/VenomousRhyme41/Multi-Stream-Viewer — up to 4 streams, theater mode
-- https://github.com/smitch88/multi-stream-twitch — React/Redux/ImmutableJS reference architecture
-- https://github.com/kree-nickm/better-multi-twitch — snap-to-grid window manager (archived, read for ideas only)
-
-### Features to Borrow
-- RTSP/RTSPS + HLS + MPEG-DASH source support in addition to YouTube (StreamGrid) — unlocks IP camera feeds, weather radar loops, storm-chaser streams for the original use case
-- Per-stream integrated chat (ilanzgx/multistream) — MultiStream has one room chat, add per-source chat tabs as an option
-- Theater mode / distraction-free full-bleed grid (VenomousRhyme41) — one keystroke hides all chrome
-- Vertical-monitor layout presets (pjmagee/multi-stream-viewer) — 1×N column layout for ultrawide/vertical displays
-- Snap-to-grid free window placement as alternative to fixed grid (better-multi-twitch) — power user mode
-- URL-based room sharing with encoded layout state (StreamGrid) — MultiStream has Gun.js rooms, add link-only ephemeral rooms
-- Local file / RTSP ingestion for watch-parties of personal media (StreamGrid) — expands beyond YouTube-only use case
-
-### Patterns & Architectures Worth Studying
-- Gun.js P2P vs WebRTC mesh for layout sync — MultiStream uses Gun.js which works on static hosting; compare against self-hosted WebSocket for paid-tier features
-- Blazor WASM approach (pjmagee) — alternative stack if the Gun.js sync becomes unreliable at scale
-- Redux/ImmutableJS time-travel debugging (smitch88) — useful for replaying host-state changes during moderation disputes
-- Per-stream iframe sandbox with `allow-scripts allow-same-origin` denied (security pattern) — prevents a malicious embed from tracking viewers across streams
+No actionable roadmap items remain.
