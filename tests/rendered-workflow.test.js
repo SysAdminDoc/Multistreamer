@@ -6,7 +6,7 @@ const test = require('node:test');
 const { chromium } = require('playwright');
 
 const root = path.join(__dirname, '..');
-const localChromium = 'C:/Users/--/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe';
+const localChromium = 'C:/Users/dev/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe';
 
 let server;
 let baseUrl;
