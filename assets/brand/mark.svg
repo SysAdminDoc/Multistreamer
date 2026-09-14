@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Multistreamer mark</title>
+  <desc id="desc">Four stream tiles converging on a shared live viewport.</desc>
+  <defs>
+    <linearGradient id="shell" x1="72" y1="54" x2="442" y2="468" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#101F3D"/>
+      <stop offset="1" stop-color="#07101F"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="96" y1="92" x2="244" y2="244" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34E7FF"/>
+      <stop offset="1" stop-color="#0788FF"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="416" y1="92" x2="268" y2="244" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#637BFF"/>
+      <stop offset="1" stop-color="#1957FF"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="96" y1="420" x2="244" y2="268" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D7B6"/>
+      <stop offset="1" stop-color="#28F0D2"/>
+    </linearGradient>
+    <linearGradient id="indigo" x1="416" y1="420" x2="268" y2="268" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#816DFF"/>
+      <stop offset="1" stop-color="#3E5CFF"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#020712" flood-opacity=".52"/>
+    </filter>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#shell)"/>
+  <rect x="24.75" y="24.75" width="462.5" height="462.5" rx="111.25" fill="none" stroke="#8BDFFF" stroke-opacity=".22" stroke-width="1.5"/>
+  <g filter="url(#shadow)">
+    <path d="M92 92h118c18 0 32 14 32 32v74l-44 44h-74c-18 0-32-14-32-32V92Z" fill="url(#cyan)"/>
+    <path d="M302 92h118v118c0 18-14 32-32 32h-74l-44-44v-74c0-18 14-32 32-32Z" fill="url(#blue)"/>
+    <path d="M92 302c0-18 14-32 32-32h74l44 44v74c0 18-14 32-32 32H92V302Z" fill="url(#mint)"/>
+    <path d="M314 270h74c18 0 32 14 32 32v118H302c-18 0-32-14-32-32v-74l44-44Z" fill="url(#indigo)"/>
+    <rect x="176" y="176" width="160" height="160" rx="48" fill="#F7FBFF"/>
+    <rect x="190" y="190" width="132" height="132" rx="37" fill="#0A1730"/>
+    <path d="M241 222.5c0-8.1 8.9-13.1 15.8-8.9l49.7 30.5c6.6 4.1 6.6 13.7 0 17.8l-49.7 30.5c-6.9 4.2-15.8-.8-15.8-8.9v-61Z" fill="#F7FBFF"/>
+    <circle cx="315" cy="197" r="12" fill="#51F59A" stroke="#0A1730" stroke-width="7"/>
+  </g>
+</svg>

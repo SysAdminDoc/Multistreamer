@@ -3,20 +3,22 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const test = require('node:test');
+const Gun = require('gun');
 const { chromium } = require('playwright');
 
 const root = path.join(__dirname, '..');
-const localChromium = 'C:/Users/dev/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe';
+const localChromium = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
 
 let server;
 let baseUrl;
+let relayUrl;
 let browser;
 
 test.before(async () => {
-    ({ server, baseUrl } = await startStaticServer());
+    ({ server, baseUrl, relayUrl } = await startStaticServer());
     browser = await chromium.launch({
         headless: true,
-        ...(fs.existsSync(localChromium) ? { executablePath: localChromium } : {})
+        ...(localChromium && fs.existsSync(localChromium) ? { executablePath: localChromium } : {})
     });
 });
 
@@ -26,7 +28,7 @@ test.after(async () => {
 });
 
 test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 120000 }, async () => {
-    const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, acceptDownloads: true });
+    const context = await createContext({ viewport: { width: 1366, height: 768 }, acceptDownloads: true });
     let persistedSnapshot = null;
     await context.route('https://www.youtube.com/**', route => route.fulfill({
         status: 200,
@@ -211,7 +213,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
 
     await host.waitForFunction(roomName => {
         const snapshot = JSON.parse(localStorage.getItem(`ms-room-cache-${roomName}`) || 'null');
-        return snapshot?.appVersion === '0.38.0'
+        return snapshot?.appVersion === '0.38.1'
             && snapshot?.cacheVersion === 1
             && snapshot?.config?.version === 16
             && snapshot?.config?.settings?.schedule?.enabled === true
@@ -292,7 +294,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     assert.equal(clipDownloads[0].filename, `${room}-clips.json`);
     assert.equal(clipDownloads[0].type, 'application/json');
     const exportedClips = JSON.parse(clipDownloads[0].content);
-    assert.equal(exportedClips.version, '0.38.0');
+    assert.equal(exportedClips.version, '0.38.1');
     assert.equal(exportedClips.room, room);
     assert.equal(exportedClips.clips[0].title, 'Opening moment');
     assert.equal(exportedClips.clips[0].shareUrl, clipState.shareUrl);
@@ -362,7 +364,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await host.waitForFunction(() => document.getElementById('shareModal').getAttribute('aria-hidden') === 'true');
     assert.equal(await host.evaluate(() => document.activeElement.textContent.trim()), 'Share');
 
-    const obsContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const obsContext = await createContext({ viewport: { width: 1280, height: 720 } });
     const obsPage = await obsContext.newPage();
     await obsPage.goto(`${baseUrl}/?room=${room}&obs=1`, { waitUntil: 'domcontentloaded' });
     await obsPage.waitForSelector('#viewerPage.active');
@@ -384,9 +386,13 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await obsContext.close();
 
     const futureSchedule = { enabled: true, startsAt: Date.now() + 60 * 60 * 1000, durationHours: 1 };
-    await host.evaluate(schedule => roomRef.get('settings').get('schedule').put(schedule), futureSchedule);
+    await host.evaluate(schedule => {
+        document.getElementById('scheduleStartsAt').value = toDatetimeLocalValue(schedule.startsAt);
+        document.getElementById('scheduleDurationHours').value = String(schedule.durationHours);
+        saveScheduleSettings();
+    }, futureSchedule);
     await host.waitForSelector('#scheduleBanner.show[data-state="scheduled"]');
-    const scheduledContext = await browser.newContext();
+    const scheduledContext = await createContext();
     const scheduledViewer = await scheduledContext.newPage();
     await scheduledViewer.goto(`${baseUrl}/?room=${room}`, { waitUntil: 'domcontentloaded' });
     await scheduledViewer.waitForSelector('#scheduleBanner.show[data-state="scheduled"]');
@@ -397,21 +403,25 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await scheduledContext.close();
 
     const closedSchedule = { enabled: true, startsAt: Date.now() - 2 * 60 * 60 * 1000, durationHours: 0.25 };
-    await host.evaluate(schedule => roomRef.get('settings').get('schedule').put(schedule), closedSchedule);
+    await host.evaluate(schedule => {
+        document.getElementById('scheduleStartsAt').value = toDatetimeLocalValue(schedule.startsAt);
+        document.getElementById('scheduleDurationHours').value = String(schedule.durationHours);
+        saveScheduleSettings();
+    }, closedSchedule);
     await host.waitForSelector('#scheduleBanner.show[data-state="closed"]');
-    const closedContext = await browser.newContext();
+    const closedContext = await createContext();
     const closedViewer = await closedContext.newPage();
     await closedViewer.goto(`${baseUrl}/?room=${room}`, { waitUntil: 'domcontentloaded' });
     await closedViewer.waitForSelector('#scheduleBanner.show[data-state="closed"]');
     assert.match(await closedViewer.textContent('.empty-state'), /This room is closed/);
     await closedContext.close();
 
-    await host.evaluate(() => roomRef.get('settings').get('schedule').put({ enabled: false, startsAt: 0, durationHours: 1 }));
+    await host.evaluate(() => clearScheduleSettings());
     await host.waitForFunction(() => !document.getElementById('scheduleBanner').classList.contains('show'));
     await host.click('#settingsPanel .settings-header button');
     await host.waitForFunction(() => !document.getElementById('settingsPanel').classList.contains('open'));
 
-    const viewerContext = await browser.newContext();
+    const viewerContext = await createContext();
     const viewer = await viewerContext.newPage();
     await viewer.goto(`${baseUrl}/?room=${room}`, { waitUntil: 'domcontentloaded' });
     await viewer.waitForSelector('#viewerPage.active');
@@ -500,7 +510,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
     await viewerContext.close();
     await context.close();
 
-    const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const mobile = await createContext({ viewport: { width: 390, height: 844 } });
     const mobilePage = await mobile.newPage();
     await mobilePage.goto(`${baseUrl}/?room=${room}&host=${hostKey}`, { waitUntil: 'domcontentloaded' });
     await mobilePage.waitForSelector('#viewerPage.active');
@@ -544,6 +554,7 @@ test('rendered host, viewer, import, dialog, and mobile workflows', { timeout: 1
 function startStaticServer() {
     const server = http.createServer((request, response) => {
         const url = new URL(request.url, 'http://127.0.0.1');
+        if (url.pathname.startsWith('/gun')) return;
         const requestPath = url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname);
         const filePath = path.normalize(path.join(root, requestPath));
         if (!filePath.startsWith(root)) {
@@ -561,13 +572,23 @@ function startStaticServer() {
             response.end(body);
         });
     });
+    Gun({ web: server, file: false, radisk: false, localStorage: false });
 
     return new Promise(resolve => {
         server.listen(0, '127.0.0.1', () => {
             const { port } = server.address();
-            resolve({ server, baseUrl: `http://127.0.0.1:${port}` });
+            const baseUrl = `http://127.0.0.1:${port}`;
+            resolve({ server, baseUrl, relayUrl: `${baseUrl}/gun` });
         });
     });
+}
+
+async function createContext(options) {
+    const context = await browser.newContext(options);
+    await context.addInitScript(url => {
+        window.MULTISTREAMER_RELAYS = [url];
+    }, relayUrl);
+    return context;
 }
 
 function contentType(filePath) {

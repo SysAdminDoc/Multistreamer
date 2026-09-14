@@ -13,7 +13,7 @@ const escapedVersion = pkg.version.replaceAll('.', '\\.');
 
 test('keeps app version strings in sync', () => {
     assert.match(html, new RegExp(`const APP_VERSION = '${escapedVersion}'`));
-    assert.match(readme, new RegExp(`version-v${escapedVersion}-blue`));
+    assert.match(readme, new RegExp(`version-v${escapedVersion}-168DFF`));
 });
 
 test('exposes sync health and redacted diagnostics fields', () => {
@@ -32,7 +32,7 @@ test('exposes sync health and redacted diagnostics fields', () => {
 });
 
 test('keeps offline PWA shell and room cache wired', () => {
-    assert.equal(manifest.name, 'MultiStream');
+    assert.equal(manifest.name, 'Multistreamer');
     assert.equal(manifest.display, 'standalone');
     assert.match(html, /<link rel="manifest" href="manifest\.webmanifest">/);
     assert.match(html, /function registerServiceWorker\(\)/);
@@ -324,6 +324,7 @@ test('keeps import config validation wired', () => {
     assert.match(html, /function validateLatencyOffsetMs\(value\)/);
     assert.match(html, /function validateImportVolume\(value, muted\)/);
     assert.match(html, /function validateImportGeo\(value\)/);
+    assert.match(html, /value\.lat === undefined \|\| value\.lat === null \|\| value\.lat === ''/);
     assert.match(html, /function validateGridSettings\(grid\)/);
     assert.match(html, /function validateScheduleSettings\(schedule\)/);
     assert.match(html, /function validateChatSettings\(chat\)/);
@@ -374,7 +375,7 @@ test('keeps public stats overlay wired through room sync', () => {
     assert.match(html, /const streamStats = new Map\(\);/);
     assert.match(html, /id="statsOverlayToggle"/);
     assert.match(html, /id="statsRefreshSeconds"/);
-    assert.match(html, /roomRef\.get\('settings'\)\.get\('stats'\)\.on/);
+    assert.match(html, /listenToSyncedFields\(roomRef\.get\('settings'\)\.get\('stats'\)/);
     assert.match(html, /roomRef\.get\('stats'\)\.map\(\)\.on/);
     assert.match(html, /function applyStatsSettings\(next = \{\}, options = \{\}\)/);
     assert.match(html, /function setStatsSetting\(key, value\)/);

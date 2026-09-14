@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Multistreamer marketing hero</title>
+  <desc id="desc">Multistreamer product name, positioning, and a real application screenshot containing clearly labelled sample feeds.</desc>
+  <defs>
+    <linearGradient id="background" x1="80" y1="20" x2="1480" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1930"/>
+      <stop offset=".58" stop-color="#07101F"/>
+      <stop offset="1" stop-color="#050B15"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(1260 238) rotate(139) scale(720 590)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#168DFF" stop-opacity=".3"/>
+      <stop offset=".62" stop-color="#0F6BFF" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#0F6BFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="68" y1="0" x2="490" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#31E7FF"/>
+      <stop offset=".58" stop-color="#168DFF"/>
+      <stop offset="1" stop-color="#7F72FF"/>
+    </linearGradient>
+    <clipPath id="shotClip"><rect x="650" y="159" width="866" height="541" rx="20"/></clipPath>
+    <filter id="shotShadow" x="-20%" y="-30%" width="150%" height="170%">
+      <feDropShadow dx="0" dy="30" stdDeviation="32" flood-color="#01050C" flood-opacity=".75"/>
+    </filter>
+    <filter id="logoShadow" x="-40%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#020713" flood-opacity=".6"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#background)"/>
+  <rect width="1600" height="900" fill="url(#glow)"/>
+  <path d="M0 798C286 716 430 742 650 792c282 64 510 71 950-28v136H0V798Z" fill="#09162A" opacity=".62"/>
+  <g opacity=".12" stroke="#47DFFF">
+    <path d="M1044 70v760M1124 70v760M1204 70v760M1284 70v760M1364 70v760M1444 70v760"/>
+    <path d="M580 650h960M580 730h960M580 810h960"/>
+  </g>
+
+  <g transform="translate(68 72)">
+    <image xlink:href="../../../icons/icon-128.png" width="76" height="76" filter="url(#logoShadow)"/>
+    <text x="96" y="38" fill="#F6F9FF" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="30" font-weight="750" letter-spacing="-1">Multistreamer</text>
+    <text x="98" y="67" fill="#80A0CB" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="3.4">SELF-HOSTED LIVE ROOMS</text>
+  </g>
+
+  <rect x="68" y="210" width="144" height="4" rx="2" fill="url(#accent)"/>
+  <text x="68" y="310" fill="#F7FAFF" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="76" font-weight="780" letter-spacing="-4.5">Every feed.</text>
+  <text x="68" y="394" fill="url(#accent)" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="76" font-weight="780" letter-spacing="-4.5">One room.</text>
+  <text x="68" y="454" fill="#ADBDD6" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="22" font-weight="450">Build a synchronized video wall for watch parties,</text>
+  <text x="68" y="486" fill="#ADBDD6" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="22" font-weight="450">live events, monitoring, and OBS.</text>
+
+  <g font-family="Segoe UI, Inter, Arial, sans-serif" font-size="14" font-weight="650" fill="#DDE8FA">
+    <g transform="translate(68 540)"><rect width="136" height="40" rx="20" fill="#102442" stroke="#2A5C8E"/><text x="68" y="25" text-anchor="middle">Synced rooms</text></g>
+    <g transform="translate(216 540)"><rect width="128" height="40" rx="20" fill="#102442" stroke="#2A5C8E"/><text x="64" y="25" text-anchor="middle">Live chat</text></g>
+    <g transform="translate(356 540)"><rect width="132" height="40" rx="20" fill="#102442" stroke="#2A5C8E"/><text x="66" y="25" text-anchor="middle">OBS mode</text></g>
+    <g transform="translate(68 592)"><rect width="150" height="40" rx="20" fill="#102442" stroke="#2A5C8E"/><text x="75" y="25" text-anchor="middle">Installable PWA</text></g>
+    <g transform="translate(230 592)"><rect width="174" height="40" rx="20" fill="#102442" stroke="#2A5C8E"/><text x="87" y="25" text-anchor="middle">Optional relay</text></g>
+  </g>
+
+  <g filter="url(#shotShadow)">
+    <rect x="622" y="118" width="922" height="622" rx="30" fill="#0A1528" stroke="#2D5A8B" stroke-width="2"/>
+    <circle cx="660" cy="140" r="6" fill="#31E7FF"/><circle cx="682" cy="140" r="6" fill="#557397"/><circle cx="704" cy="140" r="6" fill="#557397"/>
+    <rect x="735" y="131" width="486" height="18" rx="9" fill="#132945"/>
+    <text x="978" y="144" text-anchor="middle" fill="#7291B8" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="10" font-weight="600">LOCAL MULTISTREAMER ROOM</text>
+    <image xlink:href="../../../screenshots/control-room.png" x="650" y="159" width="866" height="541" preserveAspectRatio="xMidYMid slice" clip-path="url(#shotClip)"/>
+    <rect x="650" y="159" width="866" height="541" rx="20" fill="none" stroke="#4BCBFF" stroke-opacity=".28"/>
+  </g>
+
+  <g transform="translate(1092 756)">
+    <rect width="424" height="52" rx="14" fill="#0C1B30" stroke="#294C72"/>
+    <circle cx="25" cy="26" r="6" fill="#51F59A"/>
+    <text x="42" y="22" fill="#E9F2FF" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="750" letter-spacing="1.2">REAL APP UI</text>
+    <text x="42" y="38" fill="#7895BA" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="11" font-weight="600">Sample feeds shown. No live media.</text>
+  </g>
+
+  <text x="68" y="834" fill="#7695BC" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="17" font-weight="600">github.com/SysAdminDoc/Multistreamer</text>
+</svg>

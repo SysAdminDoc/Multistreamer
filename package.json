@@ -1,13 +1,14 @@
 {
   "name": "multistreamer",
-  "version": "0.38.0",
+  "version": "0.38.1",
   "private": true,
   "description": "Self-hosted multi-video streaming viewer with synced room state.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-force-exit"
   },
   "devDependencies": {
     "dashjs": "5.2.0",
+    "gun": "0.2020.1241",
     "playwright": "^1.61.1"
   }
 }

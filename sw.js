@@ -1,10 +1,14 @@
-const CACHE_NAME = 'multistreamer-v0.38.0';
+const CACHE_NAME = 'multistreamer-v0.38.1';
 const APP_SHELL = [
   './',
   'index.html',
   'stream-sources.js',
   'manifest.webmanifest',
   'icon.png',
+  'assets/icons/icon-32.png',
+  'assets/icons/icon-48.png',
+  'assets/icons/icon-192.png',
+  'assets/icons/icon-512.png',
   'vendor/gun-0.2020.1241.min.js',
   'vendor/hls-1.6.16.min.js',
   'vendor/dash.all-5.2.0.min.js'

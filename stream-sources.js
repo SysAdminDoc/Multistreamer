@@ -358,6 +358,7 @@
 
     function normalizeGeoTag(value) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        if (value.lat === undefined || value.lat === null || value.lat === '' || value.lon === undefined || value.lon === null || value.lon === '') return null;
         const lat = Number(value.lat);
         const lon = Number(value.lon);
         if (!Number.isFinite(lat) || lat < -90 || lat > 90) return null;

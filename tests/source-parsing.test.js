@@ -101,6 +101,18 @@ test('normalizes legacy YouTube records without type fields', () => {
     assert.equal(Sources.normalizeStreamRecord({ id: 'dQw4w9WgXcQ', geo: { lat: 120, lon: -72.5 } }, 'dQw4w9WgXcQ').geo, null);
 });
 
+test('does not turn empty flat location fields into a map marker', () => {
+    const stream = Sources.normalizeStreamRecord({
+        id: 'dQw4w9WgXcQ',
+        type: 'youtube',
+        sourceId: 'dQw4w9WgXcQ',
+        sourceKind: 'video',
+        geoLat: null,
+        geoLon: null
+    }, 'dQw4w9WgXcQ');
+    assert.equal(stream.geo, null);
+});
+
 test('builds Twitch embed and chat URLs with a parent domain', () => {
     const source = Sources.parseStreamUrl('https://www.twitch.tv/twitchdev');
     const record = Sources.streamToGunRecord(source, 1234);
